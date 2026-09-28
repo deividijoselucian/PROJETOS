@@ -4,8 +4,9 @@
 Não depende de bibliotecas: rasteriza as formas com superamostragem e grava o
 .ico com imagens BMP de 32 bits. Também pode gravar uma prévia em PNG.
 
-Uso: python3 gerar_icone.py saida.ico [previa.png]
+Uso: python3 gerar_icone.py [saida.ico] [--pngs pasta]
 """
+import os
 import struct
 import sys
 import zlib
@@ -14,7 +15,8 @@ FUNDO = (0x15, 0x20, 0x2A)  # azul-ardósia escuro
 AMBAR = (0xF2, 0xA9, 0x00)  # luz do giroflex
 BASE = (0xE8, 0xEC, 0xEF)   # base clara
 
-TAMANHOS = [16, 24, 32, 48, 64, 256]
+TAMANHOS = [16, 24, 32, 48, 64, 256]  # dentro do .ico
+PNGS = [16, 32, 48, 128]              # ícones da extensão
 ESCALA = 0.8  # encolhe o desenho para caber dentro do quadrado de fundo
 
 # Raios de luz no mesmo espaço 40x40 do SVG da página.
@@ -112,9 +114,7 @@ def _png(linhas):
             + bloco(b'IEND', b''))
 
 
-def main():
-    if len(sys.argv) < 2:
-        sys.exit('uso: gerar_icone.py saida.ico [previa.png]')
+def gravar_ico(caminho):
     imagens = {t: desenhar(t) for t in TAMANHOS}
     corpos = [_bmp(t, imagens[t]) for t in TAMANHOS]
     deslocamento = 6 + 16 * len(TAMANHOS)
@@ -123,11 +123,30 @@ def main():
         lado = 0 if t >= 256 else t  # 0 significa 256 no formato .ico
         diretorio += struct.pack('<BBBBHHII', lado, lado, 0, 0, 1, 32, len(corpo), deslocamento)
         deslocamento += len(corpo)
-    with open(sys.argv[1], 'wb') as f:
+    with open(caminho, 'wb') as f:
         f.write(struct.pack('<HHH', 0, 1, len(TAMANHOS)) + diretorio + b''.join(corpos))
-    if len(sys.argv) > 2:
-        with open(sys.argv[2], 'wb') as f:
-            f.write(_png(imagens[256]))
+
+
+def gravar_pngs(pasta):
+    """Ícones da extensão do Chrome: icone16.png, icone32.png, icone48.png e icone128.png."""
+    for t in PNGS:
+        with open(os.path.join(pasta, 'icone%d.png' % t), 'wb') as f:
+            f.write(_png(desenhar(t)))
+
+
+def main():
+    args = sys.argv[1:]
+    pasta = None
+    if '--pngs' in args:
+        i = args.index('--pngs')
+        pasta = args[i + 1]
+        del args[i:i + 2]
+    if not args and not pasta:
+        sys.exit('uso: gerar_icone.py [saida.ico] [--pngs pasta]')
+    if args:
+        gravar_ico(args[0])
+    if pasta:
+        gravar_pngs(pasta)
 
 
 if __name__ == '__main__':

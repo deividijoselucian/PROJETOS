@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ligar a Central de Acionamentos</title>
+<style>
+:root{
+  color-scheme:light;
+  --ground:#E8ECEF; --surface:#FFFFFF; --line:#D3DAE0; --ink:#15202A; --muted:#566471;
+  --amber:#F2A900; --on-amber:#1D1600; --amber-soft:#FFF2CC; --blue:#28609F;
+}
+@media (prefers-color-scheme:dark){
+  :root{color-scheme:dark;--ground:#0D1419;--surface:#151F28;--line:#283744;--ink:#E3EAEF;--muted:#9BA9B5;--amber:#F5B524;--amber-soft:#35290A;--blue:#72A6E8}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif;padding:24px 16px 40px}
+main{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font:700 28px/1.1 "Arial Narrow","Segoe UI",sans-serif;text-transform:uppercase;letter-spacing:.02em;margin:0}
+.sub{margin:4px 0 0;color:var(--muted)}
+ol{margin:0;padding:0;list-style:none;counter-reset:passo;display:flex;flex-direction:column;gap:10px}
+li{counter-increment:passo;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px 14px 60px;position:relative}
+li::before{content:counter(passo);position:absolute;left:16px;top:12px;width:30px;height:30px;border-radius:50%;background:var(--amber);color:var(--on-amber);font-weight:700;display:grid;place-items:center}
+code{font:600 15px/1.4 Consolas,monospace;background:var(--amber-soft);padding:3px 8px;border-radius:4px;overflow-wrap:anywhere}
+.copiar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+button{font:600 14px "Segoe UI",system-ui,sans-serif;border-radius:6px;padding:7px 12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.nota{background:var(--amber-soft);border-radius:10px;padding:12px 16px;font-size:15px}
+.muted{color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Ligar a Central de Acionamentos</h1>
+    <p class="sub">Faça isso uma vez só. Leva uns 2 minutos.</p>
+  </header>
+  <ol>
+    <li>
+      Copie o endereço abaixo, cole na barra de endereço do Chrome e aperte Enter.
+      <div class="copiar"><code id="end-ext">chrome://extensions</code><button data-copiar="end-ext">Copiar</button></div>
+      <p class="muted">No Microsoft Edge, o endereço é <code>edge://extensions</code>.</p>
+    </li>
+    <li>No canto de cima, à direita, ligue a chave <b>Modo do desenvolvedor</b>.</li>
+    <li>
+      Clique em <b>Carregar sem compactação</b> e escolha esta pasta:
+      <div class="copiar"><code id="pasta">C:\CentralAcionamentos\extensao</code><button data-copiar="pasta">Copiar</button></div>
+      <p class="muted">Dica: na janela de escolher pasta, cole o caminho na barra de cima e aperte Enter.</p>
+    </li>
+    <li>A Central abre sozinha numa aba fixada. Clique no quebra-cabeça (Extensões) ao lado da barra de endereço e fixe o ícone do giroflex.</li>
+    <li>Na Central, clique em <b>Abrir os portais</b>, faça login em cada um e deixe cada portal na tela de serviços. No Notro, ligue <b>Atualizar a cada 30 seg</b>.</li>
+    <li>Clique em <b>Testar alarme</b>: tem que tocar o som e aparecer um aviso do Windows.</li>
+  </ol>
+  <p class="nota">Depois disso, o atalho <b>Central de Acionamentos</b> na Área de Trabalho abre o painel numa janela própria. Se o aviso do Windows não aparecer, confira se o <b>Não perturbe</b> do Windows está desligado.</p>
+  <p class="muted" id="copiado" role="status" aria-live="polite"></p>
+</main>
+<script>
+// Mostra o caminho real da pasta (o instalador pode ter usado outra pasta).
+if (location.protocol === 'file:') {
+  var p = decodeURIComponent(location.pathname).replace(/^\/(?=[A-Za-z]:)/, '').replace(/\//g, '\\');
+  document.getElementById('pasta').textContent = p.replace(/[^\\]*$/, '') + 'extensao';
+}
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-copiar]');
+  if (!b) return;
+  var el = document.getElementById(b.dataset.copiar);
+  var aviso = document.getElementById('copiado');
+  function selecionar() {
+    var r = document.createRange();
+    r.selectNodeContents(el);
+    var s = getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    aviso.textContent = 'Texto selecionado: aperte Ctrl+C para copiar.';
+  }
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(el.textContent).then(function () {
+      aviso.textContent = 'Copiado: ' + el.textContent;
+    }, selecionar);
+  } else {
+    selecionar();
+  }
+});
+</script>
+</body>
+</html>

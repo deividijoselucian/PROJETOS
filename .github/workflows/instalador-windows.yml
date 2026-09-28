@@ -17,16 +17,18 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Instalar NSIS
-        run: sudo apt-get update && sudo apt-get install -y nsis
+        run: sudo apt-get update && sudo apt-get install -y nsis zip
 
-      - name: Gerar o instalador
+      - name: Gerar o instalador e o .zip da extensão
         run: bash central-acionamentos/instalador/build.sh
 
-      - name: Guardar o .exe
+      - name: Guardar os arquivos
         uses: actions/upload-artifact@v4
         with:
-          name: CentralAcionamentos-Teste-Setup
-          path: central-acionamentos/instalador/dist/CentralAcionamentos-Teste-Setup.exe
+          name: CentralAcionamentos-Teste
+          path: |
+            central-acionamentos/instalador/dist/CentralAcionamentos-Teste-Setup.exe
+            central-acionamentos/instalador/dist/CentralAcionamentos-Extensao.zip
 
       - name: Publicar para download (pré-lançamento "instalador-teste")
         env:
@@ -36,5 +38,7 @@ jobs:
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
             --target "$GITHUB_SHA" --prerelease \
             --title "Central de Acionamentos (instalador de teste)" \
-            --notes "Protótipo com dados de exemplo. Baixe o arquivo CentralAcionamentos-Teste-Setup.exe abaixo."
-          gh release upload "$TAG" central-acionamentos/instalador/dist/CentralAcionamentos-Teste-Setup.exe --clobber
+            --notes "Versão de teste. Baixe CentralAcionamentos-Teste-Setup.exe (instalador para Windows) ou só a extensão em CentralAcionamentos-Extensao.zip."
+          gh release upload "$TAG" --clobber \
+            central-acionamentos/instalador/dist/CentralAcionamentos-Teste-Setup.exe \
+            central-acionamentos/instalador/dist/CentralAcionamentos-Extensao.zip

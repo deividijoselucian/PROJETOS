@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Central de Acionamentos</title>
+<link rel="icon" href="icones/icone32.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="central.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <img class="mark" src="icones/icone48.png" alt="">
+      <div>
+        <h1>Central de Acionamentos</h1>
+        <p>Todos os chamados dos portais numa tela só</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="clock" id="relogio">--:--:--</span>
+      <button class="btn" id="abrir-todos">Abrir os portais</button>
+      <button class="btn btn-primary" id="testar">Testar alarme</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="alerta" id="alerta" aria-live="assertive" hidden>
+    <div class="alerta-head">
+      <h2><span class="beacon" aria-hidden="true"></span><span id="alerta-titulo">Novo acionamento</span></h2>
+      <div class="top-actions">
+        <button class="btn btn-sm btn-outline-dark" id="silenciar">Silenciar alarme</button>
+        <button class="btn btn-sm btn-outline-dark" id="limpar">Limpar avisos</button>
+      </div>
+    </div>
+    <div class="alerta-lista" id="alerta-lista"></div>
+  </section>
+
+  <section aria-labelledby="t-portais">
+    <h2 class="label" id="t-portais">Portais</h2>
+    <div class="portais" id="portais"></div>
+  </section>
+
+  <section aria-label="Resumo">
+    <div class="resumo" id="resumo"></div>
+  </section>
+
+  <section class="board" id="board" aria-label="Chamados"></section>
+
+  <section class="rodape-grid">
+    <div class="bloco">
+      <h2>Últimos avisos</h2>
+      <ol class="historico" id="historico"></ol>
+    </div>
+    <div class="bloco">
+      <h2>Para funcionar bem</h2>
+      <ol class="passos">
+        <li>Deixe cada portal aberto numa aba do Chrome, com o seu login, na tela de serviços. O botão <b>Abrir os portais</b> abre os que faltam.</li>
+        <li>No Notro, ligue <b>Atualizar a cada 30 seg</b> e deixe na aba <b>Todos</b>.</li>
+        <li>Não feche as abas dos portais. Se algum pedir login de novo, ele fica vermelho aqui em cima.</li>
+        <li>O alarme e o aviso do Windows funcionam mesmo com esta tela fechada, desde que o Chrome esteja aberto.</li>
+        <li>Aceite o serviço no portal. Quando ele sai da lista de novos, o alarme para sozinho.</li>
+      </ol>
+      <h3>Recarregar a tela do portal</h3>
+      <p class="muted">Para portais que não se atualizam sozinhos. A aba que você está usando não é recarregada.</p>
+      <div class="recarga" id="recarga"></div>
+    </div>
+  </section>
+
+  <p class="rodape">A extensão só lê as telas dos portais: não clica, não aceita e não envia nada para fora do seu computador.</p>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="portais.js"></script>
+<script src="central.js"></script>
+</body>
+</html>

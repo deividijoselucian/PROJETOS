@@ -1,43 +1,62 @@
 # Central de Acionamentos
 
-Tela única para o prestador de auto socorro acompanhar os acionamentos que chegam pelos
-portais das assistências (Porto Seguro, Tokio Marine, Notro, Aciona Fácil e outros), com
-alarme quando entra serviço novo.
+Tela única para o prestador de auto socorro ver todos os chamados que chegam pelos portais
+das assistências (Porto Seguro, Tokio Marine, Notro e Aciona Fácil), com alarme quando entra
+serviço novo e um botão que leva direto ao chamado no portal.
 
-Estado atual: **protótipo com dados de exemplo**. Nenhum portal está conectado ainda.
+## Como funciona
+
+A central é uma extensão do Chrome. Os portais continuam abertos nas abas, com o login do
+prestador; a extensão lê a tela de serviços de cada um, junta os chamados num painel só
+(Novos, Agendados, A caminho, Em serviço, Pendências) e:
+
+- toca um alarme e mostra um aviso do Windows quando entra chamado novo;
+- para o alarme sozinha quando o chamado sai da lista de novos (aceito ou repassado);
+- no botão **Abrir no portal**, vai para a aba do portal e destaca a linha do chamado;
+- recarrega as abas dos portais que não se atualizam sozinhos (Tokio e Aciona Fácil, a cada
+  2 minutos, sem mexer na aba que está em uso).
+
+A extensão só lê: não clica, não aceita e não envia nada para fora do computador.
 
 ## Arquivos
 
-- `prototipo.html`: a tela da central (alarme de serviço novo, colunas por etapa, prazo de
-  chegada, frota).
-- `instalador/`: gera o instalador de teste para Windows.
-  - `central.nsi`: script do instalador (NSIS 3).
-  - `gerar_icone.py`: desenha o ícone (giroflex) sem precisar de bibliotecas.
-  - `build.sh`: monta tudo e gera `instalador/dist/CentralAcionamentos-Teste-Setup.exe`.
+- `extensao/`: a extensão do Chrome.
+  - `leitor.js`: lê a tela de cada portal (seções, linhas das tabelas, contagens).
+  - `fundo.js`: guarda as leituras, decide o alarme, avisos do Windows, recarga das abas.
+  - `central.html`, `central.css`, `central.js`: o painel.
+  - `som.html`, `som.js`: toca o alarme.
+  - `portais.js`: endereços e telas de cada portal.
+- `prototipo.html`: a primeira demonstração, com dados de exemplo.
+- `instalador/`: gera o instalador de teste para Windows e o .zip da extensão.
 
-## Instalador de teste
+## Instalador de teste (Windows)
 
 - Instala em `C:\CentralAcionamentos` (ou na pasta do usuário, se não puder), sem pedir
-  administrador.
-- Cria atalho na Área de Trabalho e no Menu Iniciar. O atalho abre a central numa janela
-  própria do Chrome (ou do Edge, se não tiver Chrome).
-- Desinstala por Configurações › Aplicativos, como qualquer programa.
+  administrador, com a extensão em `C:\CentralAcionamentos\extensao`.
+- Abre o passo a passo para ligar a extensão no Chrome (uma vez só):
+  `chrome://extensions` › Modo do desenvolvedor › Carregar sem compactação › pasta `extensao`.
+- Atalho **Central de Acionamentos** na Área de Trabalho abre o painel numa janela própria.
+  A extensão tem id fixo (`key` no manifest.json), por isso o atalho sabe o endereço do painel.
 - Não é assinado digitalmente, então o Windows avisa ("O Windows protegeu o computador").
   Clique em **Mais informações** › **Executar assim mesmo**.
+- Desinstala por Configurações › Aplicativos.
 
-Para gerar de novo no Linux: `sudo apt install nsis` e depois `./instalador/build.sh`.
+Para gerar de novo no Linux: `sudo apt install nsis zip` e depois `./instalador/build.sh`.
+O GitHub Actions faz isso a cada mudança e publica no pré-lançamento `instalador-teste`.
 
-## Como cada portal vai entrar na central
+## Como cada portal é lido
 
-| Portal | Tela lida | Vai para a coluna |
+| Portal | Tela | Vai para a coluna |
 |---|---|---|
-| Porto Seguro | Portal do Prestador › Receber Serviços (atualiza a cada 90 s) | Pendentes → Novos · GPS não iniciados → Pendências |
+| Porto Seguro | Receber Serviços (atualiza a cada 90 s) | Serviços pendentes → Novos · Cancelados e GPS não iniciados → Pendências |
 | Tokio Marine | Acompanhamento de Serviço | Em acionamento → Novos · A caminho · Em andamento → Em serviço · Agendadas · Saída de base pendente → Pendências |
-| Notro Hub | Acompanhamento (atualiza a cada 30 s) | Agendados · Aguardando deslocamento e A caminho → A caminho · Em serviço |
-| Aciona Fácil | Meus Serviços | Novos · Saída de Base → A caminho · Em Andamento → Em serviço · Confirmar Dados e Orçamentos → Pendências |
+| Notro Hub | Acompanhamento, aba Todos (ligar "Atualizar a cada 30 seg") | pela situação de cada linha: Agendado · Aguardando deslocamento e A caminho → A caminho · Em serviço |
+| Aciona Fácil | Meus Serviços | Novos Serviços → Novos · Saída de Base → A caminho · Em Andamento → Em serviço · Confirmar Dados e Orçamentos → Pendências |
+
+A leitura foi montada a partir de prints das telas vazias. Quando chegar chamado de verdade,
+conferir se ele aparece certo no painel e ajustar `leitor.js` se preciso.
 
 ## Próximos passos
 
-1. Confirmar o 5º portal e a tela onde aparece serviço novo no Notro.
-2. Extensão do Chrome lendo um portal de verdade.
-3. Ligar os outros portais, um de cada vez.
+1. Conferir a leitura com chamados reais de cada portal.
+2. Confirmar o 5º portal e onde aparece serviço novo no Notro.

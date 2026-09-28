@@ -1,5 +1,5 @@
-; Instalador de TESTE da Central de Acionamentos (protótipo com dados de exemplo).
-; Compilar com ./build.sh (precisa do NSIS 3).
+; Instalador de TESTE da Central de Acionamentos.
+; Compilar com ./build.sh (precisa do NSIS 3). O build.sh passa EXT_ID, o id fixo da extensão.
 
 Unicode true
 ManifestDPIAware true
@@ -8,32 +8,38 @@ ManifestDPIAware true
 !include "LogicLib.nsh"
 !include "WordFunc.nsh"
 
+!ifndef EXT_ID
+  !error "Rode pelo build.sh: ele informa o id da extensão (EXT_ID)."
+!endif
+
 !define APP_NOME   "Central de Acionamentos"
 !define APP_ID     "CentralAcionamentos"
-!define APP_VERSAO "0.1.0"
+!define APP_VERSAO "0.2.0"
 !define CHAVE_DESINSTALAR "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
+!define PAINEL_URL "chrome-extension://${EXT_ID}/central.html"
 
 Name "${APP_NOME} (teste)"
 OutFile "dist/CentralAcionamentos-Teste-Setup.exe"
-; Pasta sem espaços nem acentos: o endereço file:/// do atalho fica simples.
+; Pasta sem espaços nem acentos: o endereço file:/// dos atalhos fica simples.
 InstallDir "C:\${APP_ID}"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
-BrandingText "${APP_NOME} · protótipo ${APP_VERSAO}"
+BrandingText "${APP_NOME} · teste ${APP_VERSAO}"
 
 Var Navegador
+Var UrlPasso
 
 !define MUI_ICON   "build/icone.ico"
 !define MUI_UNICON "build/icone.ico"
 !define MUI_ABORTWARNING
 
 !define MUI_WELCOMEPAGE_TITLE "${APP_NOME} (teste)"
-!define MUI_WELCOMEPAGE_TEXT "Este instalador coloca a Central de Acionamentos no seu computador para você ver como ela fica.$\r$\n$\r$\nÉ um protótipo com dados de exemplo: nenhum portal é conectado ainda e nada é enviado para as seguradoras.$\r$\n$\r$\nNão precisa de administrador. Para remover depois, use Configurações › Aplicativos.$\r$\n$\r$\nClique em Avançar para continuar."
-!define MUI_FINISHPAGE_TITLE "Pronto"
-!define MUI_FINISHPAGE_TEXT "A Central de Acionamentos foi instalada.$\r$\n$\r$\nO atalho está na Área de Trabalho e no Menu Iniciar."
+!define MUI_WELCOMEPAGE_TEXT "Este instalador coloca a Central de Acionamentos no seu computador.$\r$\n$\r$\nA Central junta numa tela só os chamados da Porto Seguro, Tokio Marine, Notro e Aciona Fácil, e toca alarme quando entra serviço novo. Ela funciona como uma extensão do Chrome e só lê as telas dos portais.$\r$\n$\r$\nNão precisa de administrador. Para remover depois, use Configurações › Aplicativos.$\r$\n$\r$\nClique em Avançar para continuar."
+!define MUI_FINISHPAGE_TITLE "Falta ligar a extensão"
+!define MUI_FINISHPAGE_TEXT "Os arquivos foram instalados.$\r$\n$\r$\nAgora é preciso ligar a extensão no Chrome uma vez. O passo a passo vai abrir no navegador (e também fica no Menu Iniciar, em $\"Ligar a extensão da Central$\")."
 !define MUI_FINISHPAGE_RUN
-!define MUI_FINISHPAGE_RUN_TEXT "Abrir a Central agora"
-!define MUI_FINISHPAGE_RUN_FUNCTION AbrirCentral
+!define MUI_FINISHPAGE_RUN_TEXT "Abrir o passo a passo agora"
+!define MUI_FINISHPAGE_RUN_FUNCTION AbrirPasso
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_INSTFILES
@@ -47,7 +53,7 @@ VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "ProductName" "${APP_NOME}"
 VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "FileDescription" "Instalador de teste da ${APP_NOME}"
 VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "FileVersion" "${APP_VERSAO}"
 VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "ProductVersion" "${APP_VERSAO}"
-VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "LegalCopyright" "Protótipo de teste"
+VIAddVersionKey /LANG=${LANG_PORTUGUESEBR} "LegalCopyright" "Versão de teste"
 
 ; Lê o caminho de um programa registrado em "App Paths" (resultado em $0, sem aspas).
 !macro LerAppPath EXE
@@ -105,8 +111,19 @@ Function AcharNavegador
   ${EndIf}
 FunctionEnd
 
-Function AbrirCentral
-  ExecShell "open" "$DESKTOP\${APP_NOME}.lnk"
+; Endereço file:/// de um arquivo da pasta de instalação (resultado em $1).
+!macro EnderecoLocal ARQUIVO
+  ${WordReplace} "$INSTDIR\${ARQUIVO}" "\" "/" "+" $1
+  ${WordReplace} "$1" " " "%20" "+" $1
+  StrCpy $1 "file:///$1"
+!macroend
+
+Function AbrirPasso
+  ${If} $Navegador != ""
+    Exec '"$Navegador" "$UrlPasso"'
+  ${Else}
+    ExecShell "open" "$INSTDIR\instalar-extensao.html"
+  ${EndIf}
 FunctionEnd
 
 Section "Instalar"
@@ -121,18 +138,27 @@ Section "Instalar"
   SetOutPath "$INSTDIR"
   File "build/index.html"
   File "build/icone.ico"
+  File "build/instalar-extensao.html"
+  SetOutPath "$INSTDIR\extensao"
+  File /r "../extensao/*"
+  SetOutPath "$INSTDIR"
   WriteUninstaller "$INSTDIR\Desinstalar.exe"
 
-  ; Atalho abre a página numa janela própria, sem abas nem barra de endereço.
   Call AcharNavegador
-  ${WordReplace} "$INSTDIR\index.html" "\" "/" "+" $1
-  ${WordReplace} "$1" " " "%20" "+" $1
+  !insertmacro EnderecoLocal "instalar-extensao.html"
+  StrCpy $UrlPasso $1
+  !insertmacro EnderecoLocal "index.html"
+
   ${If} $Navegador != ""
-    CreateShortCut "$DESKTOP\${APP_NOME}.lnk" "$Navegador" '--app="file:///$1"' "$INSTDIR\icone.ico" 0
-    CreateShortCut "$SMPROGRAMS\${APP_NOME}.lnk" "$Navegador" '--app="file:///$1"' "$INSTDIR\icone.ico" 0
+    ; O painel é a página da extensão, aberta numa janela própria (sem abas nem barra de endereço).
+    CreateShortCut "$DESKTOP\${APP_NOME}.lnk" "$Navegador" '--app="${PAINEL_URL}"' "$INSTDIR\icone.ico" 0
+    CreateShortCut "$SMPROGRAMS\${APP_NOME}.lnk" "$Navegador" '--app="${PAINEL_URL}"' "$INSTDIR\icone.ico" 0
+    CreateShortCut "$SMPROGRAMS\${APP_NOME} (demonstração).lnk" "$Navegador" '--app="$1"' "$INSTDIR\icone.ico" 0
+    CreateShortCut "$SMPROGRAMS\Ligar a extensão da Central.lnk" "$Navegador" '"$UrlPasso"' "$INSTDIR\icone.ico" 0
   ${Else}
-    CreateShortCut "$DESKTOP\${APP_NOME}.lnk" "$INSTDIR\index.html" "" "$INSTDIR\icone.ico" 0
-    CreateShortCut "$SMPROGRAMS\${APP_NOME}.lnk" "$INSTDIR\index.html" "" "$INSTDIR\icone.ico" 0
+    CreateShortCut "$DESKTOP\${APP_NOME}.lnk" "$INSTDIR\instalar-extensao.html" "" "$INSTDIR\icone.ico" 0
+    CreateShortCut "$SMPROGRAMS\${APP_NOME} (demonstração).lnk" "$INSTDIR\index.html" "" "$INSTDIR\icone.ico" 0
+    CreateShortCut "$SMPROGRAMS\Ligar a extensão da Central.lnk" "$INSTDIR\instalar-extensao.html" "" "$INSTDIR\icone.ico" 0
   ${EndIf}
 
   ; Aparece em Configurações › Aplicativos, com opção de desinstalar.
@@ -148,8 +174,12 @@ SectionEnd
 Section "Uninstall"
   Delete "$DESKTOP\${APP_NOME}.lnk"
   Delete "$SMPROGRAMS\${APP_NOME}.lnk"
+  Delete "$SMPROGRAMS\${APP_NOME} (demonstração).lnk"
+  Delete "$SMPROGRAMS\Ligar a extensão da Central.lnk"
   Delete "$INSTDIR\index.html"
   Delete "$INSTDIR\icone.ico"
+  Delete "$INSTDIR\instalar-extensao.html"
+  RMDir /r "$INSTDIR\extensao"
   Delete "$INSTDIR\Desinstalar.exe"
   RMDir "$INSTDIR"
   DeleteRegKey HKCU "${CHAVE_DESINSTALAR}"
