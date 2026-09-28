@@ -1,0 +1,671 @@
+<title>Central de Acionamentos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  --ground:#E8ECEF; --surface:#FFFFFF; --surface-2:#F3F5F7; --line:#D3DAE0;
+  --ink:#15202A; --muted:#566471; --faint:#7F8B96;
+  --amber:#F2A900; --on-amber:#1D1600; --amber-soft:#FFF2CC; --amber-text:#855700;
+  --red:#C42E1C; --red-soft:#FBE4E0; --green:#1F7D45; --green-soft:#DFF1E6; --blue:#28609F;
+  --p-porto:#1D5BB8; --p-tokio:#16864A; --p-notro:#39414C; --p-aciona:#7E9E1F; --p-mondial:#7B4FB3;
+  --shadow:0 1px 2px rgba(21,32,42,.06),0 3px 10px rgba(21,32,42,.05);
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --ground:#0D1419; --surface:#151F28; --surface-2:#1B2731; --line:#283744;
+    --ink:#E3EAEF; --muted:#9BA9B5; --faint:#75838F;
+    --amber:#F5B524; --on-amber:#1D1600; --amber-soft:#35290A; --amber-text:#F7C75A;
+    --red:#F2654F; --red-soft:#3A1813; --green:#4BC27B; --green-soft:#10301E; --blue:#72A6E8;
+    --p-porto:#5B93E6; --p-tokio:#3FBE78; --p-notro:#B8C1CC; --p-aciona:#AFD04A; --p-mondial:#A987DD;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#0D1419; --surface:#151F28; --surface-2:#1B2731; --line:#283744;
+  --ink:#E3EAEF; --muted:#9BA9B5; --faint:#75838F;
+  --amber:#F5B524; --on-amber:#1D1600; --amber-soft:#35290A; --amber-text:#F7C75A;
+  --red:#F2654F; --red-soft:#3A1813; --green:#4BC27B; --green-soft:#10301E; --blue:#72A6E8;
+  --p-porto:#5B93E6; --p-tokio:#3FBE78; --p-notro:#B8C1CC; --p-aciona:#AFD04A; --p-mondial:#A987DD;
+  --shadow:none;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:0 40px}
+h1,h2,h3{text-wrap:balance}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* barra do topo */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--ground);margin-inline:-16px;padding-inline:16px;border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1680px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-block:12px}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:40px;height:40px;flex:none}
+.brand h1{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.02em;text-transform:uppercase;margin:0;line-height:1}
+.brand p{margin:3px 0 0;color:var(--muted);font-size:13px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tag{font-size:12px;font-weight:600;color:var(--amber-text);background:var(--amber-soft);border-radius:4px;padding:1px 7px}
+.top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.clock{font-family:var(--mono);font-size:15px;font-variant-numeric:tabular-nums;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+
+/* botões */
+.btn{font:600 14px/1 var(--body);border-radius:6px;padding:9px 12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn:focus-visible,.pfilter:focus-visible,select:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.btn:disabled{opacity:.6;cursor:progress}
+.btn-primary{background:var(--amber);border-color:var(--amber);color:var(--on-amber)}
+.btn-primary:hover{background:var(--amber);filter:brightness(1.06)}
+.btn-sm{padding:7px 9px;font-size:13px}
+.btn-quiet{background:transparent;border-color:transparent;color:var(--blue);padding-inline:6px}
+.btn-quiet:hover{background:transparent;text-decoration:underline}
+.btn[aria-pressed="true"]{background:var(--green-soft);border-color:var(--green);color:var(--green)}
+.btn-dark{background:var(--on-amber);border-color:var(--on-amber);color:#FFD66B}
+.btn-dark:hover{background:#000}
+.btn-outline-dark{background:transparent;border-color:rgba(29,22,0,.45);color:var(--on-amber)}
+.btn-outline-dark:hover{background:rgba(255,255,255,.3)}
+
+.wrap{max-width:1680px;margin:0 auto;display:flex;flex-direction:column;gap:18px;padding-top:16px}
+.label{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:13px;color:var(--muted);font-weight:600;margin:0 0 8px}
+
+/* portais */
+.portais{display:flex;flex-wrap:wrap;gap:8px}
+.portal-pill{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding-right:6px}
+.portal-pill.off{border-color:var(--red);background:var(--red-soft)}
+.pfilter{display:flex;align-items:center;gap:10px;padding:8px 6px 8px 12px;background:transparent;border:0;border-radius:8px;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.portal-pill:has(.pfilter[aria-pressed="true"]){border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.pdot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+.ptext{display:flex;flex-direction:column;line-height:1.2}
+.ptext .nome{font-weight:600}
+.ptext .meta{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.conn::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;vertical-align:1px}
+.off .conn{color:var(--red)}
+.off .conn::before{background:var(--red)}
+.pcount{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;min-width:24px;text-align:center}
+
+/* alerta de novo acionamento */
+.alerta{background:var(--amber);color:var(--on-amber);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.alerta-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.alerta h2{font-family:var(--display);font-weight:700;font-size:24px;text-transform:uppercase;letter-spacing:.03em;margin:0;display:flex;align-items:center;gap:12px;line-height:1}
+.beacon{width:14px;height:14px;border-radius:50%;background:var(--on-amber);animation:pulse 1s ease-out infinite;flex:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(29,22,0,.55)}100%{box-shadow:0 0 0 14px rgba(29,22,0,0)}}
+.alerta-lista{display:flex;flex-direction:column;gap:8px}
+.alerta-item{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;background:rgba(255,255,255,.4);border-radius:8px;padding:10px 12px}
+.alerta-item .t{font-weight:600;font-size:16px;display:flex;align-items:center;gap:8px}
+.alerta-item .t .pdot{box-shadow:0 0 0 2px #fff}
+.alerta-item .s{font-size:14px;font-variant-numeric:tabular-nums}
+.alerta-item .aviso{font-size:13px;font-weight:600;margin-top:2px}
+
+/* resumo e frota */
+.painel{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 24px;align-items:flex-end}
+.resumo{display:flex;flex-wrap:wrap;gap:8px}
+.stat{display:flex;align-items:baseline;gap:8px;padding:8px 12px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.stat b{font-family:var(--display);font-size:26px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+.stat[data-sev="warn"]{background:var(--amber-soft);border-color:transparent}
+.stat[data-sev="warn"] b{color:var(--amber-text)}
+.stat[data-sev="crit"]{background:var(--red-soft);border-color:transparent}
+.stat[data-sev="crit"] b{color:var(--red)}
+.frota{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.truck{font-size:13px;padding:6px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;gap:6px}
+.truck .tdot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.truck[data-busy="true"] .tdot{background:var(--amber)}
+.truck .tstate{color:var(--muted)}
+
+/* quadro */
+.filtro-linha{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:30px}
+.board{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:700px){.board{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:1080px){.board{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1440px){.board{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.col{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:150px}
+.col[data-col="novo"][data-has="1"]{background:var(--amber-soft);border-color:var(--amber)}
+.col-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:2px 4px 0}
+.col-head h2{font-family:var(--display);font-weight:600;font-size:17px;text-transform:uppercase;letter-spacing:.05em;margin:0}
+.col[data-col="novo"] .col-head h2{color:var(--amber-text)}
+.col-count{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.col-hint{font-size:12px;color:var(--faint);padding:0 4px;margin:-6px 0 2px}
+.empty{font-size:13px;color:var(--faint);padding:12px 4px;text-align:center;margin:0}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:5px;box-shadow:var(--shadow)}
+.card[data-late="1"]{border-color:var(--red)}
+.card p{margin:0}
+.card-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px}
+.ptag{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--muted)}
+.proto{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.svc{font-family:var(--display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.02em;margin:0;line-height:1.1}
+.veh{font-size:14px}
+.plate{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-radius:3px;padding:0 4px;background:var(--surface-2);white-space:nowrap}
+.route{font-size:13px;color:var(--muted)}
+.due{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.due[data-level="ok"]{color:var(--green)}
+.due[data-level="soon"]{color:var(--amber-text)}
+.due[data-level="late"]{color:var(--red)}
+.due[data-level="info"]{color:var(--blue)}
+.note{font-size:12px;color:var(--amber-text);background:var(--amber-soft);padding:4px 8px;border-radius:4px;font-variant-numeric:tabular-nums}
+.pend{font-size:14px;font-weight:600}
+.card-foot{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-top:8px;border-top:1px solid var(--line);margin-top:3px}
+.card-foot select{font:13px var(--body);padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);flex:1 1 130px;min-width:0}
+.card.compact{box-shadow:none;gap:3px;padding:8px 10px}
+.card.compact .veh{font-size:13px}
+
+/* como funciona */
+.como{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.como h2{font-family:var(--display);font-weight:700;font-size:22px;text-transform:uppercase;letter-spacing:.03em;margin:0 0 6px}
+.como > p{margin:0 0 14px;max-width:72ch;color:var(--muted)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:760px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;font-size:13px;color:var(--muted);font-weight:600}
+td .pdot{margin-right:6px;vertical-align:0}
+td.num{font-family:var(--mono);font-size:13px;white-space:nowrap}
+.map{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.map b{font-weight:600}
+.rodape{font-size:12px;color:var(--faint);margin:0}
+
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:11px 16px;border-radius:8px;font-size:14px;width:max-content;max-width:min(560px,calc(100vw - 32px));box-shadow:0 8px 28px rgba(0,0,0,.28);z-index:50}
+
+@media (max-width:640px){
+  .topbar{position:static}
+  .brand h1{font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){.beacon{animation:none}}
+</style>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect x="6" y="29" width="28" height="6" rx="2" fill="var(--ink)"/>
+        <path d="M11 29v-6a9 9 0 0 1 18 0v6z" fill="var(--amber)"/>
+        <path d="M20 3v6M6.5 9.5l4 4M33.5 9.5l-4 4M1.5 22h5M33.5 22h5" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+      </svg>
+      <div>
+        <h1>Central de Acionamentos</h1>
+        <p>Auto socorro · Quilombo/SC <span class="tag">Protótipo · dados de exemplo</span></p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="clock" id="relogio" aria-label="Hora atual">--:--:--</span>
+      <button class="btn" id="som" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <span id="som-txt">Ligar som</span>
+      </button>
+      <button class="btn btn-primary" id="simular">Simular chamado novo</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section aria-labelledby="t-portais">
+    <h2 class="label" id="t-portais">Portais conectados</h2>
+    <div class="portais" id="portais"></div>
+  </section>
+
+  <section class="alerta" id="alerta" aria-live="assertive" hidden>
+    <div class="alerta-head">
+      <h2><span class="beacon" aria-hidden="true"></span><span id="alerta-titulo">Novo acionamento</span></h2>
+      <div class="top-actions">
+        <button class="btn btn-sm btn-outline-dark" id="alerta-som">Ligar som do alarme</button>
+        <button class="btn btn-sm btn-outline-dark" id="silenciar" hidden>Silenciar alarme</button>
+      </div>
+    </div>
+    <div class="alerta-lista" id="alerta-lista"></div>
+  </section>
+
+  <section class="painel" aria-label="Resumo do dia">
+    <div>
+      <h2 class="label">Agora</h2>
+      <div class="resumo" id="resumo"></div>
+    </div>
+    <div>
+      <h2 class="label">Frota</h2>
+      <ul class="frota" id="frota"></ul>
+    </div>
+  </section>
+
+  <section aria-label="Quadro de serviços">
+    <div class="filtro-linha" id="filtro-linha"></div>
+    <div class="board" id="board"></div>
+  </section>
+
+  <section class="como" aria-labelledby="t-como">
+    <h2 id="t-como">Como a central lê cada portal</h2>
+    <p>Uma extensão do Chrome fica ligada nos portais que você já deixa abertos, com o seu próprio login. Ela confere as telas abaixo e coloca cada serviço na coluna certa. Aceitar o serviço continua sendo feito no portal: a central toca o alarme e leva você direto para lá.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Portal</th><th>Tela que a central lê</th><th>O portal atualiza</th><th>Vai para a coluna</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="pdot" style="--c:var(--p-porto)"></span>Porto Seguro</td>
+            <td>Portal do Prestador › Receber Serviços</td>
+            <td class="num">a cada 90 s</td>
+            <td><ul class="map"><li>Serviços pendentes → <b>Novos</b></li><li>Recebidos GPS não iniciados (INI) → <b>Pendências</b></li><li>Serviços cancelados → aviso na tela</li></ul></td>
+          </tr>
+          <tr>
+            <td><span class="pdot" style="--c:var(--p-tokio)"></span>Tokio Marine</td>
+            <td>Acompanhamento de Serviço</td>
+            <td class="num">a confirmar</td>
+            <td><ul class="map"><li>Em acionamento → <b>Novos</b></li><li>A caminho do local / origem → <b>A caminho</b></li><li>Em andamento → <b>Em serviço</b></li><li>Agendadas → <b>Agendados</b></li><li>Saída de base pendente de aprovação → <b>Pendências</b></li><li>Concluídas → <b>Concluídos</b></li></ul></td>
+          </tr>
+          <tr>
+            <td><span class="pdot" style="--c:var(--p-notro)"></span>Notro Hub</td>
+            <td>Acompanhamento</td>
+            <td class="num">a cada 30 s</td>
+            <td><ul class="map"><li>Agendados → <b>Agendados</b></li><li>Aguardando deslocamento e A caminho do local → <b>A caminho</b></li><li>Em serviço → <b>Em serviço</b></li><li>Serviço novo → a confirmar em qual tela aparece</li></ul></td>
+          </tr>
+          <tr>
+            <td><span class="pdot" style="--c:var(--p-aciona)"></span>Aciona Fácil</td>
+            <td>Meus Serviços (menu lateral)</td>
+            <td class="num">a confirmar</td>
+            <td><ul class="map"><li>Novos Serviços → <b>Novos</b></li><li>Saída de Base → <b>A caminho</b></li><li>Em Andamento → <b>Em serviço</b></li><li>Confirmar Dados e Orçamentos Pendentes → <b>Pendências</b></li></ul></td>
+          </tr>
+          <tr>
+            <td><span class="pdot" style="--c:var(--p-mondial)"></span>Mondial</td>
+            <td>Colocada só como exemplo do 5º portal</td>
+            <td class="num">—</td>
+            <td>A definir</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="rodape">Protótipo com dados de exemplo: nenhum portal está conectado ainda. Um chamado novo chega sozinho de tempos em tempos para você ver o alarme funcionando. Os botões de etapa (Chegou no local, Concluir) simulam o que o portal vai informar.</p>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+  const $ = s => document.querySelector(s);
+  const MIN = 60000;
+  const now = () => Date.now();
+  const pad = n => String(n).padStart(2,'0');
+  const rnd = (a,b) => a + Math.floor(Math.random()*(b-a+1));
+  const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+  const fmtHora = ts => { const d = new Date(ts); return pad(d.getHours())+':'+pad(d.getMinutes()); };
+  const mesmoDia = (a,b) => new Date(a).toDateString() === new Date(b).toDateString();
+  const fmtDiaHora = ts => {
+    const t = now();
+    if (mesmoDia(ts,t)) return 'hoje ' + fmtHora(ts);
+    const am = new Date(t); am.setDate(am.getDate()+1);
+    if (mesmoDia(ts,am)) return 'amanhã ' + fmtHora(ts);
+    const d = new Date(ts); return pad(d.getDate())+'/'+pad(d.getMonth()+1)+' '+fmtHora(ts);
+  };
+  const fmtDur = ms => { const m = Math.max(0, Math.round(ms/MIN)); return m < 60 ? m+' min' : Math.floor(m/60)+' h '+pad(m%60)+' min'; };
+  const fmtMMSS = ms => { const s = Math.max(0, Math.floor(ms/1000)); return Math.floor(s/60)+':'+pad(s%60); };
+  const fmtSeg = ms => { const s = Math.max(0, Math.floor(ms/1000)); return s < 60 ? s+' s' : Math.floor(s/60)+' min'; };
+
+  const PORTAIS = {
+    porto:   { nome:'Porto Seguro', online:true,  lido:now()-8000,  ciclo:90 },
+    tokio:   { nome:'Tokio Marine', online:true,  lido:now()-14000, ciclo:45 },
+    notro:   { nome:'Notro Hub',    online:true,  lido:now()-3000,  ciclo:30 },
+    aciona:  { nome:'Aciona Fácil', online:true,  lido:now()-21000, ciclo:60 },
+    mondial: { nome:'Mondial',      online:false, desde:now()-7*MIN, ciclo:60 },
+  };
+  const ORDEM = ['porto','tokio','notro','aciona','mondial'];
+  const FROTA = [
+    { id:'G1', tipo:'Plataforma',   motorista:'Marcos' },
+    { id:'G2', tipo:'Plataforma',   motorista:'Diego' },
+    { id:'G3', tipo:'Lança pesada', motorista:'Rogério' },
+  ];
+  const COLS = [
+    { id:'novo',      nome:'Novos',           dica:'Abrir e aceitar agora' },
+    { id:'agendado',  nome:'Agendados',       dica:'Com dia e hora marcados' },
+    { id:'caminho',   nome:'A caminho',       dica:'Inclui aguardando deslocamento' },
+    { id:'servico',   nome:'Em serviço',      dica:'Guincho no local' },
+    { id:'pendencia', nome:'Pendências',      dica:'Confirmar dados, orçamento, aprovação' },
+    { id:'concluido', nome:'Concluídos hoje', dica:'Encerrados nos portais' },
+  ];
+
+  const T0 = now();
+  const amanha8 = (() => { const d = new Date(T0); d.setDate(d.getDate()+1); d.setHours(8,0,0,0); return d.getTime(); })();
+  let seq = 0;
+  const svc = o => Object.assign({ id: ++seq, guincho: null }, o);
+
+  let servicos = [
+    svc({ portal:'porto',  proto:'3.418.052',   tipo:'Reboque',        veiculo:'Fiat Strada',       placa:'RLQ6B34', origem:'BR-282, km 540 · Xanxerê',   destino:'Oficina credenciada · Chapecó', km:44,  status:'novo',     recebido:T0-40000,   prazo:T0+75*MIN }),
+    svc({ portal:'notro',  proto:'03032668/02', tipo:'Reboque',        veiculo:'VW Delivery 9.170', placa:'QHT2C87', origem:'São Lourenço do Oeste',      destino:'Concessionária · Chapecó',      km:118, status:'servico',  recebido:T0-150*MIN, prazo:T0-46*MIN, guincho:'G3' }),
+    svc({ portal:'tokio',  proto:'25091877',    tipo:'Pane elétrica',  veiculo:'Chevrolet Onix',    placa:'RKX1D09', origem:'Centro · Coronel Freitas',   destino:'No local',                      km:21,  status:'caminho',  recebido:T0-18*MIN,  prazo:T0+22*MIN, guincho:'G1' }),
+    svc({ portal:'aciona', proto:'558214',      tipo:'Troca de pneu',  veiculo:'Toyota Hilux',      placa:'QJA8E51', origem:'SC-155 · Abelardo Luz',      destino:'No local',                      km:57,  status:'caminho',  recebido:T0-40*MIN,  prazo:T0+9*MIN,  guincho:'G2' }),
+    svc({ portal:'notro',  proto:'03032701/01', tipo:'Reboque',        veiculo:'Renault Duster',    placa:'RHF3A62', origem:'Pinhalzinho',                destino:'Residência · Quilombo',         km:64,  status:'agendado', recebido:T0-95*MIN,  agendado:T0+190*MIN }),
+    svc({ portal:'tokio',  proto:'25091904',    tipo:'Reboque',        veiculo:'Honda HR-V',        placa:'QTC5F18', origem:'Oficina · Quilombo',         destino:'Concessionária · Chapecó',      km:52,  status:'agendado', recebido:T0-60*MIN,  agendado:amanha8 }),
+    svc({ portal:'aciona', proto:'557903',      tipo:'Reboque',        veiculo:'Fiat Toro',         placa:'RMB2G40', origem:'BR-480 · Chapecó',           destino:'Oficina · Xanxerê',             km:49,  status:'pendencia', recebido:T0-200*MIN, pend:'Confirmar dados do serviço' }),
+    svc({ portal:'tokio',  proto:'25091790',    tipo:'Reboque',        veiculo:'Jeep Renegade',     placa:'QXD7H15', origem:'Centro · Quilombo',          destino:'Concessionária · Chapecó',      km:52,  status:'pendencia', recebido:T0-30*MIN,  pend:'Saída de base pendente de aprovação' }),
+    svc({ portal:'porto',  proto:'3.417.610',   tipo:'Recarga de bateria', veiculo:'Hyundai HB20',  placa:'RJE4A28', origem:'Centro · Formosa do Sul',    destino:'No local',                      km:26,  status:'pendencia', recebido:T0-12*MIN,  pend:'Recebido pelo GPS e não iniciado (INI)' }),
+    svc({ portal:'porto',  proto:'3.416.988',   tipo:'Reboque',        veiculo:'VW Gol',            placa:'QHB9C11', origem:'SC-157 · São Carlos',        destino:'Oficina · Chapecó',             km:61,  status:'concluido', recebido:T0-300*MIN, fim:T0-95*MIN,  guincho:'G1' }),
+    svc({ portal:'tokio',  proto:'25091702',    tipo:'Recarga de bateria', veiculo:'Toyota Corolla', placa:'RKF1B77', origem:'Centro · Chapecó',          destino:'No local',                      km:38,  status:'concluido', recebido:T0-260*MIN, fim:T0-150*MIN, guincho:'G2' }),
+    svc({ portal:'aciona', proto:'557611',      tipo:'Reboque',        veiculo:'Ford Ranger',       placa:'QJQ3D90', origem:'Linha São Roque · Quilombo', destino:'Oficina · Quilombo',            km:12,  status:'concluido', recebido:T0-330*MIN, fim:T0-210*MIN, guincho:'G3' }),
+    svc({ portal:'notro',  proto:'03032590/03', tipo:'Pane seca',      veiculo:'Chevrolet S10',     placa:'RHN5E03', origem:'BR-282 · Xaxim',             destino:'No local',                      km:40,  status:'concluido', recebido:T0-380*MIN, fim:T0-260*MIN, guincho:'G2' }),
+  ];
+
+  let filtro = null;
+  let somLigado = false, silenciado = false, audioCtx = null, ultimoAlarme = 0;
+  let toastTimer = null, piscar = false;
+
+  const ocupadoPor = (gid, exceto) => servicos.find(x => x !== exceto && x.guincho === gid && (x.status === 'caminho' || x.status === 'servico'));
+  const guinchoLivre = () => { const g = FROTA.find(g => !ocupadoPor(g.id)); return g ? g.id : null; };
+
+  function dueInfo(s){
+    const t = now();
+    if (s.status === 'agendado') return { level:'info', text:'Agendado · ' + fmtDiaHora(s.agendado) };
+    if (!s.prazo) return null;
+    const diff = s.prazo - t, hh = fmtHora(s.prazo);
+    if (diff < 0) return { level:'late', text:'Em atraso ' + fmtDur(-diff) + ' · prazo ' + hh };
+    if (diff <= 15*MIN) return { level:'soon', text:'Faltam ' + fmtDur(diff) + ' · chegar até ' + hh };
+    return { level:'ok', text:'Faltam ' + fmtDur(diff) + ' · chegar até ' + hh };
+  }
+
+  function toast(msg){
+    const el = $('#toast');
+    el.textContent = msg; el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.hidden = true; }, 5000);
+  }
+
+  /* ---------- render ---------- */
+  function renderPortais(){
+    $('#portais').innerHTML = ORDEM.map(k => {
+      const P = PORTAIS[k];
+      const ativos = servicos.filter(s => s.portal === k && s.status !== 'concluido').length;
+      return '<div class="portal-pill' + (P.online ? '' : ' off') + '" style="--c:var(--p-' + k + ')">' +
+        '<button class="pfilter" data-portal="' + k + '" aria-pressed="' + (filtro === k) + '" title="Mostrar só ' + P.nome + '">' +
+          '<span class="pdot"></span>' +
+          '<span class="ptext"><span class="nome">' + P.nome + '</span><span class="meta conn" data-lido="' + k + '"></span></span>' +
+          '<span class="pcount" aria-label="' + ativos + ' serviços ativos">' + ativos + '</span>' +
+        '</button>' +
+        (P.online ? '' : '<button class="btn btn-sm btn-primary" data-reconectar="' + k + '">Entrar de novo</button>') +
+      '</div>';
+    }).join('');
+    atualizarLidos();
+  }
+
+  function atualizarLidos(){
+    const t = now();
+    document.querySelectorAll('[data-lido]').forEach(el => {
+      const P = PORTAIS[el.dataset.lido];
+      el.textContent = P.online ? 'online · lido há ' + fmtSeg(t - P.lido) : 'desconectado há ' + fmtDur(t - P.desde);
+    });
+  }
+
+  function renderAlerta(){
+    const novos = servicos.filter(s => s.status === 'novo').sort((a,b) => b.recebido - a.recebido);
+    $('#alerta').hidden = novos.length === 0;
+    if (!novos.length) return;
+    $('#alerta-titulo').textContent = novos.length === 1 ? 'Novo acionamento' : novos.length + ' novos acionamentos';
+    $('#alerta-som').hidden = somLigado;
+    $('#silenciar').hidden = !somLigado;
+    $('#silenciar').disabled = silenciado;
+    $('#silenciar').textContent = silenciado ? 'Alarme silenciado' : 'Silenciar alarme';
+    $('#alerta-lista').innerHTML = novos.map(s =>
+      '<div class="alerta-item"><div>' +
+        '<div class="t"><span class="pdot" style="--c:var(--p-' + s.portal + ')"></span>' + PORTAIS[s.portal].nome + ' · ' + s.tipo + ' · ' + s.veiculo + '</div>' +
+        '<div class="s">' + s.origem + ' → ' + s.destino + ' · ' + s.km + ' km · chegou há <span data-elapsed="' + s.id + '">' + fmtMMSS(now() - s.recebido) + '</span></div>' +
+        (s.portal === 'porto' ? '<div class="aviso">Se não abrir, a Porto repassa para outro prestador.</div>' : '') +
+      '</div>' +
+      '<button class="btn btn-dark" data-act="aceitar" data-id="' + s.id + '"' + (s.aceitando ? ' disabled' : '') + '>' + (s.aceitando ? 'Abrindo o portal…' : 'Abrir e aceitar') + '</button></div>'
+    ).join('');
+  }
+
+  function renderResumo(){
+    const t = now();
+    const c = st => servicos.filter(s => s.status === st).length;
+    const atraso = servicos.filter(s => (s.status === 'caminho' || s.status === 'servico') && s.prazo < t).length;
+    const andamento = c('caminho') + c('servico');
+    const itens = [
+      ['Novos', c('novo'), c('novo') ? 'warn' : ''],
+      ['Em atraso', atraso, atraso ? 'crit' : ''],
+      ['Em andamento', andamento, ''],
+      ['Pendências', c('pendencia'), c('pendencia') ? 'warn' : ''],
+      ['Concluídos hoje', c('concluido'), ''],
+    ];
+    $('#resumo').innerHTML = itens.map(i => '<div class="stat" data-sev="' + i[2] + '"><b>' + i[1] + '</b><span>' + i[0] + '</span></div>').join('');
+  }
+
+  function renderFrota(){
+    $('#frota').innerHTML = FROTA.map(g => {
+      const s = ocupadoPor(g.id);
+      const st = s ? (s.status === 'caminho' ? 'a caminho' : 'em serviço') + ' · ' + PORTAIS[s.portal].nome : 'livre';
+      return '<li class="truck" data-busy="' + !!s + '"><span class="tdot" aria-hidden="true"></span><b>' + g.id + '</b> ' + g.tipo + ' · ' + g.motorista + ' <span class="tstate">— ' + st + '</span></li>';
+    }).join('');
+  }
+
+  function guinchoSelect(s){
+    const opts = FROTA.map(g => {
+      const oc = ocupadoPor(g.id, s);
+      return '<option value="' + g.id + '"' + (s.guincho === g.id ? ' selected' : '') + '>' + g.id + ' · ' + g.motorista + (oc ? ' (ocupado)' : '') + '</option>';
+    }).join('');
+    return '<label class="sr" for="g-' + s.id + '">Guincho</label><select id="g-' + s.id + '" data-guincho="' + s.id + '"><option value="">Sem guincho</option>' + opts + '</select>';
+  }
+
+  function cardHTML(s){
+    const P = PORTAIS[s.portal];
+    const top = '<div class="card-top"><span class="ptag"><span class="pdot" style="--c:var(--p-' + s.portal + ')"></span>' + P.nome + '</span><span class="proto">' + s.proto + '</span></div>';
+    if (s.status === 'concluido') {
+      return '<article class="card compact">' + top + '<p class="veh"><b>' + s.tipo + '</b> · ' + s.veiculo + '</p><p class="route">Concluído às ' + fmtHora(s.fim) + (s.guincho ? ' · ' + s.guincho : '') + '</p></article>';
+    }
+    if (s.status === 'pendencia') {
+      return '<article class="card">' + top + '<p class="pend">' + s.pend + '</p><p class="veh">' + s.tipo + ' · ' + s.veiculo + ' <span class="plate">' + s.placa + '</span></p>' +
+        '<div class="card-foot"><button class="btn btn-sm" data-act="resolver" data-id="' + s.id + '">Resolver no portal</button></div></article>';
+    }
+    const d = dueInfo(s);
+    const due = d ? '<p class="due" data-due="' + s.id + '" data-level="' + d.level + '">' + d.text + '</p>' : '';
+    const nota = s.status === 'novo'
+      ? '<p class="note">Chegou há <span data-elapsed="' + s.id + '">' + fmtMMSS(now() - s.recebido) + '</span>' + (s.portal === 'porto' ? '. Se não abrir, a Porto repassa.' : '') + '</p>'
+      : '';
+    const acao = {
+      novo:     '<button class="btn btn-sm btn-primary" data-act="aceitar" data-id="' + s.id + '"' + (s.aceitando ? ' disabled' : '') + '>' + (s.aceitando ? 'Abrindo o portal…' : 'Abrir e aceitar') + '</button>',
+      agendado: '<button class="btn btn-sm" data-act="avancar" data-id="' + s.id + '">Sair para o serviço</button>',
+      caminho:  '<button class="btn btn-sm" data-act="avancar" data-id="' + s.id + '">Chegou no local</button>',
+      servico:  '<button class="btn btn-sm" data-act="avancar" data-id="' + s.id + '">Concluir</button>',
+    }[s.status];
+    const abrir = s.status === 'novo' ? '' : '<button class="btn btn-sm btn-quiet" data-act="abrir" data-id="' + s.id + '">Abrir no portal</button>';
+    const sel = s.status === 'novo' ? '' : guinchoSelect(s);
+    return '<article class="card" data-card="' + s.id + '" data-late="' + (d && d.level === 'late' ? 1 : 0) + '">' + top +
+      '<h3 class="svc">' + s.tipo + '</h3>' +
+      '<p class="veh">' + s.veiculo + ' <span class="plate">' + s.placa + '</span></p>' +
+      '<p class="route">' + s.origem + ' → ' + s.destino + ' · ' + s.km + ' km</p>' +
+      due + nota + '<div class="card-foot">' + sel + acao + abrir + '</div></article>';
+  }
+
+  const ORDENAR = {
+    novo:      (a,b) => b.recebido - a.recebido,
+    agendado:  (a,b) => a.agendado - b.agendado,
+    caminho:   (a,b) => a.prazo - b.prazo,
+    servico:   (a,b) => a.prazo - b.prazo,
+    pendencia: (a,b) => b.recebido - a.recebido,
+    concluido: (a,b) => b.fim - a.fim,
+  };
+
+  function renderBoard(){
+    const vis = servicos.filter(s => !filtro || s.portal === filtro);
+    $('#board').innerHTML = COLS.map(col => {
+      let lista = vis.filter(s => s.status === col.id).sort(ORDENAR[col.id]);
+      const total = lista.length;
+      let extra = '';
+      if (col.id === 'concluido' && total > 6) { extra = '<p class="empty">+ ' + (total - 6) + ' anteriores</p>'; lista = lista.slice(0,6); }
+      return '<section class="col" data-col="' + col.id + '" data-has="' + (total ? 1 : 0) + '" aria-label="' + col.nome + '">' +
+        '<header class="col-head"><h2>' + col.nome + '</h2><span class="col-count">' + total + '</span></header>' +
+        '<p class="col-hint">' + col.dica + '</p>' +
+        (total ? lista.map(cardHTML).join('') : '<p class="empty">Nada aqui agora</p>') + extra +
+      '</section>';
+    }).join('');
+    $('#filtro-linha').innerHTML = filtro
+      ? 'Mostrando só <b>' + PORTAIS[filtro].nome + '</b><button class="btn btn-sm btn-quiet" data-act="limpar">Mostrar todos</button>'
+      : 'Mostrando todos os portais. Clique num portal acima para ver só os serviços dele.';
+  }
+
+  function render(){ renderPortais(); renderAlerta(); renderResumo(); renderFrota(); renderBoard(); }
+
+  /* ---------- som ---------- */
+  function tocarAlarme(){
+    if (!somLigado || !audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    [0, .28, .56, .84].forEach((dt, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'square'; o.frequency.value = i % 2 ? 660 : 880;
+      g.gain.setValueAtTime(0.0001, t0+dt);
+      g.gain.exponentialRampToValueAtTime(0.12, t0+dt+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0+dt+0.24);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t0+dt); o.stop(t0+dt+0.26);
+    });
+    ultimoAlarme = now();
+  }
+
+  function alternarSom(){
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      audioCtx.resume();
+    } catch (e) { toast('Este navegador não deixou tocar som.'); return; }
+    somLigado = !somLigado;
+    $('#som').setAttribute('aria-pressed', somLigado);
+    $('#som-txt').textContent = somLigado ? 'Som ligado' : 'Ligar som';
+    if (somLigado) {
+      silenciado = false;
+      try { navigator.wakeLock && navigator.wakeLock.request('screen').catch(() => {}); } catch (e) {}
+      tocarAlarme();
+      toast('Som ligado. Quando chegar serviço novo, o alarme toca a cada 12 segundos até você abrir.');
+    }
+    renderAlerta();
+  }
+
+  /* ---------- simulação ---------- */
+  const TIPOS = ['Reboque','Reboque','Reboque','Reboque','Pane elétrica','Troca de pneu','Recarga de bateria','Pane seca','Chaveiro'];
+  const VEICULOS = ['VW Gol','Fiat Toro','Chevrolet S10','Hyundai HB20','Ford Ranger','VW Saveiro','Fiat Mobi','Jeep Compass','Mercedes Accelo 1016','Toyota Corolla','Renault Kwid','VW Amarok'];
+  const ORIGENS = [['BR-282 · Xaxim',38],['BR-282, km 512 · Cordilheira Alta',47],['SC-157 · Formosa do Sul',24],['Centro · Quilombo',3],['BR-480 · Chapecó',52],['SC-160 · Saudades',71],['Linha São Roque · Quilombo',11],['BR-282 · Nova Erechim',36],['Centro · São Carlos',68],['Interior · Santiago do Sul',19],['SC-155 · Xanxerê',66]];
+  const DESTINOS = ['Oficina credenciada · Chapecó','Concessionária · Chapecó','Residência · Quilombo','Oficina · Xanxerê','Oficina · Coronel Freitas'];
+  const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const placa = () => pick('QR') + pick(LETRAS) + pick(LETRAS) + rnd(0,9) + pick(LETRAS) + rnd(10,99);
+  const protocolo = p => ({
+    porto:   '3.4' + rnd(18,19) + '.' + rnd(100,999),
+    tokio:   '2509' + rnd(1000,9999),
+    notro:   '0303' + rnd(2700,2999) + '/0' + rnd(1,3),
+    aciona:  '55' + rnd(8300,8999),
+    mondial: 'MD' + rnd(100000,999999),
+  })[p];
+
+  function chegar(){
+    if (servicos.filter(s => s.status === 'novo').length >= 4) return;
+    const online = ORDEM.filter(k => PORTAIS[k].online);
+    const p = pick(online);
+    const tipo = pick(TIPOS);
+    const o = pick(ORIGENS);
+    const s = svc({
+      portal: p, proto: protocolo(p), tipo, veiculo: pick(VEICULOS), placa: placa(),
+      origem: o[0], destino: tipo.startsWith('Reboque') ? pick(DESTINOS) : 'No local', km: o[1],
+      status: 'novo', recebido: now(), prazo: now() + rnd(50,95)*MIN,
+    });
+    servicos.push(s);
+    PORTAIS[p].lido = now();
+    silenciado = false;
+    render();
+    tocarAlarme();
+    toast('Novo acionamento · ' + PORTAIS[p].nome + ' · ' + tipo);
+  }
+  function agendarChegada(ms){ setTimeout(() => { chegar(); agendarChegada(rnd(55,100)*1000); }, ms); }
+
+  /* ---------- ações ---------- */
+  const achar = id => servicos.find(s => s.id === Number(id));
+
+  function aceitar(s){
+    if (s.aceitando) return;
+    s.aceitando = true;
+    render();
+    toast('No sistema real, este botão abre o ' + PORTAIS[s.portal].nome + ' já na tela deste serviço para você aceitar.');
+    setTimeout(() => {
+      s.aceitando = false;
+      s.status = 'caminho';
+      if (!s.guincho) s.guincho = guinchoLivre();
+      render();
+      toast(PORTAIS[s.portal].nome + ' confirmou o aceite. O serviço foi para "A caminho"' + (s.guincho ? ' com o ' + s.guincho + '.' : '. Escolha um guincho.'));
+    }, 1800);
+  }
+
+  function avancar(s){
+    if (s.status === 'agendado') { s.status = 'caminho'; s.prazo = now() + 40*MIN; if (!s.guincho) s.guincho = guinchoLivre(); }
+    else if (s.status === 'caminho') s.status = 'servico';
+    else if (s.status === 'servico') { s.status = 'concluido'; s.fim = now(); }
+    render();
+  }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.id === 'som' || b.id === 'alerta-som') return alternarSom();
+    if (b.id === 'simular') return chegar();
+    if (b.id === 'silenciar') { silenciado = true; renderAlerta(); return; }
+    if (b.dataset.portal) { filtro = filtro === b.dataset.portal ? null : b.dataset.portal; renderPortais(); renderBoard(); return; }
+    if (b.dataset.reconectar) {
+      const P = PORTAIS[b.dataset.reconectar];
+      toast('No sistema real, abre a tela de login do portal ' + P.nome + '. Depois que você entra, a central volta a ler sozinha.');
+      P.online = true; P.lido = now();
+      renderPortais();
+      return;
+    }
+    const act = b.dataset.act;
+    if (act === 'limpar') { filtro = null; renderPortais(); renderBoard(); return; }
+    const s = achar(b.dataset.id);
+    if (!s) return;
+    if (act === 'aceitar') aceitar(s);
+    else if (act === 'avancar') avancar(s);
+    else if (act === 'abrir') toast('No sistema real, abre o ' + PORTAIS[s.portal].nome + ' direto no serviço ' + s.proto + '.');
+    else if (act === 'resolver') {
+      toast('No sistema real, abre o ' + PORTAIS[s.portal].nome + ' nessa pendência. Quando você resolve lá, ela sai daqui sozinha.');
+      s.status = 'concluido'; s.fim = now();
+      render();
+    }
+  });
+
+  document.addEventListener('change', e => {
+    const sel = e.target.closest('select[data-guincho]');
+    if (!sel) return;
+    const s = achar(sel.dataset.guincho);
+    if (!s) return;
+    s.guincho = sel.value || null;
+    renderFrota(); renderPortais();
+  });
+
+  /* ---------- relógio ---------- */
+  function tick(){
+    const t = now(), d = new Date(t);
+    $('#relogio').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+
+    ORDEM.forEach(k => {
+      const P = PORTAIS[k];
+      if (P.online && t - P.lido > P.ciclo * 1000) P.lido = t;
+    });
+    atualizarLidos();
+
+    document.querySelectorAll('[data-elapsed]').forEach(el => {
+      const s = achar(el.dataset.elapsed);
+      if (s) el.textContent = fmtMMSS(t - s.recebido);
+    });
+    document.querySelectorAll('[data-due]').forEach(el => {
+      const s = achar(el.dataset.due);
+      if (!s) return;
+      const info = dueInfo(s);
+      if (!info) return;
+      el.textContent = info.text;
+      el.dataset.level = info.level;
+      const card = el.closest('.card');
+      if (card) card.dataset.late = info.level === 'late' ? 1 : 0;
+    });
+    renderResumo();
+
+    const novos = servicos.filter(s => s.status === 'novo').length;
+    piscar = !piscar;
+    document.title = novos && piscar ? '(' + novos + ') NOVO ACIONAMENTO' : 'Central de Acionamentos';
+    if (novos && somLigado && !silenciado && t - ultimoAlarme > 12000) tocarAlarme();
+  }
+
+  render();
+  tick();
+  setInterval(tick, 1000);
+  agendarChegada(25000);
+})();
+</script>
