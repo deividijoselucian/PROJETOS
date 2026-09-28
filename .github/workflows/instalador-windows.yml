@@ -1,0 +1,40 @@
+name: Instalador Windows (teste)
+
+on:
+  push:
+    paths:
+      - "central-acionamentos/**"
+      - ".github/workflows/instalador-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar NSIS
+        run: sudo apt-get update && sudo apt-get install -y nsis
+
+      - name: Gerar o instalador
+        run: bash central-acionamentos/instalador/build.sh
+
+      - name: Guardar o .exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: CentralAcionamentos-Teste-Setup
+          path: central-acionamentos/instalador/dist/CentralAcionamentos-Teste-Setup.exe
+
+      - name: Publicar para download (pré-lançamento "instalador-teste")
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=instalador-teste
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Central de Acionamentos (instalador de teste)" \
+            --notes "Protótipo com dados de exemplo. Baixe o arquivo CentralAcionamentos-Teste-Setup.exe abaixo."
+          gh release upload "$TAG" central-acionamentos/instalador/dist/CentralAcionamentos-Teste-Setup.exe --clobber
