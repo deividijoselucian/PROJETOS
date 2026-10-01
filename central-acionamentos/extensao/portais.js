@@ -32,3 +32,24 @@ self.PORTAIS = {
   },
 };
 self.ORDEM_PORTAIS = ['porto', 'tokio', 'notro', 'aciona'];
+
+// Avisos por WhatsApp: configuração com os valores de quando nada foi preenchido ainda.
+self.zapComPadrao = (z = {}) => {
+  const numeros = z.numeros || {};
+  return {
+    ligado: false,
+    enviarPor: '1',
+    reserva: true,
+    destinos: '',
+    formato: 'evolution',
+    url: '',
+    chave: '',
+    ...z,
+    numeros: {
+      1: { nome: '', instancia: '', ...numeros[1] },
+      2: { nome: '', instancia: '', ...numeros[2] },
+    },
+    eventos: { novo: true, cancelado: true, mudanca: false, ...z.eventos },
+  };
+};
+self.nomeDoNumero = (z, n) => (z.numeros[n] && z.numeros[n].nome) || 'Número ' + n;

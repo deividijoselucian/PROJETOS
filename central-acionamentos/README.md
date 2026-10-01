@@ -14,9 +14,28 @@ prestador; a extensão lê a tela de serviços de cada um, junta os chamados num
 - para o alarme sozinha quando o chamado sai da lista de novos (aceito ou repassado);
 - no botão **Abrir no portal**, vai para a aba do portal e destaca a linha do chamado;
 - recarrega as abas dos portais que não se atualizam sozinhos (Tokio e Aciona Fácil, a cada
-  2 minutos, sem mexer na aba que está em uso).
+  2 minutos, sem mexer na aba que está em uso);
+- manda aviso por WhatsApp, pelo servidor, usando o número escolhido no painel.
 
-A extensão só lê: não clica, não aceita e não envia nada para fora do computador.
+## Avisos por WhatsApp
+
+Com dois números de WhatsApp conectados no servidor, o painel tem a escolha de qual deles
+manda os avisos: no alto da tela (troca rápida entre Número 1, Número 2 ou Desligado) e no
+bloco "Avisos por WhatsApp", onde ficam o nome e a identificação de cada número no servidor,
+para quem mandar, quando avisar (chamado novo, cancelado, chamado que apareceu direto em outra
+etapa) e a opção de tentar pelo outro número se o escolhido falhar.
+
+Formatos de envio:
+
+- **Evolution API**: `POST {endereço}/message/sendText/{identificação}` com o cabeçalho
+  `apikey` e o corpo `{ "number": "5549999990000", "text": "..." }`.
+- **Outro (JSON da Central)**: `POST {endereço}` com `Authorization: Bearer {chave}` e o corpo
+  `{ "de": "{identificação}", "para": "5549999990000", "mensagem": "..." }`.
+
+O Chrome pede autorização para falar com o endereço do servidor na primeira vez que você salva.
+
+A extensão só lê os portais: não clica nem aceita nada. A única coisa que sai do computador são
+os avisos por WhatsApp, se você ligar, e só para o endereço do seu servidor.
 
 ## Arquivos
 

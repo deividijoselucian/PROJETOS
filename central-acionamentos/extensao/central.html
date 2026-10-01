@@ -20,6 +20,10 @@
     </div>
     <div class="top-actions">
       <span class="clock" id="relogio">--:--:--</span>
+      <label class="zap-topo" for="zap-topo" title="Número de WhatsApp que manda os avisos">
+        <span>Avisos pelo WhatsApp</span>
+        <select id="zap-topo"></select>
+      </label>
       <button class="btn" id="abrir-todos">Abrir os portais</button>
       <button class="btn btn-primary" id="testar">Testar alarme</button>
     </div>
@@ -67,9 +71,71 @@
       <p class="muted">Para portais que não se atualizam sozinhos. A aba que você está usando não é recarregada.</p>
       <div class="recarga" id="recarga"></div>
     </div>
+
+    <div class="bloco largo" id="zap">
+      <h2>Avisos por WhatsApp</h2>
+      <p class="muted">Quando entrar chamado, a central manda uma mensagem pelo número escolhido, usando o seu servidor.</p>
+      <form id="zap-form" novalidate>
+        <label class="check"><input type="checkbox" id="zap-ligado"> Mandar avisos pelo WhatsApp</label>
+
+        <fieldset class="numeros">
+          <legend>Qual número manda as mensagens</legend>
+          <div class="numero" data-n="1">
+            <label class="usar"><input type="radio" name="zap-por" id="zap-por-1" value="1"> Usar o Número 1</label>
+            <label for="zap-nome-1">Nome</label>
+            <input id="zap-nome-1" placeholder="Ex.: WhatsApp do escritório" maxlength="40">
+            <label for="zap-inst-1">Identificação no servidor</label>
+            <input id="zap-inst-1" placeholder="Nome da instância ou o número" maxlength="80">
+          </div>
+          <div class="numero" data-n="2">
+            <label class="usar"><input type="radio" name="zap-por" id="zap-por-2" value="2"> Usar o Número 2</label>
+            <label for="zap-nome-2">Nome</label>
+            <input id="zap-nome-2" placeholder="Ex.: WhatsApp do plantão" maxlength="40">
+            <label for="zap-inst-2">Identificação no servidor</label>
+            <input id="zap-inst-2" placeholder="Nome da instância ou o número" maxlength="80">
+          </div>
+          <label class="check largo"><input type="checkbox" id="zap-reserva"> Se não conseguir mandar, tentar pelo outro número</label>
+        </fieldset>
+
+        <div class="zap-grade">
+          <div>
+            <label for="zap-destinos">Mandar para (um número por linha, com DDD)</label>
+            <textarea id="zap-destinos" rows="3" placeholder="49 99999-0000"></textarea>
+          </div>
+          <fieldset class="eventos">
+            <legend>Quando avisar</legend>
+            <label class="check"><input type="checkbox" id="zap-ev-novo"> Chamado novo</label>
+            <label class="check"><input type="checkbox" id="zap-ev-cancelado"> Chamado cancelado</label>
+            <label class="check"><input type="checkbox" id="zap-ev-mudanca"> Chamado que apareceu direto em outra etapa</label>
+          </fieldset>
+        </div>
+
+        <details class="servidor">
+          <summary>Configuração do servidor</summary>
+          <div class="servidor-campos">
+            <label for="zap-formato">Programa que manda o WhatsApp</label>
+            <select id="zap-formato">
+              <option value="evolution">Evolution API</option>
+              <option value="json">Outro (a Central manda em JSON)</option>
+            </select>
+            <label for="zap-url">Endereço do servidor</label>
+            <input id="zap-url" type="url" placeholder="https://seu-servidor.com.br" autocomplete="off">
+            <label for="zap-chave">Chave de acesso</label>
+            <input id="zap-chave" type="password" autocomplete="off">
+          </div>
+          <p class="muted" id="zap-ajuda"></p>
+        </details>
+
+        <div class="zap-acoes">
+          <button type="submit" class="btn btn-primary">Salvar</button>
+          <button type="button" class="btn" id="zap-testar">Salvar e mandar mensagem de teste</button>
+          <span id="zap-status" class="zap-status" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+    </div>
   </section>
 
-  <p class="rodape">A extensão só lê as telas dos portais: não clica, não aceita e não envia nada para fora do seu computador.</p>
+  <p class="rodape">A extensão só lê as telas dos portais: não clica nem aceita nada. Só os avisos por WhatsApp, se você ligar, saem do computador, e vão apenas para o seu servidor.</p>
 </main>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

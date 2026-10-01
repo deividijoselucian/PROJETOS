@@ -32,8 +32,91 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
     case 'abrir-todos': emFila(abrirTodos); break;
     case 'config': emFila(() => chrome.storage.local.set({ config: msg.config })); break;
     case 'som-pronto': emFila(atualizarAlarme); break;
+    case 'testar-whatsapp':
+      mandarZap('*Teste da Central de Acionamentos*\nOs avisos de chamado vão sair por este número.', true);
+      break;
   }
 });
+
+/* ---------- avisos por WhatsApp ---------- */
+
+// Uma mensagem de cada vez, fora da fila das leituras (o servidor pode demorar).
+let filaZap = Promise.resolve();
+const mandarZap = (texto, teste) => (filaZap = filaZap.then(() => enviarWhatsApp(texto, teste)).catch(err => console.error(err)));
+
+// "49 99999-0000" vira "5549999990000".
+function numeroWhats(s) {
+  const d = String(s).replace(/\D/g, '');
+  if (d.length === 10 || d.length === 11) return '55' + d;
+  if ((d.length === 12 || d.length === 13) && d.startsWith('55')) return d;
+  return null;
+}
+
+function mensagemZap(portal, c, evento) {
+  const titulo = { novo: '🚨 NOVO ACIONAMENTO', cancelado: '❌ CHAMADO CANCELADO', mudanca: '🔔 CHAMADO NA CENTRAL' }[evento];
+  return [
+    `*${titulo}* · ${PORTAIS[portal].nome}`,
+    [c.titulo, c.protocolo].filter(Boolean).join(' · '),
+    c.detalhes,
+    c.prazo ? 'Prazo: ' + c.prazo : '',
+    evento === 'novo' ? (portal === 'porto' ? 'Abra o portal e aceite antes que a Porto repasse.' : 'Abra o portal para aceitar.') : '',
+  ].filter(Boolean).join('\n');
+}
+
+async function enviarUm(z, numero, para, texto) {
+  const base = z.url.replace(/\/+$/, '');
+  const ctrl = new AbortController();
+  const limite = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const resp = z.formato === 'evolution'
+      ? await fetch(`${base}/message/sendText/${encodeURIComponent(numero.instancia)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: z.chave },
+        body: JSON.stringify({ number: para, text: texto }),
+        signal: ctrl.signal,
+      })
+      : await fetch(base, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + z.chave },
+        body: JSON.stringify({ de: numero.instancia || numero.nome, para, mensagem: texto }),
+        signal: ctrl.signal,
+      });
+    if (!resp.ok) throw new Error('o servidor respondeu com erro ' + resp.status);
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('o servidor não respondeu em 15 segundos');
+    if (e instanceof TypeError) throw new Error('não consegui falar com o servidor');
+    throw e;
+  } finally {
+    clearTimeout(limite);
+  }
+}
+
+// Manda pelo número escolhido; se falhar e a reserva estiver ligada, tenta pelo outro.
+async function enviarWhatsApp(texto, teste) {
+  const { config = {} } = await chrome.storage.local.get('config');
+  const z = zapComPadrao(config.whatsapp);
+  const status = s => chrome.storage.local.set({ whatsappStatus: { em: Date.now(), teste: !!teste, ...s } });
+  if (!z.ligado && !teste) return;
+  if (!z.url) return status({ ok: false, erro: 'falta o endereço do servidor.' });
+  const destinos = z.destinos.split(/[\n,;]+/).map(numeroWhats).filter(Boolean);
+  if (!destinos.length) return status({ ok: false, erro: 'nenhum número válido em "Mandar para".' });
+
+  await status({ enviando: true });
+  const ordem = [z.enviarPor];
+  if (z.reserva) ordem.push(z.enviarPor === '1' ? '2' : '1');
+  const erros = [];
+  for (const n of ordem) {
+    const numero = z.numeros[n];
+    if (!numero.instancia) { erros.push(`${nomeDoNumero(z, n)} sem identificação no servidor`); continue; }
+    try {
+      for (const para of destinos) await enviarUm(z, numero, para, texto);
+      return status({ ok: true, numero: nomeDoNumero(z, n), falhou: n !== z.enviarPor ? nomeDoNumero(z, z.enviarPor) : '' });
+    } catch (e) {
+      erros.push(`${nomeDoNumero(z, n)}: ${e.message}`);
+    }
+  }
+  return status({ ok: false, erro: erros.join('; ') + '.' });
+}
 
 const descricao = c => [c.titulo, c.protocolo, c.detalhes].filter(Boolean).join(' · ').slice(0, 220);
 
@@ -64,9 +147,15 @@ async function receberLeitura({ portal, leitura, pagina }, tab) {
   estado[portal] = { ...antes, ...leitura, lidoEm: agora, tabId: tab.id, windowId: tab.windowId, pagina };
   await chrome.storage.local.set({ estado });
 
-  for (const { c, tipo } of novidades.slice(0, 3)) {
-    const texto = (c.etapa === 'cancelado' ? 'Cancelado: ' : '') + descricao(c);
-    await dispararAlarme(portal, c.id, texto, tipo);
+  if (novidades.length) {
+    const { config = {} } = await chrome.storage.local.get('config');
+    const zap = zapComPadrao(config.whatsapp);
+    for (const { c, tipo } of novidades.slice(0, 3)) {
+      const texto = (c.etapa === 'cancelado' ? 'Cancelado: ' : '') + descricao(c);
+      await dispararAlarme(portal, c.id, texto, tipo);
+      const evento = c.etapa === 'novo' ? 'novo' : c.etapa === 'cancelado' ? 'cancelado' : 'mudanca';
+      if (zap.ligado && zap.eventos[evento]) mandarZap(mensagemZap(portal, c, evento));
+    }
   }
   await atualizarAlarme();
 }

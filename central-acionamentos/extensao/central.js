@@ -24,14 +24,22 @@
   ];
   const LEITURA_VELHA = 10 * MIN; // chamados de portal sem leitura há mais que isso saem do quadro
 
-  let dados = { estado: {}, alarme: { itens: [] }, historico: [], config: {} };
+  let dados = { estado: {}, alarme: { itens: [] }, historico: [], config: {}, whatsappStatus: null };
   let adiado = false;
+  let formPreenchido = false;
 
   chrome.tabs.getCurrent(tab => { if (tab) chrome.storage.session.set({ centralTab: tab.id }); });
 
   async function carregar() {
-    const d = await chrome.storage.local.get(['estado', 'alarme', 'historico', 'config']);
-    dados = { estado: d.estado || {}, alarme: d.alarme || { itens: [] }, historico: d.historico || [], config: d.config || {} };
+    const d = await chrome.storage.local.get(['estado', 'alarme', 'historico', 'config', 'whatsappStatus']);
+    dados = {
+      estado: d.estado || {},
+      alarme: d.alarme || { itens: [] },
+      historico: d.historico || [],
+      config: d.config || {},
+      whatsappStatus: d.whatsappStatus || null,
+    };
+    if (!formPreenchido) { preencherZap(zapComPadrao(dados.config.whatsapp)); formPreenchido = true; }
     render();
   }
   chrome.storage.onChanged.addListener((_, area) => { if (area === 'local') carregar(); });
@@ -65,6 +73,8 @@
     renderBoard(chamados);
     renderHistorico();
     renderRecarga();
+    renderZapTopo();
+    renderZapStatus();
   }
   document.addEventListener('focusout', () => { if (adiado) { adiado = false; setTimeout(render, 0); } });
 
@@ -159,6 +169,139 @@
         <select id="rec-${k}" data-rec="${k}">${opcoes.map(([v, r]) => `<option value="${v}"${v === atual ? ' selected' : ''}>${r}</option>`).join('')}</select>`;
     }).join('');
   }
+
+  /* ---------- avisos por WhatsApp ---------- */
+  const AJUDA_FORMATO = {
+    evolution: 'Manda para {endereço}/message/sendText/{identificação do número}, com a chave no cabeçalho "apikey".',
+    json: 'Manda um POST para o endereço com { de, para, mensagem } e a chave em "Authorization: Bearer".',
+  };
+  const campo = id => document.getElementById(id);
+
+  function preencherZap(z) {
+    campo('zap-ligado').checked = z.ligado;
+    campo('zap-por-' + z.enviarPor).checked = true;
+    for (const n of ['1', '2']) {
+      campo('zap-nome-' + n).value = z.numeros[n].nome;
+      campo('zap-inst-' + n).value = z.numeros[n].instancia;
+    }
+    campo('zap-reserva').checked = z.reserva;
+    campo('zap-destinos').value = z.destinos;
+    campo('zap-ev-novo').checked = z.eventos.novo;
+    campo('zap-ev-cancelado').checked = z.eventos.cancelado;
+    campo('zap-ev-mudanca').checked = z.eventos.mudanca;
+    campo('zap-formato').value = z.formato;
+    campo('zap-url').value = z.url;
+    campo('zap-chave').value = z.chave;
+    campo('zap-ajuda').textContent = AJUDA_FORMATO[z.formato];
+  }
+
+  function lerZap() {
+    const marcado = document.querySelector('input[name="zap-por"]:checked');
+    return zapComPadrao({
+      ligado: campo('zap-ligado').checked,
+      enviarPor: marcado ? marcado.value : '1',
+      reserva: campo('zap-reserva').checked,
+      numeros: {
+        1: { nome: campo('zap-nome-1').value.trim(), instancia: campo('zap-inst-1').value.trim() },
+        2: { nome: campo('zap-nome-2').value.trim(), instancia: campo('zap-inst-2').value.trim() },
+      },
+      destinos: campo('zap-destinos').value.trim(),
+      eventos: {
+        novo: campo('zap-ev-novo').checked,
+        cancelado: campo('zap-ev-cancelado').checked,
+        mudanca: campo('zap-ev-mudanca').checked,
+      },
+      formato: campo('zap-formato').value,
+      url: campo('zap-url').value.trim(),
+      chave: campo('zap-chave').value.trim(),
+    });
+  }
+
+  function mostrarZapStatus(ok, texto) {
+    const el = campo('zap-status');
+    el.dataset.ok = ok == null ? '' : ok ? '1' : '0';
+    el.textContent = texto;
+  }
+
+  function renderZapStatus() {
+    const s = dados.whatsappStatus;
+    if (!s) return;
+    if (s.enviando) return mostrarZapStatus(null, 'Mandando mensagem…');
+    if (s.ok) {
+      const reserva = s.falhou ? `, como reserva (o ${s.falhou} falhou)` : '';
+      return mostrarZapStatus(true, `${s.teste ? 'Teste enviado' : 'Última mensagem'} às ${hora(s.em)} pelo ${s.numero}${reserva}.`);
+    }
+    mostrarZapStatus(false, `Mensagem das ${hora(s.em)} não foi: ${s.erro}`);
+  }
+
+  function renderZapTopo() {
+    const z = zapComPadrao(dados.config.whatsapp);
+    const sel = campo('zap-topo');
+    const valor = z.ligado ? z.enviarPor : 'off';
+    sel.innerHTML = ['1', '2'].map(n => {
+      const nome = nomeDoNumero(z, n);
+      return `<option value="${n}">${esc(nome === 'Número ' + n ? nome : 'Nº ' + n + ' · ' + nome)}</option>`;
+    }).join('') + '<option value="off">Desligado</option>';
+    sel.value = valor;
+    sel.closest('label').dataset.ligado = z.ligado ? '1' : '0';
+  }
+
+  async function gravarZap(z) {
+    dados.config = Object.assign({}, dados.config, { whatsapp: z });
+    await chrome.storage.local.set({ config: dados.config });
+  }
+
+  // O Chrome só deixa a extensão falar com o servidor depois que você autoriza o endereço.
+  function salvarZap(depois) {
+    const z = lerZap();
+    let origem = null;
+    if (z.url) {
+      try {
+        const u = new URL(z.url);
+        if (!/^https?:$/.test(u.protocol)) throw new Error();
+        origem = u.origin + '/*';
+      } catch (e) {
+        mostrarZapStatus(false, 'O endereço do servidor não parece certo. Exemplo: https://seu-servidor.com.br');
+        return;
+      }
+    }
+    const seguir = async () => {
+      await gravarZap(z);
+      preencherZap(z);
+      renderZapTopo();
+      if (depois) depois(z);
+      else mostrarZapStatus(true, z.ligado ? `Salvo. Os avisos vão sair pelo ${nomeDoNumero(z, z.enviarPor)}.` : 'Salvo. Avisos pelo WhatsApp desligados.');
+    };
+    if (!origem) return seguir();
+    chrome.permissions.request({ origins: [origem] }, ok => {
+      if (!ok) {
+        mostrarZapStatus(false, 'Sem permissão para falar com o servidor. Clique em Salvar de novo e aceite o pedido do Chrome.');
+        return;
+      }
+      seguir();
+    });
+  }
+
+  campo('zap-form').addEventListener('submit', e => { e.preventDefault(); salvarZap(); });
+  campo('zap-testar').addEventListener('click', () => {
+    salvarZap(z => {
+      if (!z.url) return mostrarZapStatus(false, 'Falta o endereço do servidor (em Configuração do servidor).');
+      mostrarZapStatus(null, 'Mandando mensagem de teste…');
+      enviar({ tipo: 'testar-whatsapp' });
+    });
+  });
+  campo('zap-formato').addEventListener('change', e => { campo('zap-ajuda').textContent = AJUDA_FORMATO[e.target.value]; });
+
+  // Troca rápida no alto da tela.
+  campo('zap-topo').addEventListener('change', async e => {
+    const z = zapComPadrao(dados.config.whatsapp);
+    if (e.target.value === 'off') z.ligado = false;
+    else { z.ligado = true; z.enviarPor = e.target.value; }
+    await gravarZap(z);
+    preencherZap(z);
+    toast(z.ligado ? `Avisos pelo WhatsApp saindo pelo ${nomeDoNumero(z, z.enviarPor)}.` : 'Avisos pelo WhatsApp desligados.');
+    e.target.blur();
+  });
 
   let toastTimer = null;
   function toast(msg) {

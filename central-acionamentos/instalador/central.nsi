@@ -14,7 +14,7 @@ ManifestDPIAware true
 
 !define APP_NOME   "Central de Acionamentos"
 !define APP_ID     "CentralAcionamentos"
-!define APP_VERSAO "0.2.0"
+!define APP_VERSAO "0.3.0"
 !define CHAVE_DESINSTALAR "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
 !define PAINEL_URL "chrome-extension://${EXT_ID}/central.html"
 
