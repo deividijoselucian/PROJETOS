@@ -45,7 +45,9 @@ os avisos por WhatsApp, se você ligar, e só para o endereço do seu servidor.
   - `central.html`, `central.css`, `central.js`: o painel.
   - `som.html`, `som.js`: toca o alarme.
   - `portais.js`: endereços e telas de cada portal.
-- `prototipo.html`: a primeira demonstração, com dados de exemplo.
+- `demonstracao/`: o painel numa página só, com dados de exemplo, para abrir no navegador.
+  `montar.py` junta o painel da extensão com `simulador.js` (que faz o papel da extensão)
+  e gera `demonstracao.html`.
 - `instalador/`: gera o instalador de teste para Windows e o .zip da extensão.
 
 ## Instalador de teste (Windows)

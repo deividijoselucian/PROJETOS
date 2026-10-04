@@ -8,12 +8,14 @@ cd "$(dirname "$0")"
 rm -rf build
 mkdir -p build dist
 
-# A página de demonstração não tem <html>/<head> (a plataforma de artefatos coloca na
-# hora de publicar). Para abrir direto no Windows, acrescenta a codificação e o viewport.
+# Demonstração: o painel com dados de exemplo. A página não tem <html>/<head> (a plataforma
+# de artefatos coloca na hora de publicar); para abrir direto no Windows, acrescenta a
+# codificação e o viewport.
+python3 ../demonstracao/montar.py
 {
   printf '<!doctype html>\n<html lang="pt-BR">\n<meta charset="utf-8">\n'
   printf '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-  cat ../prototipo.html
+  cat ../demonstracao/demonstracao.html
   printf '\n</html>\n'
 } > build/index.html
 cp instalar-extensao.html build/

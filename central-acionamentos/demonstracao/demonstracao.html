@@ -1,0 +1,992 @@
+<title>Central de Acionamentos</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --ground:#E8ECEF; --surface:#FFFFFF; --surface-2:#F3F5F7; --line:#D3DAE0;
+  --ink:#15202A; --muted:#566471; --faint:#7F8B96;
+  --amber:#F2A900; --on-amber:#1D1600; --amber-soft:#FFF2CC; --amber-text:#855700;
+  --red:#C42E1C; --red-soft:#FBE4E0; --green:#1F7D45; --green-soft:#DFF1E6; --blue:#28609F;
+  --p-porto:#1D5BB8; --p-tokio:#16864A; --p-notro:#39414C; --p-aciona:#7E9E1F; --p-teste:#7F8B96;
+  --shadow:0 1px 2px rgba(21,32,42,.06),0 3px 10px rgba(21,32,42,.05);
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --ground:#0D1419; --surface:#151F28; --surface-2:#1B2731; --line:#283744;
+    --ink:#E3EAEF; --muted:#9BA9B5; --faint:#75838F;
+    --amber:#F5B524; --on-amber:#1D1600; --amber-soft:#35290A; --amber-text:#F7C75A;
+    --red:#F2654F; --red-soft:#3A1813; --green:#4BC27B; --green-soft:#10301E; --blue:#72A6E8;
+    --p-porto:#5B93E6; --p-tokio:#3FBE78; --p-notro:#B8C1CC; --p-aciona:#AFD04A; --p-teste:#75838F;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+    color-scheme:dark;
+    --ground:#0D1419; --surface:#151F28; --surface-2:#1B2731; --line:#283744;
+    --ink:#E3EAEF; --muted:#9BA9B5; --faint:#75838F;
+    --amber:#F5B524; --on-amber:#1D1600; --amber-soft:#35290A; --amber-text:#F7C75A;
+    --red:#F2654F; --red-soft:#3A1813; --green:#4BC27B; --green-soft:#10301E; --blue:#72A6E8;
+    --p-porto:#5B93E6; --p-tokio:#3FBE78; --p-notro:#B8C1CC; --p-aciona:#AFD04A; --p-teste:#75838F;
+    --shadow:none;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:0 32px}
+h1,h2,h3{text-wrap:balance}
+.muted{color:var(--muted)}
+
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--ground);margin-inline:-16px;padding-inline:16px;border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1680px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding-block:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:40px;height:40px;flex:none}
+.brand h1{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.02em;text-transform:uppercase;margin:0;line-height:1}
+.brand p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.clock{font-family:var(--mono);font-size:15px;font-variant-numeric:tabular-nums;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+
+.btn{font:600 14px/1 var(--body);border-radius:6px;padding:9px 12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn:focus-visible,select:focus-visible,.pill-portal:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.btn:disabled{opacity:.6;cursor:default}
+.btn-primary{background:var(--amber);border-color:var(--amber);color:var(--on-amber)}
+.btn-primary:hover{background:var(--amber);filter:brightness(1.06)}
+.btn-sm{padding:7px 9px;font-size:13px}
+.btn-dark{background:var(--on-amber);border-color:var(--on-amber);color:#FFD66B}
+.btn-dark:hover{background:#000}
+.btn-outline-dark{background:transparent;border-color:rgba(29,22,0,.45);color:var(--on-amber)}
+.btn-outline-dark:hover{background:rgba(255,255,255,.3)}
+
+.wrap{max-width:1680px;margin:0 auto;display:flex;flex-direction:column;gap:16px;padding-top:14px}
+.label{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:13px;color:var(--muted);font-weight:600;margin:0 0 8px}
+
+/* alerta */
+.alerta{background:var(--amber);color:var(--on-amber);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.alerta-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.alerta h2{font-family:var(--display);font-weight:700;font-size:24px;text-transform:uppercase;letter-spacing:.03em;margin:0;display:flex;align-items:center;gap:12px;line-height:1}
+.beacon{width:14px;height:14px;border-radius:50%;background:var(--on-amber);animation:pulse 1s ease-out infinite;flex:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(29,22,0,.55)}100%{box-shadow:0 0 0 14px rgba(29,22,0,0)}}
+.alerta-lista{display:flex;flex-direction:column;gap:8px}
+.alerta-item{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;background:rgba(255,255,255,.4);border-radius:8px;padding:10px 12px}
+.alerta-item .t{font-weight:600;font-size:16px;display:flex;align-items:center;gap:8px}
+.alerta-item .t .pdot{box-shadow:0 0 0 2px #fff}
+.alerta-item .s{font-size:14px;font-variant-numeric:tabular-nums}
+
+/* portais */
+.portais{display:flex;flex-wrap:wrap;gap:8px}
+.pill-portal{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border:1px solid var(--line);border-radius:8px;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.pill-portal:hover{background:var(--surface-2)}
+.pill-portal[data-sit="erro"]{border-color:var(--red);background:var(--red-soft)}
+.pill-portal[data-sit="aviso"]{border-color:var(--amber)}
+.pdot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+.ptext{display:flex;flex-direction:column;line-height:1.2}
+.ptext b{font-weight:600}
+.ptext span{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pill-portal[data-sit="erro"] .ptext span{color:var(--red)}
+.pill-portal[data-sit="aviso"] .ptext span{color:var(--amber-text)}
+.pcount{font-family:var(--mono);font-size:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;min-width:24px;text-align:center}
+
+/* resumo */
+.resumo{display:flex;flex-wrap:wrap;gap:8px}
+.stat{display:flex;align-items:baseline;gap:8px;padding:8px 12px;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+.stat b{font-family:var(--display);font-size:26px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+.stat[data-sev="warn"]{background:var(--amber-soft);border-color:transparent}
+.stat[data-sev="warn"] b{color:var(--amber-text)}
+.stat[data-sev="crit"]{background:var(--red-soft);border-color:transparent}
+.stat[data-sev="crit"] b{color:var(--red)}
+
+/* quadro */
+.board{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:640px){.board{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:960px){.board{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1280px){.board{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.col{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:140px}
+.col[data-col="novo"][data-has="1"]{background:var(--amber-soft);border-color:var(--amber)}
+.col-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:2px 4px 0}
+.col-head h2{font-family:var(--display);font-weight:600;font-size:17px;text-transform:uppercase;letter-spacing:.05em;margin:0}
+.col[data-col="novo"] .col-head h2{color:var(--amber-text)}
+.col-count{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.empty{font-size:13px;color:var(--faint);padding:12px 4px;text-align:center;margin:0}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:5px;box-shadow:var(--shadow)}
+.card[data-atraso="1"]{border-color:var(--red)}
+.card p{margin:0}
+.card-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px}
+.ptag{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--muted)}
+.proto{font-family:var(--mono);font-size:12px;color:var(--faint);overflow-wrap:anywhere;text-align:right}
+.svc{font-family:var(--display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.02em;margin:0;line-height:1.1;overflow-wrap:anywhere}
+.det{font-size:13px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.due{font-size:13px;font-weight:600;color:var(--blue)}
+.card[data-atraso="1"] .due{color:var(--red)}
+.note{font-size:12px;color:var(--amber-text);background:var(--amber-soft);padding:4px 8px;border-radius:4px;font-variant-numeric:tabular-nums}
+.selo{align-self:flex-start;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:1px 6px;border-radius:4px;background:var(--red-soft);color:var(--red)}
+.card-foot{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-top:8px;border-top:1px solid var(--line);margin-top:3px}
+.secao{font-size:12px;color:var(--faint);margin-left:auto}
+
+/* rodapé */
+.rodape-grid{display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:960px){.rodape-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bloco{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.bloco h2{font-family:var(--display);font-weight:700;font-size:19px;text-transform:uppercase;letter-spacing:.03em;margin:0 0 8px}
+.bloco h3{font-family:var(--display);font-weight:600;font-size:16px;text-transform:uppercase;letter-spacing:.04em;margin:14px 0 2px}
+.bloco p{margin:0 0 8px;font-size:13px}
+.historico,.passos{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.historico{list-style:none;padding-left:0}
+.historico .hh{font-family:var(--mono);font-size:12px;color:var(--faint);margin-right:6px}
+.recarga{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;font-size:14px}
+.recarga select{font:14px var(--body);padding:5px 6px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);max-width:220px}
+.rodape{font-size:12px;color:var(--faint);margin:0}
+
+/* WhatsApp */
+.zap-topo{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);padding:3px 4px 3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.zap-topo[data-ligado="0"]{opacity:.65}
+.zap-topo select{font:600 14px var(--body);border:0;background:transparent;color:var(--ink);padding:4px 2px}
+.bloco.largo{grid-column:1/-1}
+#zap-form{display:flex;flex-direction:column;gap:14px}
+#zap-form label{font-size:13px;color:var(--muted)}
+#zap-form input:not([type="checkbox"]):not([type="radio"]),#zap-form textarea,#zap-form select{font:14px var(--body);padding:7px 9px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%;max-width:100%}
+#zap-form textarea{resize:vertical;font-family:var(--mono);font-size:13px}
+#zap-form :focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+#zap-form .check{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink)}
+#zap-form input[type="checkbox"],#zap-form input[type="radio"]{width:17px;height:17px;accent-color:var(--amber);margin:0}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+legend{font-family:var(--display);font-weight:600;font-size:15px;text-transform:uppercase;letter-spacing:.04em;padding:0;margin-bottom:8px}
+.numeros{display:grid;gap:10px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:720px){.numeros{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.numeros .largo{grid-column:1/-1}
+.numero{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
+.numero:has(input[type="radio"]:checked){border-color:var(--amber);background:var(--amber-soft);box-shadow:inset 0 0 0 1px var(--amber)}
+#zap-form .numero .usar{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;color:var(--ink);margin-bottom:4px;cursor:pointer}
+.zap-grade{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:720px){.zap-grade{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.zap-grade > div{display:flex;flex-direction:column;gap:4px}
+.eventos{display:flex;flex-direction:column;gap:6px}
+.servidor summary{cursor:pointer;font-weight:600;font-size:14px}
+.servidor-campos{display:grid;gap:4px 12px;grid-template-columns:minmax(0,1fr);margin-top:10px;max-width:560px}
+.servidor p{margin:8px 0 0}
+.zap-acoes{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.zap-status{font-size:13px;color:var(--muted)}
+.zap-status[data-ok="1"]{color:var(--green)}
+.zap-status[data-ok="0"]{color:var(--red)}
+
+.toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:11px 16px;border-radius:8px;font-size:14px;width:max-content;max-width:min(560px,calc(100vw - 32px));box-shadow:0 8px 28px rgba(0,0,0,.28);z-index:50}
+
+@media (max-width:640px){.topbar{position:static}.brand h1{font-size:22px}}
+@media (prefers-reduced-motion:reduce){.beacon{animation:none}}
+
+/* só na demonstração */
+.demo-faixa{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding:10px 14px;border:1px dashed var(--faint);border-radius:8px;background:var(--surface);font-size:14px}
+.demo-faixa p{margin:0;max-width:85ch}
+.demo-avisos{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;z-index:60;width:min(360px,calc(100vw - 32px))}
+.demo-aviso{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.25);padding:10px 12px;display:grid;grid-template-columns:32px minmax(0,1fr);gap:2px 10px;align-items:start}
+.demo-aviso img{width:32px;height:32px;grid-row:span 3}
+.demo-aviso small{color:var(--faint);font-size:11px}
+.demo-aviso b{font-size:14px;line-height:1.3}
+.demo-aviso span{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+</style>
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <img class="mark" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAACRElEQVR42mNgwAJEFbRkgLgCiPcD8Ucg/j9A+CPUDSC3yDAQAkBF7EDcB8Q/BtDRuPAPqNvYcTleFIiPDUKHo2OQG0WxhfxQcDyyJ9iRPdA3hBwPw33IGfbHEPTAD3DGhubw/0MUVzBAi6mh6oH9DLQq5xU1NP4f7+MAYxCbVvUEA61Cx8pc+f+nlQxgDGLTyp5RD4x6YNQDRCqckCP8f1qB0H9pFU2aeQBkNsgOkF1U9YCJsQrcMVubeYjyhLq22v9nC5nAGMQmxvEgs2H2gOykagyAQoYcT5DjeJBdNMkD5HiClo4nKxOje4JSD1DieLJLIZgn3ixlxJt8QJkXhPElI5AZ5DqeomI0O1Tqf6SXLEb7pyVF9P/laWzwUIVhkBhIDr1dBDIDZNaA1wM+Tgr/b85ixXA4OgapAakdVBVZkJscPCkQg0FqQXoGhQdA5TUpjkf2BLFlPU09sKKaj2THwzBI74B6ALmGJhdTGgtYPVAYKQEOHXSM3hYCqaPUAyAz0NtC2OxGVkfQA6D2Cy4LkRtmyJUauRi5/EduAKJjkJuI9kBqoDTWUEBvJVKS/nHlA5Ad2OwGuYnqeYAWHqBrJh71wKgHRpoH6tp6/h89dQ6O79489f/Vw+MUYZAZyGaC7KCJB0Lj0v6/ePOeLhhkF9U9AAoZenmAlFgYOR5IzCqkmwdAdpHiAaKG16XV9P/PWbTi/6Nnr2jmcJDZIDtAdpEyvD7kJziG/BTT0J7kG/LTrMNionvILzUYFos9hupyGwB83tD11+8aiQAAAABJRU5ErkJggg==" alt="">
+      <div>
+        <h1>Central de Acionamentos</h1>
+        <p>Todos os chamados dos portais numa tela só</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="clock" id="relogio">--:--:--</span>
+      <label class="zap-topo" for="zap-topo" title="Número de WhatsApp que manda os avisos">
+        <span>Avisos pelo WhatsApp</span>
+        <select id="zap-topo"></select>
+      </label>
+      <button class="btn" id="abrir-todos">Abrir os portais</button>
+      <button class="btn btn-primary" id="testar">Testar alarme</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="demo-faixa" aria-label="Sobre esta demonstração">
+    <p><b>Demonstração com dados de exemplo.</b> Os chamados chegam sozinhos a cada minuto. No sistema de verdade, eles vêm dos portais abertos no seu Chrome, e o WhatsApp sai pelo seu servidor. Clique em qualquer lugar uma vez para liberar o som.</p>
+    <button class="btn btn-sm" id="demo-chegar">Simular chamado novo</button>
+  </section>
+
+  <section class="alerta" id="alerta" aria-live="assertive" hidden>
+    <div class="alerta-head">
+      <h2><span class="beacon" aria-hidden="true"></span><span id="alerta-titulo">Novo acionamento</span></h2>
+      <div class="top-actions">
+        <button class="btn btn-sm btn-outline-dark" id="silenciar">Silenciar alarme</button>
+        <button class="btn btn-sm btn-outline-dark" id="limpar">Limpar avisos</button>
+      </div>
+    </div>
+    <div class="alerta-lista" id="alerta-lista"></div>
+  </section>
+
+  <section aria-labelledby="t-portais">
+    <h2 class="label" id="t-portais">Portais</h2>
+    <div class="portais" id="portais"></div>
+  </section>
+
+  <section aria-label="Resumo">
+    <div class="resumo" id="resumo"></div>
+  </section>
+
+  <section class="board" id="board" aria-label="Chamados"></section>
+
+  <section class="rodape-grid">
+    <div class="bloco">
+      <h2>Últimos avisos</h2>
+      <ol class="historico" id="historico"></ol>
+    </div>
+    <div class="bloco">
+      <h2>Para funcionar bem</h2>
+      <ol class="passos">
+        <li>Deixe cada portal aberto numa aba do Chrome, com o seu login, na tela de serviços. O botão <b>Abrir os portais</b> abre os que faltam.</li>
+        <li>No Notro, ligue <b>Atualizar a cada 30 seg</b> e deixe na aba <b>Todos</b>.</li>
+        <li>Não feche as abas dos portais. Se algum pedir login de novo, ele fica vermelho aqui em cima.</li>
+        <li>O alarme e o aviso do Windows funcionam mesmo com esta tela fechada, desde que o Chrome esteja aberto.</li>
+        <li>Aceite o serviço no portal. Quando ele sai da lista de novos, o alarme para sozinho.</li>
+      </ol>
+      <h3>Recarregar a tela do portal</h3>
+      <p class="muted">Para portais que não se atualizam sozinhos. A aba que você está usando não é recarregada.</p>
+      <div class="recarga" id="recarga"></div>
+    </div>
+
+    <div class="bloco largo" id="zap">
+      <h2>Avisos por WhatsApp</h2>
+      <p class="muted">Quando entrar chamado, a central manda uma mensagem pelo número escolhido, usando o seu servidor.</p>
+      <form id="zap-form" novalidate>
+        <label class="check"><input type="checkbox" id="zap-ligado"> Mandar avisos pelo WhatsApp</label>
+
+        <fieldset class="numeros">
+          <legend>Qual número manda as mensagens</legend>
+          <div class="numero" data-n="1">
+            <label class="usar"><input type="radio" name="zap-por" id="zap-por-1" value="1"> Usar o Número 1</label>
+            <label for="zap-nome-1">Nome</label>
+            <input id="zap-nome-1" placeholder="Ex.: WhatsApp do escritório" maxlength="40">
+            <label for="zap-inst-1">Identificação no servidor</label>
+            <input id="zap-inst-1" placeholder="Nome da instância ou o número" maxlength="80">
+          </div>
+          <div class="numero" data-n="2">
+            <label class="usar"><input type="radio" name="zap-por" id="zap-por-2" value="2"> Usar o Número 2</label>
+            <label for="zap-nome-2">Nome</label>
+            <input id="zap-nome-2" placeholder="Ex.: WhatsApp do plantão" maxlength="40">
+            <label for="zap-inst-2">Identificação no servidor</label>
+            <input id="zap-inst-2" placeholder="Nome da instância ou o número" maxlength="80">
+          </div>
+          <label class="check largo"><input type="checkbox" id="zap-reserva"> Se não conseguir mandar, tentar pelo outro número</label>
+        </fieldset>
+
+        <div class="zap-grade">
+          <div>
+            <label for="zap-destinos">Mandar para (um número por linha, com DDD)</label>
+            <textarea id="zap-destinos" rows="3" placeholder="49 99999-0000"></textarea>
+          </div>
+          <fieldset class="eventos">
+            <legend>Quando avisar</legend>
+            <label class="check"><input type="checkbox" id="zap-ev-novo"> Chamado novo</label>
+            <label class="check"><input type="checkbox" id="zap-ev-cancelado"> Chamado cancelado</label>
+            <label class="check"><input type="checkbox" id="zap-ev-mudanca"> Chamado que apareceu direto em outra etapa</label>
+          </fieldset>
+        </div>
+
+        <details class="servidor">
+          <summary>Configuração do servidor</summary>
+          <div class="servidor-campos">
+            <label for="zap-formato">Programa que manda o WhatsApp</label>
+            <select id="zap-formato">
+              <option value="evolution">Evolution API</option>
+              <option value="json">Outro (a Central manda em JSON)</option>
+            </select>
+            <label for="zap-url">Endereço do servidor</label>
+            <input id="zap-url" type="url" placeholder="https://seu-servidor.com.br" autocomplete="off">
+            <label for="zap-chave">Chave de acesso</label>
+            <input id="zap-chave" type="password" autocomplete="off">
+          </div>
+          <p class="muted" id="zap-ajuda"></p>
+        </details>
+
+        <div class="zap-acoes">
+          <button type="submit" class="btn btn-primary">Salvar</button>
+          <button type="button" class="btn" id="zap-testar">Salvar e mandar mensagem de teste</button>
+          <span id="zap-status" class="zap-status" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <p class="rodape">A extensão só lê as telas dos portais: não clica nem aceita nada. Só os avisos por WhatsApp, se você ligar, saem do computador, e vão apenas para o seu servidor.</p>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script>
+// Portais que a extensão lê. Usado pela central e pelo serviço em segundo plano.
+// "recarregar" é de quantos em quantos minutos a extensão recarrega a aba (0 = não recarrega),
+// para portais cuja tela não se atualiza sozinha. Dá para mudar na central.
+self.PORTAIS = {
+  porto: {
+    nome: 'Porto Seguro',
+    url: 'https://prestador.portoseguro.com.br/pdp/iframe?menuid=PDP-00077&javax.portlet.ctx_iframe=url=https://www.portoseguro.com.br/integracaoportaldeprestadores/chaveadorReceberServicos.do?portal=2',
+    tela: 'Serviços e Frota › Recebimento de Serviços',
+    recarregar: 0,
+    dica: 'A própria tela da Porto se atualiza a cada 90 segundos.',
+  },
+  tokio: {
+    nome: 'Tokio Marine',
+    url: 'https://tms-prestador.tokiomarine.com.br/acompanhamentoServico',
+    tela: 'Acompanhamento de Serviço',
+    recarregar: 2,
+    dica: '',
+  },
+  notro: {
+    nome: 'Notro Hub',
+    url: 'https://hub.notro.io/#/atividades',
+    tela: 'Acompanhamento',
+    recarregar: 0,
+    dica: 'No Notro, ligue “Atualizar a cada 30 seg” no alto da tela de Acompanhamento.',
+  },
+  aciona: {
+    nome: 'Aciona Fácil',
+    url: 'https://acionafacil.com.br/Default.aspx',
+    tela: 'Meus Serviços',
+    recarregar: 2,
+    dica: '',
+  },
+};
+self.ORDEM_PORTAIS = ['porto', 'tokio', 'notro', 'aciona'];
+
+// Avisos por WhatsApp: configuração com os valores de quando nada foi preenchido ainda.
+self.zapComPadrao = (z = {}) => {
+  const numeros = z.numeros || {};
+  return {
+    ligado: false,
+    enviarPor: '1',
+    reserva: true,
+    destinos: '',
+    formato: 'evolution',
+    url: '',
+    chave: '',
+    ...z,
+    numeros: {
+      1: { nome: '', instancia: '', ...numeros[1] },
+      2: { nome: '', instancia: '', ...numeros[2] },
+    },
+    eventos: { novo: true, cancelado: true, mudanca: false, ...z.eventos },
+  };
+};
+self.nomeDoNumero = (z, n) => (z.numeros[n] && z.numeros[n].nome) || 'Número ' + n;
+</script>
+<script>
+// Demonstração do painel: imita a extensão (armazenamento, mensagens e chegada de chamados)
+// para o painel de verdade (central.js) rodar numa página comum, sem os portais.
+(() => {
+  const MIN = 60000;
+  const agora = () => Date.now();
+  const pad = n => String(n).padStart(2, '0');
+  const hhmm = ts => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  const copia = o => JSON.parse(JSON.stringify(o));
+  const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+
+  /* ---------- o "chrome" de mentira ---------- */
+  const armazem = {};
+  const ouvintes = [];
+  const gravar = obj => {
+    Object.assign(armazem, copia(obj));
+    ouvintes.forEach(f => f(obj, 'local'));
+  };
+  window.chrome = {
+    storage: {
+      local: {
+        get: async chaves => {
+          const lista = chaves == null ? Object.keys(armazem) : [].concat(chaves);
+          const r = {};
+          lista.forEach(k => { if (k in armazem) r[k] = copia(armazem[k]); });
+          return r;
+        },
+        set: async obj => gravar(obj),
+      },
+      session: { get: async () => ({}), set: async () => {} },
+      onChanged: { addListener: f => ouvintes.push(f) },
+    },
+    tabs: { getCurrent: cb => cb(null) },
+    permissions: { request: (_, cb) => cb(true) },
+    runtime: { sendMessage: async msg => { setTimeout(() => receber(msg), 0); } },
+  };
+
+  /* ---------- chamados de exemplo ---------- */
+  const T = agora();
+  const ch = (portal, etapa, o) => ({
+    id: portal + ':' + o.protocolo, portal, etapa, secao: o.secao || '', protocolo: o.protocolo,
+    titulo: o.titulo, detalhes: o.detalhes || '', campos: [], prazo: o.prazo || '',
+    atraso: !!o.atraso, link: '', vistoEm: o.vistoEm || agora(),
+  });
+  const estado = {
+    porto: {
+      chamados: [
+        ch('porto', 'pendencia', { protocolo: '3417610', titulo: 'Bateria', detalhes: 'Centro · Formosa do Sul/SC', secao: 'GPS não iniciados (INI)', vistoEm: T - 12 * MIN }),
+      ],
+    },
+    tokio: {
+      chamados: [
+        ch('tokio', 'caminho', { protocolo: '25091877', titulo: 'Pane elétrica', detalhes: 'Centro · Coronel Freitas/SC', prazo: 'até ' + hhmm(T + 22 * MIN), secao: 'A Caminho do Local / Origem', vistoEm: T - 18 * MIN }),
+        ch('tokio', 'agendado', { protocolo: '25091904', titulo: 'Reboque', detalhes: 'Oficina · Quilombo/SC → Concessionária · Chapecó/SC', prazo: 'amanhã 08:00', secao: 'Agendadas', vistoEm: T - 60 * MIN }),
+      ],
+    },
+    notro: {
+      chamados: [
+        ch('notro', 'servico', { protocolo: '03032668/02', titulo: 'Reboque', detalhes: 'REBOQUE - EXT · Cliente exemplo · São Lourenço do Oeste/SC · Em serviço', prazo: 'até ' + hhmm(T - 46 * MIN), atraso: true, secao: 'Acompanhamento', vistoEm: T - 150 * MIN }),
+        ch('notro', 'agendado', { protocolo: '03032701/01', titulo: 'Reboque', detalhes: 'Pinhalzinho/SC → Residência · Quilombo/SC', prazo: 'hoje ' + hhmm(T + 190 * MIN), secao: 'Acompanhamento', vistoEm: T - 95 * MIN }),
+      ],
+    },
+    aciona: {
+      chamados: [
+        ch('aciona', 'caminho', { protocolo: '558214', titulo: 'Troca de pneu', detalhes: 'SC-155 · Abelardo Luz/SC', prazo: 'até ' + hhmm(T + 9 * MIN), secao: 'Saída de Base', vistoEm: T - 40 * MIN }),
+        ch('aciona', 'pendencia', { protocolo: '557903', titulo: 'Reboque', detalhes: 'Confirmar dados do serviço · BR-480 · Chapecó/SC', secao: 'Confirmar Dados', vistoEm: T - 200 * MIN }),
+      ],
+    },
+  };
+  for (const k of Object.keys(estado)) Object.assign(estado[k], { estado: 'ok', lidoEm: T - rnd(2, 20) * 1000, tabId: 1 });
+
+  gravar({
+    estado,
+    alarme: { itens: [], silenciado: false },
+    historico: [],
+    whatsappStatus: null,
+    config: {
+      recarregar: {},
+      whatsapp: {
+        ligado: true, enviarPor: '1', reserva: true, destinos: '49 99999-0000', formato: 'evolution',
+        url: 'https://servidor.exemplo.com.br', chave: '',
+        numeros: { 1: { nome: 'Escritório', instancia: 'escritorio' }, 2: { nome: 'Plantão', instancia: 'plantao' } },
+        eventos: { novo: true, cancelado: true, mudanca: false },
+      },
+    },
+  });
+
+  /* ---------- som e avisos na tela ---------- */
+  let ctx = null;
+  document.addEventListener('pointerdown', () => {
+    try { ctx = ctx || new AudioContext(); ctx.resume(); } catch (e) { /* sem áudio */ }
+  });
+  function bip() {
+    if (!ctx) return; // o navegador só deixa tocar depois do primeiro clique na página
+    const t0 = ctx.currentTime;
+    [0, 0.28, 0.56, 0.84, 1.12, 1.4].forEach((dt, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'square';
+      o.frequency.value = i % 2 ? 660 : 880;
+      g.gain.setValueAtTime(0.0001, t0 + dt);
+      g.gain.exponentialRampToValueAtTime(0.15, t0 + dt + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dt + 0.24);
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start(t0 + dt);
+      o.stop(t0 + dt + 0.26);
+    });
+  }
+  setInterval(() => {
+    const a = armazem.alarme;
+    if (a && a.itens.length && !a.silenciado) bip();
+  }, 12000);
+
+  // Imita o aviso do Windows no canto da tela.
+  function notificacao(origem, titulo, texto) {
+    let caixa = document.getElementById('demo-avisos');
+    if (!caixa) {
+      caixa = document.createElement('div');
+      caixa.id = 'demo-avisos';
+      caixa.className = 'demo-avisos';
+      caixa.setAttribute('aria-live', 'polite');
+      document.body.appendChild(caixa);
+    }
+    const card = document.createElement('div');
+    card.className = 'demo-aviso';
+    const icone = document.querySelector('.mark');
+    card.innerHTML = `<img alt="" src="${icone ? icone.src : ''}"><small></small><b></b><span></span>`;
+    card.querySelector('small').textContent = origem;
+    card.querySelector('b').textContent = titulo;
+    card.querySelector('span').textContent = texto;
+    caixa.appendChild(card);
+    setTimeout(() => card.remove(), 7000);
+  }
+  const naVersaoReal = texto => notificacao('Demonstração', 'Na versão de verdade', texto);
+
+  /* ---------- o que a extensão faria ---------- */
+  function alarme(portal, chamadoId, texto, tipo) {
+    const em = agora();
+    const item = { id: em + '-' + portal, portal, chamadoId, texto, tipo, em };
+    const a = armazem.alarme || { itens: [] };
+    gravar({
+      alarme: { itens: [item, ...a.itens].slice(0, 12), silenciado: false },
+      historico: [item, ...(armazem.historico || [])].slice(0, 50),
+    });
+    const titulo = PORTAIS[portal] ? 'Novo acionamento · ' + PORTAIS[portal].nome : 'Teste do alarme';
+    notificacao('Aviso do Windows · Central de Acionamentos', titulo, texto);
+    bip();
+  }
+
+  function silenciar() {
+    const a = armazem.alarme || { itens: [] };
+    gravar({ alarme: { itens: a.itens.filter(i => i.tipo === 'pendente'), silenciado: true } });
+  }
+
+  function mandarZap(teste) {
+    const z = zapComPadrao((armazem.config || {}).whatsapp);
+    const falha = erro => gravar({ whatsappStatus: { em: agora(), ok: false, erro, teste } });
+    if (!z.url) return falha('falta o endereço do servidor.');
+    const destinos = z.destinos.split(/[\n,;]+/).filter(s => s.replace(/\D/g, '').length >= 10);
+    if (!destinos.length) return falha('nenhum número válido em "Mandar para".');
+    const n = z.enviarPor;
+    if (!z.numeros[n].instancia) return falha(nomeDoNumero(z, n) + ' sem identificação no servidor.');
+    gravar({ whatsappStatus: { em: agora(), enviando: true } });
+    setTimeout(() => {
+      gravar({ whatsappStatus: { em: agora(), ok: true, numero: nomeDoNumero(z, n), teste } });
+      notificacao('WhatsApp (simulado)', 'Mensagem enviada pelo ' + nomeDoNumero(z, n),
+        teste ? 'Teste da Central de Acionamentos.' : `Aviso do chamado para ${destinos.length} número(s).`);
+    }, 1200);
+  }
+
+  function abrirChamado(portal, id) {
+    const est = copia(armazem.estado);
+    const c = est[portal].chamados.find(x => x.id === id);
+    if (!c) return;
+    if (c.etapa !== 'novo') {
+      naVersaoReal(`Leva você para a aba do ${PORTAIS[portal].nome} e destaca o chamado ${c.protocolo}.`);
+      return;
+    }
+    naVersaoReal(`Leva você para a aba do ${PORTAIS[portal].nome} com o chamado destacado, para aceitar. Aqui ele vai ser "aceito" em 2 segundos.`);
+    setTimeout(() => {
+      const e2 = copia(armazem.estado);
+      const c2 = e2[portal].chamados.find(x => x.id === id);
+      if (!c2) return;
+      c2.etapa = 'caminho';
+      c2.secao = 'A caminho';
+      const a = armazem.alarme || { itens: [] };
+      gravar({ estado: e2, alarme: { ...a, itens: a.itens.filter(i => i.chamadoId !== id) } });
+    }, 2000);
+  }
+
+  function receber(msg) {
+    switch (msg.tipo) {
+      case 'testar':
+        alarme('teste', null, 'Se você ouviu o alarme e viu este aviso, está funcionando.', 'aviso');
+        break;
+      case 'silenciar': silenciar(); break;
+      case 'limpar': gravar({ alarme: { itens: [], silenciado: false } }); break;
+      case 'abrir-portal':
+        naVersaoReal(`Leva você para a aba do ${PORTAIS[msg.portal].nome}.`);
+        if (msg.silenciar) silenciar();
+        break;
+      case 'abrir-chamado': abrirChamado(msg.portal, msg.id); break;
+      case 'abrir-todos': naVersaoReal('Abre as abas dos portais que estiverem fechadas.'); break;
+      case 'config': gravar({ config: msg.config }); break;
+      case 'testar-whatsapp': mandarZap(true); break;
+    }
+  }
+
+  /* ---------- chamados novos chegando ---------- */
+  const NOVOS = [
+    { portal: 'tokio', titulo: 'Reboque', detalhes: 'BR-282 · Xaxim/SC → Oficina · Chapecó/SC', secao: 'Serviços em Acionamento' },
+    { portal: 'porto', titulo: 'Reboque', detalhes: 'BR-282 km 540 · Xanxerê/SC', secao: 'Serviços pendentes' },
+    { portal: 'aciona', titulo: 'Troca de pneu', detalhes: 'SC-157 · Formosa do Sul/SC', secao: 'Novos Serviços' },
+    { portal: 'porto', titulo: 'Pane seca', detalhes: 'Centro · Quilombo/SC', secao: 'Serviços pendentes' },
+    { portal: 'tokio', titulo: 'Bateria', detalhes: 'Centro · Chapecó/SC', secao: 'Serviços em Acionamento' },
+  ];
+  const PROTOCOLO = {
+    porto: () => '34' + rnd(18000, 19999),
+    tokio: () => '2509' + rnd(1000, 9999),
+    aciona: () => '55' + rnd(8300, 8999),
+  };
+  let proximo = 0;
+
+  function chegar() {
+    const est = copia(armazem.estado);
+    const novos = Object.values(est).reduce((n, e) => n + e.chamados.filter(c => c.etapa === 'novo').length, 0);
+    if (novos >= 3) return;
+    const m = NOVOS[proximo++ % NOVOS.length];
+    const c = ch(m.portal, 'novo', { ...m, protocolo: PROTOCOLO[m.portal](), prazo: 'até ' + hhmm(agora() + rnd(50, 90) * MIN) });
+    est[m.portal].chamados.unshift(c);
+    est[m.portal].lidoEm = agora();
+    gravar({ estado: est });
+    alarme(m.portal, c.id, [c.titulo, c.protocolo, c.detalhes].join(' · '), 'pendente');
+    const z = zapComPadrao(armazem.config.whatsapp);
+    if (z.ligado && z.eventos.novo) mandarZap(false);
+  }
+
+  // Os portais "são lidos" de tempos em tempos.
+  setInterval(() => {
+    const est = copia(armazem.estado);
+    const k = ORDEM_PORTAIS[rnd(0, ORDEM_PORTAIS.length - 1)];
+    est[k].lidoEm = agora();
+    gravar({ estado: est });
+  }, 6000);
+
+  const agendar = ms => setTimeout(() => { chegar(); agendar(rnd(50, 80) * 1000); }, ms);
+  agendar(8000);
+  document.addEventListener('click', e => {
+    if (e.target.closest('#demo-chegar')) chegar();
+  });
+})();
+</script>
+<script>
+// Painel único: junta os chamados lidos em todos os portais e mostra por etapa.
+(() => {
+  const $ = s => document.querySelector(s);
+  const MIN = 60000;
+  const pad = n => String(n).padStart(2, '0');
+  const hora = ts => { const d = new Date(ts); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+  const fmtIdade = ms => {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    if (s < 60) return s + ' s';
+    const m = Math.floor(s / 60);
+    return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + pad(m % 60) + ' min';
+  };
+  const fmtEspera = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + pad(s % 60); };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const nomeDo = p => (PORTAIS[p] ? PORTAIS[p].nome : 'Teste');
+  const enviar = msg => chrome.runtime.sendMessage(msg).catch(() => {});
+
+  const COLUNAS = [
+    { id: 'novo', nome: 'Novos', vazio: 'Nenhum chamado esperando aceite' },
+    { id: 'agendado', nome: 'Agendados', vazio: 'Nada agendado' },
+    { id: 'caminho', nome: 'A caminho', vazio: 'Ninguém a caminho' },
+    { id: 'servico', nome: 'Em serviço', vazio: 'Nenhum em serviço' },
+    { id: 'pendencia', nome: 'Pendências', vazio: 'Sem pendências' },
+  ];
+  const LEITURA_VELHA = 10 * MIN; // chamados de portal sem leitura há mais que isso saem do quadro
+
+  let dados = { estado: {}, alarme: { itens: [] }, historico: [], config: {}, whatsappStatus: null };
+  let adiado = false;
+  let formPreenchido = false;
+
+  chrome.tabs.getCurrent(tab => { if (tab) chrome.storage.session.set({ centralTab: tab.id }); });
+
+  async function carregar() {
+    const d = await chrome.storage.local.get(['estado', 'alarme', 'historico', 'config', 'whatsappStatus']);
+    dados = {
+      estado: d.estado || {},
+      alarme: d.alarme || { itens: [] },
+      historico: d.historico || [],
+      config: d.config || {},
+      whatsappStatus: d.whatsappStatus || null,
+    };
+    if (!formPreenchido) { preencherZap(zapComPadrao(dados.config.whatsapp)); formPreenchido = true; }
+    render();
+  }
+  chrome.storage.onChanged.addListener((_, area) => { if (area === 'local') carregar(); });
+
+  function situacao(e) {
+    if (!e || e.estado === 'fechado') return { sit: 'off', texto: 'Não está aberto · clique para abrir' };
+    const idade = Date.now() - e.lidoEm;
+    if (e.estado === 'login') return { sit: 'erro', texto: 'Precisa entrar de novo' };
+    if (e.estado === 'outra-tela') return { sit: 'aviso', texto: 'Fora da tela de serviços' };
+    if (idade > 3 * MIN) return { sit: 'aviso', texto: 'Sem leitura há ' + fmtIdade(idade) };
+    return { sit: 'ok', texto: 'Lendo · há ' + fmtIdade(idade) };
+  }
+
+  // Chamados de todos os portais que estão sendo lidos agora.
+  function todosChamados() {
+    const lista = [];
+    for (const k of ORDEM_PORTAIS) {
+      const e = dados.estado[k];
+      if (!e || !e.chamados || e.estado === 'fechado' || Date.now() - e.lidoEm > LEITURA_VELHA) continue;
+      lista.push(...e.chamados);
+    }
+    return lista;
+  }
+
+  function render() {
+    if (document.activeElement && document.activeElement.tagName === 'SELECT') { adiado = true; return; }
+    const chamados = todosChamados();
+    renderAlerta();
+    renderPortais();
+    renderResumo(chamados);
+    renderBoard(chamados);
+    renderHistorico();
+    renderRecarga();
+    renderZapTopo();
+    renderZapStatus();
+  }
+  document.addEventListener('focusout', () => { if (adiado) { adiado = false; setTimeout(render, 0); } });
+
+  function renderAlerta() {
+    const { itens = [], silenciado } = dados.alarme;
+    $('#alerta').hidden = itens.length === 0;
+    document.title = itens.length ? `(${itens.length}) NOVO ACIONAMENTO` : 'Central de Acionamentos';
+    if (!itens.length) return;
+    $('#alerta-titulo').textContent = itens.length === 1 ? 'Novo acionamento' : itens.length + ' avisos de acionamento';
+    $('#silenciar').disabled = !!silenciado;
+    $('#silenciar').textContent = silenciado ? 'Alarme silenciado' : 'Silenciar alarme';
+    $('#alerta-lista').innerHTML = itens.map(i => `
+      <div class="alerta-item">
+        <div>
+          <div class="t"><span class="pdot" style="--c:var(--p-${esc(i.portal)})"></span>${esc(nomeDo(i.portal))}</div>
+          <div class="s">${esc(i.texto)}</div>
+          <div class="s">Chegou às ${hora(i.em)} · há <span data-desde="${i.em}">${fmtIdade(Date.now() - i.em)}</span></div>
+        </div>
+        ${PORTAIS[i.portal] ? `<button class="btn btn-dark" data-chamado="${esc(i.chamadoId || '')}" data-portal="${esc(i.portal)}">Abrir no portal</button>` : ''}
+      </div>`).join('');
+  }
+
+  function renderPortais() {
+    $('#portais').innerHTML = ORDEM_PORTAIS.map(k => {
+      const e = dados.estado[k];
+      const s = situacao(e);
+      const n = e && e.chamados && s.sit !== 'off' ? e.chamados.filter(c => c.etapa !== 'concluido').length : 0;
+      return `<button class="pill-portal" data-sit="${s.sit}" data-abrir-portal="${k}" style="--c:var(--p-${k})" title="Ir para a aba do ${esc(PORTAIS[k].nome)}">
+        <span class="pdot"></span>
+        <span class="ptext"><b>${esc(PORTAIS[k].nome)}</b><span>${esc(s.texto)}</span></span>
+        <span class="pcount" title="Chamados na tela">${n}</span>
+      </button>`;
+    }).join('');
+  }
+
+  function renderResumo(chamados) {
+    const c = etapa => chamados.filter(x => x.etapa === etapa).length;
+    const atraso = chamados.filter(x => x.atraso).length;
+    const itens = [
+      ['Novos', c('novo'), c('novo') ? 'warn' : ''],
+      ['Em atraso', atraso, atraso ? 'crit' : ''],
+      ['A caminho', c('caminho'), ''],
+      ['Em serviço', c('servico'), ''],
+      ['Agendados', c('agendado'), ''],
+      ['Pendências', c('pendencia') + c('cancelado'), c('pendencia') + c('cancelado') ? 'warn' : ''],
+    ];
+    $('#resumo').innerHTML = itens.map(([nome, n, sev]) => `<div class="stat" data-sev="${sev}"><b>${n}</b><span>${nome}</span></div>`).join('');
+  }
+
+  function cardHTML(c) {
+    const novo = c.etapa === 'novo';
+    const prazo = c.prazo ? `<p class="due">${c.atraso ? 'Em atraso · ' : 'Prazo: '}${esc(c.prazo)}</p>` : (c.atraso ? '<p class="due">Em atraso</p>' : '');
+    const espera = novo ? `<p class="note">Chegou há <span data-espera="${c.vistoEm}">${fmtEspera(Date.now() - c.vistoEm)}</span>${c.portal === 'porto' ? '. Se não abrir, a Porto repassa.' : ''}</p>` : '';
+    return `<article class="card" data-atraso="${c.atraso ? 1 : 0}">
+      <div class="card-top"><span class="ptag"><span class="pdot" style="--c:var(--p-${esc(c.portal)})"></span>${esc(nomeDo(c.portal))}</span><span class="proto">${esc(c.protocolo)}</span></div>
+      ${c.etapa === 'cancelado' ? '<span class="selo">Cancelado</span>' : ''}
+      <h3 class="svc">${esc(c.titulo)}</h3>
+      ${c.detalhes ? `<p class="det" title="${esc(c.detalhes)}">${esc(c.detalhes)}</p>` : ''}
+      ${prazo}${espera}
+      <div class="card-foot">
+        <button class="btn btn-sm${novo ? ' btn-primary' : ''}" data-chamado="${esc(c.id)}" data-portal="${esc(c.portal)}">Abrir no portal</button>
+        ${c.secao ? `<span class="secao">${esc(c.secao)}</span>` : ''}
+      </div>
+    </article>`;
+  }
+
+  function renderBoard(chamados) {
+    const ordem = (a, b) => (a.etapa === 'novo' ? a.vistoEm - b.vistoEm : (b.atraso - a.atraso) || (a.vistoEm - b.vistoEm));
+    $('#board').innerHTML = COLUNAS.map(col => {
+      const lista = chamados
+        .filter(c => c.etapa === col.id || (col.id === 'pendencia' && c.etapa === 'cancelado'))
+        .sort(ordem);
+      return `<section class="col" data-col="${col.id}" data-has="${lista.length ? 1 : 0}" aria-label="${col.nome}">
+        <header class="col-head"><h2>${col.nome}</h2><span class="col-count">${lista.length}</span></header>
+        ${lista.length ? lista.map(cardHTML).join('') : `<p class="empty">${col.vazio}</p>`}
+      </section>`;
+    }).join('');
+  }
+
+  function renderHistorico() {
+    const h = dados.historico.slice(0, 12);
+    $('#historico').innerHTML = h.length
+      ? h.map(i => `<li><span class="hh">${hora(i.em)}</span><b>${esc(nomeDo(i.portal))}</b> · ${esc(i.texto)}</li>`).join('')
+      : '<li class="muted">Nenhum aviso ainda. Use “Testar alarme” para ver como fica.</li>';
+  }
+
+  function renderRecarga() {
+    const opcoes = [[0, 'Não recarregar'], [1, 'A cada 1 minuto'], [2, 'A cada 2 minutos'], [5, 'A cada 5 minutos']];
+    $('#recarga').innerHTML = ORDEM_PORTAIS.map(k => {
+      const atual = dados.config.recarregar && dados.config.recarregar[k] != null ? dados.config.recarregar[k] : PORTAIS[k].recarregar;
+      return `<label for="rec-${k}">${esc(PORTAIS[k].nome)}</label>
+        <select id="rec-${k}" data-rec="${k}">${opcoes.map(([v, r]) => `<option value="${v}"${v === atual ? ' selected' : ''}>${r}</option>`).join('')}</select>`;
+    }).join('');
+  }
+
+  /* ---------- avisos por WhatsApp ---------- */
+  const AJUDA_FORMATO = {
+    evolution: 'Manda para {endereço}/message/sendText/{identificação do número}, com a chave no cabeçalho "apikey".',
+    json: 'Manda um POST para o endereço com { de, para, mensagem } e a chave em "Authorization: Bearer".',
+  };
+  const campo = id => document.getElementById(id);
+
+  function preencherZap(z) {
+    campo('zap-ligado').checked = z.ligado;
+    campo('zap-por-' + z.enviarPor).checked = true;
+    for (const n of ['1', '2']) {
+      campo('zap-nome-' + n).value = z.numeros[n].nome;
+      campo('zap-inst-' + n).value = z.numeros[n].instancia;
+    }
+    campo('zap-reserva').checked = z.reserva;
+    campo('zap-destinos').value = z.destinos;
+    campo('zap-ev-novo').checked = z.eventos.novo;
+    campo('zap-ev-cancelado').checked = z.eventos.cancelado;
+    campo('zap-ev-mudanca').checked = z.eventos.mudanca;
+    campo('zap-formato').value = z.formato;
+    campo('zap-url').value = z.url;
+    campo('zap-chave').value = z.chave;
+    campo('zap-ajuda').textContent = AJUDA_FORMATO[z.formato];
+  }
+
+  function lerZap() {
+    const marcado = document.querySelector('input[name="zap-por"]:checked');
+    return zapComPadrao({
+      ligado: campo('zap-ligado').checked,
+      enviarPor: marcado ? marcado.value : '1',
+      reserva: campo('zap-reserva').checked,
+      numeros: {
+        1: { nome: campo('zap-nome-1').value.trim(), instancia: campo('zap-inst-1').value.trim() },
+        2: { nome: campo('zap-nome-2').value.trim(), instancia: campo('zap-inst-2').value.trim() },
+      },
+      destinos: campo('zap-destinos').value.trim(),
+      eventos: {
+        novo: campo('zap-ev-novo').checked,
+        cancelado: campo('zap-ev-cancelado').checked,
+        mudanca: campo('zap-ev-mudanca').checked,
+      },
+      formato: campo('zap-formato').value,
+      url: campo('zap-url').value.trim(),
+      chave: campo('zap-chave').value.trim(),
+    });
+  }
+
+  function mostrarZapStatus(ok, texto) {
+    const el = campo('zap-status');
+    el.dataset.ok = ok == null ? '' : ok ? '1' : '0';
+    el.textContent = texto;
+  }
+
+  function renderZapStatus() {
+    const s = dados.whatsappStatus;
+    if (!s) return;
+    if (s.enviando) return mostrarZapStatus(null, 'Mandando mensagem…');
+    if (s.ok) {
+      const reserva = s.falhou ? `, como reserva (o ${s.falhou} falhou)` : '';
+      return mostrarZapStatus(true, `${s.teste ? 'Teste enviado' : 'Última mensagem'} às ${hora(s.em)} pelo ${s.numero}${reserva}.`);
+    }
+    mostrarZapStatus(false, `Mensagem das ${hora(s.em)} não foi: ${s.erro}`);
+  }
+
+  function renderZapTopo() {
+    const z = zapComPadrao(dados.config.whatsapp);
+    const sel = campo('zap-topo');
+    const valor = z.ligado ? z.enviarPor : 'off';
+    sel.innerHTML = ['1', '2'].map(n => {
+      const nome = nomeDoNumero(z, n);
+      return `<option value="${n}">${esc(nome === 'Número ' + n ? nome : 'Nº ' + n + ' · ' + nome)}</option>`;
+    }).join('') + '<option value="off">Desligado</option>';
+    sel.value = valor;
+    sel.closest('label').dataset.ligado = z.ligado ? '1' : '0';
+  }
+
+  async function gravarZap(z) {
+    dados.config = Object.assign({}, dados.config, { whatsapp: z });
+    await chrome.storage.local.set({ config: dados.config });
+  }
+
+  // O Chrome só deixa a extensão falar com o servidor depois que você autoriza o endereço.
+  function salvarZap(depois) {
+    const z = lerZap();
+    let origem = null;
+    if (z.url) {
+      try {
+        const u = new URL(z.url);
+        if (!/^https?:$/.test(u.protocol)) throw new Error();
+        origem = u.origin + '/*';
+      } catch (e) {
+        mostrarZapStatus(false, 'O endereço do servidor não parece certo. Exemplo: https://seu-servidor.com.br');
+        return;
+      }
+    }
+    const seguir = async () => {
+      await gravarZap(z);
+      preencherZap(z);
+      renderZapTopo();
+      if (depois) depois(z);
+      else mostrarZapStatus(true, z.ligado ? `Salvo. Os avisos vão sair pelo ${nomeDoNumero(z, z.enviarPor)}.` : 'Salvo. Avisos pelo WhatsApp desligados.');
+    };
+    if (!origem) return seguir();
+    chrome.permissions.request({ origins: [origem] }, ok => {
+      if (!ok) {
+        mostrarZapStatus(false, 'Sem permissão para falar com o servidor. Clique em Salvar de novo e aceite o pedido do Chrome.');
+        return;
+      }
+      seguir();
+    });
+  }
+
+  campo('zap-form').addEventListener('submit', e => { e.preventDefault(); salvarZap(); });
+  campo('zap-testar').addEventListener('click', () => {
+    salvarZap(z => {
+      if (!z.url) return mostrarZapStatus(false, 'Falta o endereço do servidor (em Configuração do servidor).');
+      mostrarZapStatus(null, 'Mandando mensagem de teste…');
+      enviar({ tipo: 'testar-whatsapp' });
+    });
+  });
+  campo('zap-formato').addEventListener('change', e => { campo('zap-ajuda').textContent = AJUDA_FORMATO[e.target.value]; });
+
+  // Troca rápida no alto da tela.
+  campo('zap-topo').addEventListener('change', async e => {
+    const z = zapComPadrao(dados.config.whatsapp);
+    if (e.target.value === 'off') z.ligado = false;
+    else { z.ligado = true; z.enviarPor = e.target.value; }
+    await gravarZap(z);
+    preencherZap(z);
+    toast(z.ligado ? `Avisos pelo WhatsApp saindo pelo ${nomeDoNumero(z, z.enviarPor)}.` : 'Avisos pelo WhatsApp desligados.');
+    e.target.blur();
+  });
+
+  let toastTimer = null;
+  function toast(msg) {
+    const el = $('#toast');
+    el.textContent = msg;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.hidden = true; }, 5000);
+  }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.id === 'testar') {
+      enviar({ tipo: 'testar' });
+      toast('Alarme de teste enviado: deve tocar e aparecer um aviso do Windows.');
+    } else if (b.id === 'abrir-todos') {
+      enviar({ tipo: 'abrir-todos' });
+      toast('Abrindo os portais que ainda não estão abertos.');
+    } else if (b.id === 'silenciar') {
+      enviar({ tipo: 'silenciar' });
+    } else if (b.id === 'limpar') {
+      enviar({ tipo: 'limpar' });
+    } else if (b.dataset.abrirPortal) {
+      enviar({ tipo: 'abrir-portal', portal: b.dataset.abrirPortal });
+    } else if (b.dataset.portal) {
+      if (b.dataset.chamado) enviar({ tipo: 'abrir-chamado', portal: b.dataset.portal, id: b.dataset.chamado });
+      else enviar({ tipo: 'abrir-portal', portal: b.dataset.portal, silenciar: true });
+    }
+  });
+
+  document.addEventListener('change', e => {
+    const s = e.target.closest('select[data-rec]');
+    if (!s) return;
+    const recarregar = Object.assign({}, dados.config.recarregar, { [s.dataset.rec]: Number(s.value) });
+    enviar({ tipo: 'config', config: Object.assign({}, dados.config, { recarregar }) });
+    toast('Pronto: ' + PORTAIS[s.dataset.rec].nome + ' ' + s.options[s.selectedIndex].text.toLowerCase() + '.');
+  });
+
+  let segundos = 0;
+  setInterval(() => {
+    const d = new Date();
+    $('#relogio').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    document.querySelectorAll('[data-desde]').forEach(el => { el.textContent = fmtIdade(Date.now() - Number(el.dataset.desde)); });
+    document.querySelectorAll('[data-espera]').forEach(el => { el.textContent = fmtEspera(Date.now() - Number(el.dataset.espera)); });
+    if (++segundos % 15 === 0) render();
+  }, 1000);
+
+  carregar();
+})();
+</script>
