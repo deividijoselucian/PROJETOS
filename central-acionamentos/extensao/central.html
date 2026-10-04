@@ -70,6 +70,9 @@
       <h3>Recarregar a tela do portal</h3>
       <p class="muted">Para portais que não se atualizam sozinhos. A aba que você está usando não é recarregada.</p>
       <div class="recarga" id="recarga"></div>
+      <h3>Algum chamado não apareceu certo?</h3>
+      <p class="muted">Gere o diagnóstico com os portais abertos e cole na conversa com o suporte. Nomes e números dos chamados saem escondidos.</p>
+      <button class="btn" id="diag-gerar">Gerar diagnóstico</button>
     </div>
 
     <div class="bloco largo" id="zap">
@@ -137,6 +140,18 @@
 
   <p class="rodape">A extensão só lê as telas dos portais: não clica nem aceita nada. Só os avisos por WhatsApp, se você ligar, saem do computador, e vão apenas para o seu servidor.</p>
 </main>
+
+<dialog class="diag" id="diag" aria-labelledby="diag-titulo">
+  <h2 id="diag-titulo">Diagnóstico</h2>
+  <p class="muted">Copie e cole na conversa com o suporte. Nomes e números dos chamados aparecem escondidos.</p>
+  <label class="sr" for="diag-texto">Texto do diagnóstico</label>
+  <textarea id="diag-texto" rows="16" readonly></textarea>
+  <div class="zap-acoes">
+    <button class="btn btn-primary" id="diag-copiar">Copiar</button>
+    <button class="btn" id="diag-fechar">Fechar</button>
+    <span class="zap-status" id="diag-status" role="status" aria-live="polite"></span>
+  </div>
+</dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 

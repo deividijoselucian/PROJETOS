@@ -303,6 +303,44 @@
     e.target.blur();
   });
 
+  /* ---------- diagnóstico ---------- */
+  function textoDiagnostico(d) {
+    const linhas = [
+      'Diagnóstico da Central de Acionamentos',
+      'Versão ' + chrome.runtime.getManifest().version + ' · ' + new Date().toLocaleString('pt-BR'),
+    ];
+    for (const k of ORDEM_PORTAIS) {
+      const e = dados.estado[k];
+      linhas.push('', '== ' + PORTAIS[k].nome + ' ==');
+      if (!e) { linhas.push('Nunca foi aberto com a extensão ligada.'); continue; }
+      const etapas = (e.chamados || []).map(c => c.etapa).join(', ') || 'nenhum';
+      linhas.push(`Situação: ${e.estado} · última leitura há ${fmtIdade(Date.now() - e.lidoEm)} · chamados lidos: ${etapas}`);
+      const quadros = (d.itens || []).filter(i => i.portal === k);
+      if (!quadros.length) linhas.push('A aba não respondeu (está aberta?).');
+      quadros.forEach(q => linhas.push(JSON.stringify(q)));
+    }
+    return linhas.join('\n');
+  }
+
+  campo('diag-gerar').addEventListener('click', () => {
+    campo('diag-texto').value = 'Lendo as abas dos portais…';
+    campo('diag-status').textContent = '';
+    campo('diag').showModal();
+    enviar({ tipo: 'diagnostico' });
+    setTimeout(async () => {
+      const { diagnostico = { itens: [] } } = await chrome.storage.local.get('diagnostico');
+      campo('diag-texto').value = textoDiagnostico(diagnostico);
+    }, 2500);
+  });
+  campo('diag-copiar').addEventListener('click', () => {
+    const area = campo('diag-texto');
+    const copiado = () => { campo('diag-status').dataset.ok = '1'; campo('diag-status').textContent = 'Copiado. Agora cole na conversa.'; };
+    const selecionar = () => { area.select(); campo('diag-status').textContent = 'Texto selecionado: aperte Ctrl+C.'; };
+    if (navigator.clipboard) navigator.clipboard.writeText(area.value).then(copiado, selecionar);
+    else selecionar();
+  });
+  campo('diag-fechar').addEventListener('click', () => campo('diag').close());
+
   let toastTimer = null;
   function toast(msg) {
     const el = $('#toast');

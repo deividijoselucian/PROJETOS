@@ -31,7 +31,10 @@
     },
     tabs: { getCurrent: cb => cb(null) },
     permissions: { request: (_, cb) => cb(true) },
-    runtime: { sendMessage: async msg => { setTimeout(() => receber(msg), 0); } },
+    runtime: {
+      sendMessage: async msg => { setTimeout(() => receber(msg), 0); },
+      getManifest: () => ({ version: 'demonstração' }),
+    },
   };
 
   /* ---------- chamados de exemplo ---------- */
@@ -203,6 +206,9 @@
       case 'abrir-todos': naVersaoReal('Abre as abas dos portais que estiverem fechadas.'); break;
       case 'config': gravar({ config: msg.config }); break;
       case 'testar-whatsapp': mandarZap(true); break;
+      case 'diagnostico':
+        gravar({ diagnostico: { em: agora(), itens: ORDEM_PORTAIS.map(k => ({ portal: k, quadro: '(demonstração)', nota: 'Na versão de verdade, aqui vem a estrutura da tela do portal, com os dados dos chamados escondidos.' })) } });
+        break;
     }
   }
 

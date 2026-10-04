@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Central de Acionamentos",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Junta os chamados dos portais de assistência numa tela só e toca alarme quando entra serviço novo.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmN0Smjhkibxxu/jj1G1POBFJCiXfP2RFu3tgNVhtpYrj3qw8vww+TSVNH1SYCS3ln+SdWIuwjPMzfCaYObFfKYQqfU2dCV8Zehc3SBpoMQj0RByPZz5dxONLqHWJ+6GbpFHR40fEuxwX9BxDHiJdQJYj9+k0r+rFwkDodZbTxT9xtHPIpqZGqNMFu+Kuex36cUTc94lFvhYYzuNLZ3F1UqB6NLwPP0y419IS0RZA8fBvftoCNpfiREaJw1GEY+OhJMP0DpEXXgAEAu69Hgv3Q27sNZGqlRBFIwzIv76h1F/UUKw7I+trZxYQKiVmnkIq2mJ5Zz6FpAM7lwQ1C4qoLwIDAQAB",
   "icons": {

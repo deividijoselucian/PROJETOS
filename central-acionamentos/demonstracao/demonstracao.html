@@ -142,6 +142,14 @@ h1,h2,h3{text-wrap:balance}
 .recarga select{font:14px var(--body);padding:5px 6px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);max-width:220px}
 .rodape{font-size:12px;color:var(--faint);margin:0}
 
+/* diagnóstico */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.diag{width:min(820px,calc(100vw - 32px));max-height:calc(100vh - 48px);border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:18px}
+.diag::backdrop{background:rgba(13,20,25,.55)}
+.diag h2{font-family:var(--display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.03em;margin:0 0 4px}
+.diag p{margin:0 0 10px;font-size:14px}
+.diag textarea{width:100%;font:12px/1.45 var(--mono);padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--ink);margin-bottom:10px;resize:vertical}
+
 /* WhatsApp */
 .zap-topo{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);padding:3px 4px 3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
 .zap-topo[data-ligado="0"]{opacity:.65}
@@ -255,6 +263,9 @@ legend{font-family:var(--display);font-weight:600;font-size:15px;text-transform:
       <h3>Recarregar a tela do portal</h3>
       <p class="muted">Para portais que não se atualizam sozinhos. A aba que você está usando não é recarregada.</p>
       <div class="recarga" id="recarga"></div>
+      <h3>Algum chamado não apareceu certo?</h3>
+      <p class="muted">Gere o diagnóstico com os portais abertos e cole na conversa com o suporte. Nomes e números dos chamados saem escondidos.</p>
+      <button class="btn" id="diag-gerar">Gerar diagnóstico</button>
     </div>
 
     <div class="bloco largo" id="zap">
@@ -322,6 +333,18 @@ legend{font-family:var(--display);font-weight:600;font-size:15px;text-transform:
 
   <p class="rodape">A extensão só lê as telas dos portais: não clica nem aceita nada. Só os avisos por WhatsApp, se você ligar, saem do computador, e vão apenas para o seu servidor.</p>
 </main>
+
+<dialog class="diag" id="diag" aria-labelledby="diag-titulo">
+  <h2 id="diag-titulo">Diagnóstico</h2>
+  <p class="muted">Copie e cole na conversa com o suporte. Nomes e números dos chamados aparecem escondidos.</p>
+  <label class="sr" for="diag-texto">Texto do diagnóstico</label>
+  <textarea id="diag-texto" rows="16" readonly></textarea>
+  <div class="zap-acoes">
+    <button class="btn btn-primary" id="diag-copiar">Copiar</button>
+    <button class="btn" id="diag-fechar">Fechar</button>
+    <span class="zap-status" id="diag-status" role="status" aria-live="polite"></span>
+  </div>
+</dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script>
@@ -415,7 +438,10 @@ self.nomeDoNumero = (z, n) => (z.numeros[n] && z.numeros[n].nome) || 'Número ' 
     },
     tabs: { getCurrent: cb => cb(null) },
     permissions: { request: (_, cb) => cb(true) },
-    runtime: { sendMessage: async msg => { setTimeout(() => receber(msg), 0); } },
+    runtime: {
+      sendMessage: async msg => { setTimeout(() => receber(msg), 0); },
+      getManifest: () => ({ version: 'demonstração' }),
+    },
   };
 
   /* ---------- chamados de exemplo ---------- */
@@ -587,6 +613,9 @@ self.nomeDoNumero = (z, n) => (z.numeros[n] && z.numeros[n].nome) || 'Número ' 
       case 'abrir-todos': naVersaoReal('Abre as abas dos portais que estiverem fechadas.'); break;
       case 'config': gravar({ config: msg.config }); break;
       case 'testar-whatsapp': mandarZap(true); break;
+      case 'diagnostico':
+        gravar({ diagnostico: { em: agora(), itens: ORDEM_PORTAIS.map(k => ({ portal: k, quadro: '(demonstração)', nota: 'Na versão de verdade, aqui vem a estrutura da tela do portal, com os dados dos chamados escondidos.' })) } });
+        break;
     }
   }
 
@@ -939,6 +968,44 @@ self.nomeDoNumero = (z, n) => (z.numeros[n] && z.numeros[n].nome) || 'Número ' 
     toast(z.ligado ? `Avisos pelo WhatsApp saindo pelo ${nomeDoNumero(z, z.enviarPor)}.` : 'Avisos pelo WhatsApp desligados.');
     e.target.blur();
   });
+
+  /* ---------- diagnóstico ---------- */
+  function textoDiagnostico(d) {
+    const linhas = [
+      'Diagnóstico da Central de Acionamentos',
+      'Versão ' + chrome.runtime.getManifest().version + ' · ' + new Date().toLocaleString('pt-BR'),
+    ];
+    for (const k of ORDEM_PORTAIS) {
+      const e = dados.estado[k];
+      linhas.push('', '== ' + PORTAIS[k].nome + ' ==');
+      if (!e) { linhas.push('Nunca foi aberto com a extensão ligada.'); continue; }
+      const etapas = (e.chamados || []).map(c => c.etapa).join(', ') || 'nenhum';
+      linhas.push(`Situação: ${e.estado} · última leitura há ${fmtIdade(Date.now() - e.lidoEm)} · chamados lidos: ${etapas}`);
+      const quadros = (d.itens || []).filter(i => i.portal === k);
+      if (!quadros.length) linhas.push('A aba não respondeu (está aberta?).');
+      quadros.forEach(q => linhas.push(JSON.stringify(q)));
+    }
+    return linhas.join('\n');
+  }
+
+  campo('diag-gerar').addEventListener('click', () => {
+    campo('diag-texto').value = 'Lendo as abas dos portais…';
+    campo('diag-status').textContent = '';
+    campo('diag').showModal();
+    enviar({ tipo: 'diagnostico' });
+    setTimeout(async () => {
+      const { diagnostico = { itens: [] } } = await chrome.storage.local.get('diagnostico');
+      campo('diag-texto').value = textoDiagnostico(diagnostico);
+    }, 2500);
+  });
+  campo('diag-copiar').addEventListener('click', () => {
+    const area = campo('diag-texto');
+    const copiado = () => { campo('diag-status').dataset.ok = '1'; campo('diag-status').textContent = 'Copiado. Agora cole na conversa.'; };
+    const selecionar = () => { area.select(); campo('diag-status').textContent = 'Texto selecionado: aperte Ctrl+C.'; };
+    if (navigator.clipboard) navigator.clipboard.writeText(area.value).then(copiado, selecionar);
+    else selecionar();
+  });
+  campo('diag-fechar').addEventListener('click', () => campo('diag').close());
 
   let toastTimer = null;
   function toast(msg) {

@@ -273,8 +273,65 @@
     }
   }
 
+  // Diagnóstico para ajustar a leitura: estrutura da tela (títulos, tabelas, cabeçalhos) com os
+  // dados dos chamados escondidos. Palavras de serviço e de situação ficam visíveis; o resto
+  // vira só a primeira letra, e os números viram 9.
+  const VOCABULARIO = new Set(('reboque guincho pane seca eletrica mecanica pneu troca bateria chaveiro socorro ' +
+    'remocao ext em servico servicos agendado agendada agendados agendadas atraso aguardando deslocamento caminho ' +
+    'local origem destino andamento concluido concluida concluidas cancelado cancelados pendente pendentes novo ' +
+    'novos aceito aceite acionamento nenhum existem nao sem colab ate hora horas minutos min seg prazo chegada ' +
+    'tempo status saida base confirmar dados orcamento orcamentos gps iniciados recebidos todos').split(' '));
+  const mascarar = s => s.replace(/\d/g, '9')
+    .replace(/[A-Za-zÀ-ÿ]+/g, w => (w.length <= 2 || VOCABULARIO.has(norm(w)) ? w : w[0] + '…'));
+  const INTERFACE = 'h1, h2, h3, h4, h5, h6, th, button, a, label, legend, nav, header, option, [role="tab"], [role="columnheader"], [role="button"], [role="menuitem"]';
+
+  function diagnostico() {
+    const t = norm(document.body ? document.body.innerText : '');
+    const tela = TELAS[portal](t);
+    const tabelas = [...document.querySelectorAll('table, [role="table"], [role="grid"]')]
+      .filter(tb => !tb.querySelector('table, [role="table"], [role="grid"]'))
+      .slice(0, 10)
+      .map(tb => {
+        const linhas = [...tb.querySelectorAll('tr, [role="row"]')]
+          .map(l => celulasDe(l).map(c => limpo(c.innerText)))
+          .filter(v => v.length);
+        return {
+          cabecalhos: [...tb.querySelectorAll('th, [role="columnheader"]')].map(h => limpo(h.innerText)).slice(0, 12),
+          linhas: linhas.length,
+          exemplo: linhas.slice(0, 2).map(v => v.map(mascarar)),
+        };
+      });
+    // Texto da tela na ordem em que aparece: menus e títulos como estão, o resto mascarado.
+    const partes = [];
+    let tamanho = 0;
+    const andar = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let no = andar.nextNode(); no && tamanho < 3000; no = andar.nextNode()) {
+      const s = limpo(no.nodeValue);
+      const el = no.parentElement;
+      if (!s || !el || el.closest('script, style, noscript') || !el.getClientRects().length) continue;
+      const parte = el.closest(INTERFACE) && !el.closest('td, [role="cell"], [role="gridcell"]') ? s.slice(0, 80) : mascarar(s);
+      partes.push(parte);
+      tamanho += parte.length + 3;
+    }
+    return {
+      quadro: location.pathname + location.hash.slice(0, 60),
+      principal: window === window.top,
+      reconhecida: !!tela,
+      contagens: tela ? tela.contagens : null,
+      secoes: marcadores().map(m => m.secao),
+      tabelas,
+      chamados: tela ? chamados().map(c => ({ etapa: c.etapa, titulo: c.titulo, protocolo: c.protocolo.replace(/\d/g, '9'), secao: c.secao })) : [],
+      texto: partes.join(' | ').slice(0, 3000),
+    };
+  }
+
   // "Abrir no portal" na central: rola a tela até o chamado e marca ele por alguns segundos.
   chrome.runtime.onMessage.addListener(msg => {
+    if (msg.tipo === 'diagnostico') {
+      if (window !== window.top && !document.querySelector('table, [role="table"], [role="grid"]') && !TELAS[portal](norm(document.body ? document.body.innerText : ''))) return;
+      chrome.runtime.sendMessage({ tipo: 'diag-resposta', portal, dados: diagnostico() }).catch(() => {});
+      return;
+    }
     if (msg.tipo !== 'destacar' || msg.portal !== portal) return;
     const alvo = [...document.querySelectorAll('tr, [role="row"]')].find(linha => {
       const texto = limpo(linha.innerText);

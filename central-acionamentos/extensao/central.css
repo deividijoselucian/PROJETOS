@@ -139,6 +139,14 @@ h1,h2,h3{text-wrap:balance}
 .recarga select{font:14px var(--body);padding:5px 6px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);max-width:220px}
 .rodape{font-size:12px;color:var(--faint);margin:0}
 
+/* diagnóstico */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.diag{width:min(820px,calc(100vw - 32px));max-height:calc(100vh - 48px);border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:18px}
+.diag::backdrop{background:rgba(13,20,25,.55)}
+.diag h2{font-family:var(--display);font-weight:700;font-size:20px;text-transform:uppercase;letter-spacing:.03em;margin:0 0 4px}
+.diag p{margin:0 0 10px;font-size:14px}
+.diag textarea{width:100%;font:12px/1.45 var(--mono);padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-2);color:var(--ink);margin-bottom:10px;resize:vertical}
+
 /* WhatsApp */
 .zap-topo{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);padding:3px 4px 3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
 .zap-topo[data-ligado="0"]{opacity:.65}

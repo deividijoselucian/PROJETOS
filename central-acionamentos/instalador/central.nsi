@@ -14,7 +14,7 @@ ManifestDPIAware true
 
 !define APP_NOME   "Central de Acionamentos"
 !define APP_ID     "CentralAcionamentos"
-!define APP_VERSAO "0.3.0"
+!define APP_VERSAO "0.4.0"
 !define CHAVE_DESINSTALAR "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_ID}"
 !define PAINEL_URL "chrome-extension://${EXT_ID}/central.html"
 
@@ -36,7 +36,7 @@ Var UrlPasso
 !define MUI_WELCOMEPAGE_TITLE "${APP_NOME} (teste)"
 !define MUI_WELCOMEPAGE_TEXT "Este instalador coloca a Central de Acionamentos no seu computador.$\r$\n$\r$\nA Central junta numa tela só os chamados da Porto Seguro, Tokio Marine, Notro e Aciona Fácil, e toca alarme quando entra serviço novo. Ela funciona como uma extensão do Chrome e só lê as telas dos portais.$\r$\n$\r$\nNão precisa de administrador. Para remover depois, use Configurações › Aplicativos.$\r$\n$\r$\nClique em Avançar para continuar."
 !define MUI_FINISHPAGE_TITLE "Falta ligar a extensão"
-!define MUI_FINISHPAGE_TEXT "Os arquivos foram instalados.$\r$\n$\r$\nAgora é preciso ligar a extensão no Chrome uma vez. O passo a passo vai abrir no navegador (e também fica no Menu Iniciar, em $\"Ligar a extensão da Central$\")."
+!define MUI_FINISHPAGE_TEXT "Os arquivos foram instalados.$\r$\n$\r$\nAgora é preciso ligar a extensão no Chrome uma vez. Vão abrir a página de extensões e o passo a passo (e também fica no Menu Iniciar, em $\"Ligar a extensão da Central$\")."
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "Abrir o passo a passo agora"
 !define MUI_FINISHPAGE_RUN_FUNCTION AbrirPasso
@@ -120,7 +120,7 @@ FunctionEnd
 
 Function AbrirPasso
   ${If} $Navegador != ""
-    Exec '"$Navegador" "$UrlPasso"'
+    Exec '"$Navegador" "chrome://extensions" "$UrlPasso"'
   ${Else}
     ExecShell "open" "$INSTDIR\instalar-extensao.html"
   ${EndIf}

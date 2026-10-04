@@ -32,11 +32,33 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
     case 'abrir-todos': emFila(abrirTodos); break;
     case 'config': emFila(() => chrome.storage.local.set({ config: msg.config })); break;
     case 'som-pronto': emFila(atualizarAlarme); break;
+    case 'diagnostico': emFila(pedirDiagnostico); break;
+    case 'diag-resposta':
+      if (sender.tab) emFila(() => guardarDiagnostico(msg, sender.tab));
+      break;
     case 'testar-whatsapp':
       mandarZap('*Teste da Central de Acionamentos*\nOs avisos de chamado vão sair por este número.', true);
       break;
   }
 });
+
+/* ---------- diagnóstico ---------- */
+
+// Pede para cada aba de portal (todos os quadros) descrever a própria tela.
+async function pedirDiagnostico() {
+  await chrome.storage.local.set({ diagnostico: { em: Date.now(), itens: [] } });
+  const { estado = {} } = await chrome.storage.local.get('estado');
+  for (const k of ORDEM_PORTAIS) {
+    const e = estado[k];
+    if (e && e.tabId != null) chrome.tabs.sendMessage(e.tabId, { tipo: 'diagnostico' }).catch(() => {});
+  }
+}
+
+async function guardarDiagnostico({ portal, dados }, tab) {
+  const { diagnostico = { itens: [] } } = await chrome.storage.local.get('diagnostico');
+  diagnostico.itens.push({ portal, aba: tab.id, ...dados });
+  await chrome.storage.local.set({ diagnostico });
+}
 
 /* ---------- avisos por WhatsApp ---------- */
 
