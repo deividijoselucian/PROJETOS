@@ -1,0 +1,999 @@
+<title>Meu Painel Investigativo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: três abas na ordem do trabalho (Entrevistar, Explicar, Apresentar).
+   As duas primeiras usam o tema da página; Apresentar ocupa a tela com o visual do painel escolhido. */
+:root {
+  --bg: #F3F5FA; --surface: #FFFFFF; --sunk: #E8ECF6; --ink: #121830; --muted: #535D78; --line: #D5DBEA;
+  --accent: #2343E0; --accent-ink: #FFFFFF; --accent-soft: #E2E7FF;
+  --ok: #0C744D; --ok-soft: #DCF2E8; --bad: #BE3337; --bad-soft: #FBE2E2;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* tela de bloqueio (visual fixo, igual nos dois temas) */
+  --ls-glass: rgba(10, 12, 28, 0.62); --ls-ink: #FFFFFF; --ls-muted: rgba(255, 255, 255, 0.82); --ls-line: rgba(255, 255, 255, 0.2);
+  --ls-track: rgba(255, 255, 255, 0.14); --ls-hi: #FFD36B; --ls-hi-ink: #1B1530; --ls-chip: rgba(255, 255, 255, 0.1);
+  --t-rede: #FF6FA8; --t-jogo: #5BE38F; --t-msg: #69B7FF; --t-nao: #B8BCD0;
+  --ls-wall: linear-gradient(165deg, #141838 0%, #4B2468 38%, #D2506A 72%, #F5A35A 100%); --ls-base: #141838;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1020; --surface: #141A2D; --sunk: #1B2238; --ink: #E8EBF5; --muted: #A0A9C3; --line: #2A3354;
+    --accent: #8399FF; --accent-ink: #0C1020; --accent-soft: #1F2952;
+    --ok: #4BD198; --ok-soft: #12352A; --bad: #FF8A86; --bad-soft: #3D1B21; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C1020; --surface: #141A2D; --sunk: #1B2238; --ink: #E8EBF5; --muted: #A0A9C3; --line: #2A3354;
+  --accent: #8399FF; --accent-ink: #0C1020; --accent-soft: #1F2952;
+  --ok: #4BD198; --ok-soft: #12352A; --bad: #FF8A86; --bad-soft: #3D1B21; color-scheme: dark;
+}
+body[data-fundo="noite"] { --ls-wall: linear-gradient(170deg, #070A1C 0%, #14204A 60%, #24356E 100%); --ls-base: #070A1C; }
+body[data-fundo="ceu"] { --ls-wall: linear-gradient(165deg, #173F80 0%, #2A72C0 55%, #5FAEE0 100%); --ls-base: #173F80; }
+body[data-fundo="menta"] { --ls-wall: linear-gradient(165deg, #062925 0%, #0E5146 55%, #1B8C72 100%); --ls-base: #062925; }
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.55; min-height: 100vh; }
+body[data-aba="apresentar"] { background-color: var(--ls-base); background-image: var(--ls-wall); background-attachment: fixed; color: var(--ls-ink); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+body[data-aba="apresentar"]::before { background: var(--ls-base); }
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+body[data-aba="apresentar"] :focus-visible { outline-color: var(--ls-hi); }
+.wrap {
+  max-width: 760px; margin: 0 auto; padding-block: 22px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.vista > .wrap { display: flex; flex-direction: column; gap: 22px; }
+.h { font-family: var(--display); font-size: 1.15rem; font-weight: 700; }
+.hint { font-size: 0.9rem; color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Barra de abas */
+.barra { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+body[data-aba="apresentar"] .barra { background: rgba(10, 12, 28, 0.78); border-color: var(--ls-line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.barra-in {
+  max-width: 1280px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between;
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.abas { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.abas::-webkit-scrollbar { display: none; }
+.aba {
+  flex: none; display: inline-flex; align-items: center; gap: 8px; font: 700 0.95rem var(--body); color: var(--ink);
+  background: var(--sunk); border: 1px solid transparent; border-radius: 999px; padding: 8px 14px; min-height: 44px; cursor: pointer;
+}
+.aba .n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 0.78rem; background: var(--surface); color: var(--muted); }
+.aba[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.aba[aria-selected="true"] .n { background: var(--accent-ink); color: var(--accent); }
+@media (max-width: 440px) { .aba { padding: 8px 10px; gap: 6px; font-size: 0.88rem; } .aba .n { display: none; } }
+.aba .cont { font-size: 0.78rem; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: var(--surface); color: var(--ink); }
+body[data-aba="apresentar"] .aba { background: transparent; color: var(--ls-ink); border-color: var(--ls-line); }
+body[data-aba="apresentar"] .aba .n, body[data-aba="apresentar"] .aba .cont { background: var(--ls-chip); color: var(--ls-ink); }
+body[data-aba="apresentar"] .aba[aria-selected="true"] { background: var(--ls-hi); color: var(--ls-hi-ink); border-color: var(--ls-hi); }
+body[data-aba="apresentar"] .aba[aria-selected="true"] .n { background: var(--ls-hi-ink); color: var(--ls-hi); }
+.ferramentas { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+body:not([data-aba="apresentar"]) .ferramentas { display: none; }
+.estilos { display: flex; gap: 4px; flex-wrap: wrap; }
+.tb {
+  font: 700 0.85rem var(--body); padding: 8px 12px; min-height: 40px; border-radius: 999px; border: 1px solid var(--ls-line);
+  background: transparent; color: var(--ls-ink); cursor: pointer; white-space: nowrap;
+}
+.tb:hover { border-color: var(--ls-ink); }
+.tb[aria-pressed="true"] { background: var(--ls-ink); color: var(--ls-hi-ink); border-color: var(--ls-ink); }
+body.limpo .barra { display: none; }
+.mostrar {
+  position: fixed; z-index: 6; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  background: rgba(10, 12, 28, 0.78); opacity: 0.5;
+}
+.mostrar:hover, .mostrar:focus-visible { opacity: 1; }
+@media (hover: hover) { .mostrar:not(:hover):not(:focus-visible) { opacity: 0; } }
+
+/* Botões e campos */
+.btn { font: 700 1rem var(--body); border-radius: 10px; padding: 11px 18px; min-height: 44px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.small { font-size: 0.88rem; padding: 7px 12px; min-height: 38px; }
+.btn.big { font-size: 1.08rem; padding: 13px 22px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > label, .lbl { font-weight: 700; font-size: 0.95rem; }
+input[type="text"], input[type="number"], textarea {
+  font: inherit; font-size: 1rem; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; min-width: 0;
+}
+textarea { resize: vertical; min-height: 84px; line-height: 1.5; field-sizing: content; max-height: 50vh; }
+input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.row2 > * { min-width: 0; }
+.check-inline { display: flex; gap: 10px; align-items: flex-start; font-size: 0.95rem; cursor: pointer; }
+.check-inline input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+
+/* Ficha */
+.ficha { border: 2px solid var(--accent); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 16px; background: var(--surface); scroll-margin-top: 80px; }
+.ficha.editando { border-style: dashed; }
+.ficha-titulo { font-family: var(--display); font-weight: 700; font-size: 1.15rem; color: var(--accent); }
+.pergunta { font-size: 1.15rem; font-weight: 700; line-height: 1.4; padding: 12px 14px; border-radius: 10px; background: var(--accent-soft); }
+.apps { display: flex; flex-wrap: wrap; gap: 6px; }
+.app-op { font: 700 0.95rem var(--body); color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 999px; padding: 8px 14px; min-height: 44px; cursor: pointer; }
+.app-op:hover { border-color: var(--accent); }
+.app-op[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.tipos { display: flex; flex-wrap: wrap; gap: 6px; }
+.tipo-op { font: 700 0.92rem var(--body); color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 10px; padding: 8px 14px; min-height: 44px; cursor: pointer; }
+.tipo-op[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.tempo-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tempo-row input { width: 110px; flex: none; }
+.tchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tchip { font: 700 0.9rem var(--body); min-width: 48px; min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; padding: 0 10px; font-variant-numeric: tabular-nums; }
+.tchip:hover { border-color: var(--accent); }
+.f-msg { font-size: 0.97rem; font-weight: 700; min-height: 1.4em; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.f-msg.ok { color: var(--ok); }
+.f-msg.erro { color: var(--bad); }
+.meta { display: flex; flex-direction: column; gap: 6px; }
+.meta-bar { height: 10px; border-radius: 999px; background: var(--sunk); overflow: hidden; }
+.meta-fill { height: 100%; background: var(--accent); border-radius: 999px; }
+.meta-fill.ok { background: var(--ok); }
+.meta-txt { font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.table-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.tabela { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+.tabela th, .tabela td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+.tabela td.nome { white-space: normal; min-width: 6em; overflow-wrap: anywhere; }
+.tabela tr:last-child td { border-bottom: 0; }
+.tabela th { font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--sunk); }
+.tabela td.num { font-variant-numeric: tabular-nums; font-weight: 700; }
+.tabela td.falta { color: var(--bad); font-weight: 700; }
+.acoes { display: flex; gap: 6px; }
+.mini { font: 700 0.82rem var(--body); padding: 6px 10px; min-height: 36px; border-radius: 8px; border: 1px solid var(--line); background: var(--sunk); color: var(--ink); cursor: pointer; }
+.mini:hover { border-color: var(--accent); }
+.mini.perigo { color: var(--bad); }
+.vazio-tab { padding: 14px; color: var(--muted); font-size: 0.95rem; }
+details.dados { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 12px 16px; }
+details.dados summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+details.dados[open] summary { margin-bottom: 12px; }
+
+/* Explicar */
+.facts-list { margin: 0; padding: 14px 16px 14px 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 0.97rem; }
+.facts-list .warn { color: var(--bad); font-weight: 700; }
+.script { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.beat { display: grid; grid-template-columns: 108px minmax(0, 1fr); border-bottom: 1px solid var(--line); }
+.beat:last-child { border-bottom: 0; }
+.beat .t { font-weight: 700; font-size: 0.88rem; padding: 12px 14px; background: var(--sunk); font-variant-numeric: tabular-nums; }
+.beat .d { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.beat .d p { font-size: 1rem; overflow-wrap: anywhere; }
+.keys { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: 0.74rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+@media (max-width: 460px) { .beat { grid-template-columns: minmax(0, 1fr); } .beat .t { padding-block: 6px; } }
+.roteiro-tempo { font-size: 0.95rem; font-weight: 700; color: var(--muted); }
+.roteiro-tempo.longo { color: var(--bad); }
+
+/* Apresentar: o painel é a tela de bloqueio do celular na hora de acordar */
+.tela { color: var(--ls-ink); font-size: clamp(16px, 0.5vw + 13px, 20px); line-height: 1.45; }
+@media (min-width: 900px) { .tela { font-size: clamp(14px, min(0.5vw + 12px, 2.05vh), 20px); } }
+.tela-in {
+  max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px;
+  padding-top: 12px; padding-bottom: max(26px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.status { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.9em; font-variant-numeric: tabular-nums; }
+.ls-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 900px) { .ls-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+.ls-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ls-dia { font-weight: 700; font-size: 1.05em; color: var(--ls-muted); }
+.ls-relogio { font-family: var(--display); font-weight: 500; font-size: clamp(4rem, 8.5vw, 7.2rem); line-height: 0.95; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; margin-top: -4px; }
+.ls-autor { display: inline-flex; align-self: flex-start; gap: 8px; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--ls-glass); font-weight: 700; font-size: 0.9em; }
+.ls-autor svg { width: 1.1em; height: 1.1em; }
+.w {
+  background: var(--ls-glass); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  border: 1px solid var(--ls-line); border-radius: 22px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+}
+.w-head { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.ls-secao { margin-top: 2px; }
+.w-ico { width: 2em; height: 2em; border-radius: 9px; display: grid; place-items: center; background: var(--ls-chip); flex: none; }
+.w-ico svg { width: 62%; height: 62%; }
+.w-titulo { font-size: 1em; font-weight: 700; margin-right: auto; }
+.w-hora { font-size: 0.82em; color: var(--ls-muted); font-variant-numeric: tabular-nums; }
+.w-parte { font-size: 0.7em; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: var(--ls-hi); color: var(--ls-hi-ink); white-space: nowrap; }
+.w-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.w-tag { font-size: 0.66em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--ls-line); color: var(--ls-muted); }
+.w-tema h1 { font-family: var(--display); font-weight: 700; font-size: 1.65em; line-height: 1.12; overflow-wrap: anywhere; }
+.w-frase { font-size: 1.1em; color: var(--ls-muted); overflow-wrap: anywhere; }
+.w-q { font-size: 1.15em; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+.w-small { font-size: 0.86em; color: var(--ls-muted); overflow-wrap: anywhere; }
+.w-small strong { color: var(--ls-ink); }
+.w-vazio { color: var(--ls-muted); font-style: italic; }
+.w-ir { align-self: flex-start; font: 700 0.9em var(--body); padding: 8px 14px; border-radius: 999px; border: 1px solid var(--ls-ink); background: transparent; color: var(--ls-ink); cursor: pointer; min-height: 40px; }
+.uso { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.uso li { display: grid; grid-template-columns: 2.1em minmax(0, 8.5em) minmax(0, 1fr) 4.4em; grid-template-areas: "pos quem trk min"; gap: 2px 10px; align-items: center; }
+.uso li.sep { display: block; text-align: center; font-size: 0.85em; color: var(--ls-muted); }
+.uso-pos { grid-area: pos; font-weight: 700; color: var(--ls-muted); font-variant-numeric: tabular-nums; }
+.uso-quem { grid-area: quem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.uso-quem small { display: block; font-weight: 400; font-size: 0.78em; color: var(--ls-muted); }
+.uso-track { grid-area: trk; height: 0.95em; border-radius: 999px; background: var(--ls-track); overflow: hidden; }
+.uso-fill { height: 100%; width: 0; border-radius: 999px; transition: width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) { .uso-fill { transition: none; } }
+.uso-min { grid-area: min; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 560px) { .uso li { grid-template-columns: 2em minmax(0, 1fr) 4.4em; grid-template-areas: "pos quem min" ". trk trk"; } }
+.selo { display: inline-block; margin-left: 6px; vertical-align: 2px; font-size: 0.6em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: var(--ls-hi); color: var(--ls-hi-ink); white-space: nowrap; }
+.selo.base { background: var(--ls-chip); color: var(--ls-ink); border: 1px solid var(--ls-line); }
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.82em; color: var(--ls-muted); }
+.legenda i { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.w-dupla { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) { .w-dupla { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.w-dupla > .w:only-child { grid-column: 1 / -1; }
+.apps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.6em, 1fr)); gap: 14px 8px; }
+.app-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; font-size: 0.78em; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
+.app-ic { position: relative; width: 3.3em; height: 3.3em; border-radius: 24%; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 1.15em; color: #14102A; }
+.badge { position: absolute; top: -0.45em; right: -0.45em; min-width: 1.55em; height: 1.55em; padding: 0 0.35em; border-radius: 999px; display: grid; place-items: center; background: #E8263F; color: #FFFFFF; font-family: var(--body); font-size: 0.62em; font-weight: 700; border: 2px solid #14102A; }
+.vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.vs-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--ls-chip); border-top: 4px solid transparent; min-width: 0; }
+.vs-num { font-family: var(--display); font-weight: 700; font-size: 1.9em; line-height: 1; font-variant-numeric: tabular-nums; }
+.vs-nome { font-weight: 700; overflow-wrap: anywhere; }
+.amp { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.amp-big { font-family: var(--display); font-weight: 700; font-size: 2.5em; line-height: 1; color: var(--ls-hi); font-variant-numeric: tabular-nums; }
+.amp p { flex: 1 1 14em; min-width: 0; }
+.w-padrao { overflow-wrap: anywhere; }
+.bolha { align-self: flex-start; max-width: 62em; background: #FFFFFF; color: #14102A; border-radius: 20px 20px 20px 6px; padding: 12px 16px; font-weight: 700; font-size: 1.1em; line-height: 1.4; overflow-wrap: anywhere; }
+.ls-home { width: 8em; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.6); margin: 2px auto 0; }
+@media (min-width: 900px) and (max-height: 950px) { .tela-in { gap: 10px; } .ls-col { gap: 10px; } .w { padding: 12px 16px; gap: 8px; } .uso { gap: 4px; } }
+</style>
+
+<header class="barra" id="barra">
+  <div class="barra-in">
+    <div class="abas" role="tablist" aria-label="Etapas">
+      <button class="aba" role="tab" type="button" id="aba-entrevistar" aria-controls="vista-entrevistar" data-aba="entrevistar"><span class="n">1</span>Entrevistar<span class="cont" id="cont-fichas">0</span></button>
+      <button class="aba" role="tab" type="button" id="aba-explicar" aria-controls="vista-explicar" data-aba="explicar"><span class="n">2</span>Explicar</button>
+      <button class="aba" role="tab" type="button" id="aba-apresentar" aria-controls="vista-apresentar" data-aba="apresentar"><span class="n">3</span>Apresentar</button>
+    </div>
+    <div class="ferramentas">
+      <div class="estilos" id="fundos" role="group" aria-label="Papel de parede do painel"></div>
+      <button class="tb" type="button" id="bt-tela">Tela cheia</button>
+      <button class="tb" type="button" id="bt-esconder">Esconder botões</button>
+    </div>
+  </div>
+</header>
+<button class="tb mostrar" type="button" id="bt-mostrar" hidden>Mostrar botões</button>
+
+<main>
+  <section class="vista" id="vista-entrevistar" role="tabpanel" aria-labelledby="aba-entrevistar">
+    <div class="wrap">
+      <div class="ficha" id="ficha">
+        <span class="ficha-titulo" id="ficha-titulo">Entrevista nº 1</span>
+        <div class="stack" style="gap:6px">
+          <span class="hint">Leia a pergunta para a pessoa:</span>
+          <p class="pergunta" id="pergunta-ficha"></p>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="f-nome">Nome ou apelido</label>
+            <input type="text" id="f-nome" autocomplete="off" placeholder="Ex.: Ana">
+          </div>
+          <div class="field">
+            <label for="f-idade">Idade (opcional)</label>
+            <input type="number" id="f-idade" min="1" max="120" inputmode="numeric" placeholder="Ex.: 14">
+          </div>
+        </div>
+        <div class="field" id="f-app-box">
+          <span class="lbl" id="lbl-app">Qual aplicativo?</span>
+          <div class="apps" id="f-apps" role="group" aria-labelledby="lbl-app"></div>
+          <div class="field" id="f-outro-box" hidden>
+            <label for="f-outro">Nome do aplicativo</label>
+            <input type="text" id="f-outro" autocomplete="off" placeholder="Ex.: Pinterest">
+          </div>
+        </div>
+        <div class="field" id="f-tipo-box">
+          <span class="lbl" id="lbl-tipo">É rede social, jogo ou outro?</span>
+          <div class="tipos" id="f-tipos" role="group" aria-labelledby="lbl-tipo"></div>
+        </div>
+        <div class="field" id="f-tempo-box">
+          <label for="f-min">Quanto tempo? (em minutos)</label>
+          <div class="tempo-row">
+            <input type="number" id="f-min" min="0" max="600" inputmode="numeric" placeholder="Ex.: 20">
+            <div class="tchips" id="f-chips"></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn big" type="button" id="f-salvar">Salvar entrevista</button>
+          <button class="btn ghost" type="button" id="f-cancelar" hidden>Cancelar edição</button>
+        </div>
+        <div class="f-msg" id="f-msg" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="meta">
+        <div class="meta-bar"><div class="meta-fill" id="meta-fill"></div></div>
+        <span class="meta-txt" id="meta-txt"></span>
+      </div>
+
+      <div class="stack">
+        <h2 class="h">Pessoas entrevistadas</h2>
+        <div class="table-box" id="fichas-box" tabindex="-1"></div>
+      </div>
+
+      <details class="dados">
+        <summary>Tema, pergunta, critério e o seu toque no painel</summary>
+        <div class="stack">
+          <div class="field"><label for="p-dilema">Tema (dilema digital)</label><input type="text" id="p-dilema"></div>
+          <div class="field"><label for="p-pergunta">Pergunta de pesquisa</label><textarea id="p-pergunta" rows="2"></textarea></div>
+          <div class="field"><label for="p-criterio">Critério: o que conta e o que não conta</label><textarea id="p-criterio" rows="4"></textarea></div>
+          <div class="field"><label for="p-publico">Quem você entrevistou</label><input type="text" id="p-publico" placeholder="Ex.: colegas do 8º ano e adultos da família"></div>
+          <div class="row2">
+            <div class="field"><label for="p-autor">Seu nome</label><input type="text" id="p-autor" placeholder="Ex.: Ana"></div>
+            <div class="field"><label for="p-turma">Turma ou escola</label><input type="text" id="p-turma" placeholder="Ex.: 8º ano B"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label for="p-hora">Que horas você acorda?</label><input type="time" id="p-hora"></div>
+            <div class="field"><label for="p-frase">Frase de abertura (do seu jeito)</label><input type="text" id="p-frase" maxlength="90" placeholder="Ex.: Você acorda e já pega o celular?"></div>
+          </div>
+          <label class="check-inline" for="p-nomes"><input type="checkbox" id="p-nomes"><span>Mostrar os nomes no painel. Sem marcar, aparece “Pessoa 1, Pessoa 2…”. Só mostre nomes se as pessoas deixarem.</span></label>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button class="btn" type="button" data-ir="explicar">Próximo: explicar →</button>
+        <button class="btn ghost small" type="button" id="bt-apagar">Apagar todas as entrevistas</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="vista" id="vista-explicar" role="tabpanel" aria-labelledby="aba-explicar" hidden>
+    <div class="wrap">
+      <div class="stack">
+        <h2 class="h">O que os números mostram</h2>
+        <ul class="facts-list" id="fatos"></ul>
+      </div>
+      <div class="field">
+        <label for="p-padrao">O padrão que você enxergou</label>
+        <textarea id="p-padrao" rows="2" placeholder="O que se repete nos seus dados?"></textarea>
+        <span class="hint">Olhe a lista acima: quem usa mais, jogos ou redes sociais? Os mais novos ou os adultos?</span>
+      </div>
+      <div class="field">
+        <label for="p-conclusao">Sua conclusão</label>
+        <textarea id="p-conclusao" rows="3" placeholder="Responda à pergunta usando os números"></textarea>
+        <span class="hint">Escreva com as suas palavras: o total, quem mais e quem menos usa, o padrão e, se quiser, o que você vai fazer com essa descoberta.</span>
+      </div>
+      <div class="stack">
+        <h2 class="h">O que falar no vídeo (até 1 minuto)</h2>
+        <div class="script" id="roteiro"></div>
+        <p class="roteiro-tempo" id="roteiro-tempo"></p>
+        <div class="actions">
+          <button class="btn ghost" type="button" id="copiar-roteiro">Copiar o texto</button>
+          <button class="btn" type="button" data-ir="apresentar">Próximo: apresentar →</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="vista tela" id="vista-apresentar" role="tabpanel" aria-labelledby="aba-apresentar" hidden>
+    <div class="tela-in">
+      <div class="status" aria-hidden="true"><span id="status-hora">06:30</span><span id="status-ic"></span></div>
+      <h1 class="sr">Painel Investigativo</h1>
+      <div class="ls-grid" id="ls-grid"></div>
+      <div id="ls-conc"></div>
+      <div class="ls-home" aria-hidden="true"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+
+function el(tag, attrs, ...filhos) {
+  const n = document.createElement(tag);
+  for (const k in attrs || {}) {
+    if (k === "class") n.className = attrs[k];
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), attrs[k]);
+    else n.setAttribute(k, attrs[k]);
+  }
+  for (const f of filhos) if (f !== null && f !== undefined && f !== false) n.append(f);
+  return n;
+}
+const $ = id => document.getElementById(id);
+function lerSalvo(chave) { try { return JSON.parse(localStorage.getItem(chave) || "null"); } catch (e) { return null; } }
+function gravar(chave, valor) { try { localStorage.setItem(chave, JSON.stringify(valor)); } catch (e) {} }
+const clone = o => JSON.parse(JSON.stringify(o));
+const fmt = n => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+const pct = (n, t) => t ? Math.round(n / t * 100) : 0;
+const plural = (n, um, varios) => n + " " + (n === 1 ? um : varios);
+const numOuNulo = v => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v))) ? null : Number(v);
+
+// ---------- Dados ----------
+const TEMA = {
+  dilema: "Uso do celular ao acordar (redes sociais e jogos)",
+  pergunta: "Quanto tempo você usa o celular ao acordar e qual aplicativo você usa?",
+  criterio: "Num dia de aula, conta o tempo em minutos entre acordar e largar o celular para se arrumar. Vale o aplicativo que a pessoa mais usa nesse tempo. Redes sociais: TikTok, Instagram, YouTube, Kwai e Facebook. Jogos: qualquer jogo. WhatsApp e outros apps entram em “Mensagens e outros”. Desligar o despertador não conta.",
+  categorias: ["Redes sociais", "Jogos", "Mensagens e outros", "Não usa"]
+};
+const APPS = [
+  { nome: "TikTok", tipo: "Redes sociais" }, { nome: "Instagram", tipo: "Redes sociais" }, { nome: "YouTube", tipo: "Redes sociais" },
+  { nome: "Kwai", tipo: "Redes sociais" }, { nome: "Facebook", tipo: "Redes sociais" },
+  { nome: "Free Fire", tipo: "Jogos" }, { nome: "Roblox", tipo: "Jogos" }, { nome: "Minecraft", tipo: "Jogos" },
+  { nome: "Brawl Stars", tipo: "Jogos" }, { nome: "Clash Royale", tipo: "Jogos" },
+  { nome: "WhatsApp", tipo: "Mensagens e outros" },
+  { nome: "Outro", tipo: null, outro: true },
+  { nome: "Não usa o celular", tipo: "Não usa", nenhum: true }
+];
+const TEMPOS = [0, 5, 10, 15, 20, 30, 45, 60];
+const FUNDOS = [
+  { id: "amanhecer", nome: "Amanhecer" }, { id: "noite", nome: "Noite" },
+  { id: "ceu", nome: "Céu" }, { id: "menta", nome: "Menta" }
+];
+const BASE = {
+  dilema: "", pergunta: "", criterio: "", publico: "", categorias: [{ nome: "" }],
+  tempo: true, app: true, fichas: [], padrao: "", conclusao: "",
+  autor: "", turma: "", titulo: "", estilo: "quadro", icone: "auto", mostrarNomes: false,
+  hora: "06:30", frase: "", fundo: "amanhecer"
+};
+function meuTema() {
+  return Object.assign(clone(BASE), {
+    dilema: TEMA.dilema, pergunta: TEMA.pergunta, criterio: TEMA.criterio,
+    categorias: TEMA.categorias.map(nome => ({ nome }))
+  });
+}
+const CHAVE = "painel-investigativo-v1";
+function carregar() {
+  const s = lerSalvo(CHAVE);
+  if (!s || typeof s !== "object" || !Array.isArray(s.categorias) || s.exemplo === true) return meuTema();
+  const p = Object.assign(clone(BASE), s);
+  p.categorias = s.categorias.map(c => ({ nome: String((c && c.nome) || "") }));
+  if (!p.categorias.length) p.categorias = TEMA.categorias.map(nome => ({ nome }));
+  if (Array.isArray(s.fichas)) {
+    p.fichas = s.fichas.filter(f => f && Number.isInteger(f.cat) && f.cat >= 0).map(f => ({
+      nome: String(f.nome || ""), idade: numOuNulo(f.idade), app: String(f.app || ""), cat: f.cat, min: numOuNulo(f.min)
+    }));
+  } else {
+    p.fichas = [];
+    s.categorias.forEach((c, i) => {
+      const n = Math.max(0, parseInt(c && c.n, 10) || 0);
+      for (let k = 0; k < n; k++) p.fichas.push({ nome: "", idade: null, app: "", cat: i, min: null });
+    });
+  }
+  ["exemplo", "pessoas", "unidade", "log", "grupos"].forEach(k => delete p[k]);
+  ["dilema", "pergunta", "criterio", "publico", "padrao", "conclusao", "autor", "turma", "titulo"].forEach(k => { p[k] = String(p[k] || ""); });
+  p.tempo = s.tempo === undefined ? true : !!s.tempo;
+  p.app = s.app === undefined ? true : !!s.app;
+  p.mostrarNomes = !!p.mostrarNomes;
+  if (!FUNDOS.some(e => e.id === p.fundo)) p.fundo = "amanhecer";
+  if (!/^\d{2}:\d{2}$/.test(String(p.hora || ""))) p.hora = "06:30";
+  p.frase = String(p.frase || "");
+  return p;
+}
+let painel = carregar();
+function salvar() { gravar(CHAVE, painel); }
+
+// ---------- Análise ----------
+function semUsoCat(i) {
+  const nome = ((painel.categorias[i] && painel.categorias[i].nome) || "").trim();
+  return /^(n[ãa]o\s+(usa|usou|uso|pego|peguei)|nenhum|nada)/i.test(nome);
+}
+function rotulo(f, usarNomes) {
+  const nome = (f.nome || "").trim();
+  return usarNomes && nome ? nome : "Pessoa " + (f.idx + 1);
+}
+function analisar() {
+  const nomesCat = painel.categorias.map(c => (c.nome || "").trim());
+  const todas = painel.fichas.map((f, idx) => Object.assign({}, f, { idx }));
+  const validas = todas.filter(f => nomesCat[f.cat]);
+  const cats = nomesCat.map((nome, i) => ({ nome, i })).filter(c => c.nome).map(c => {
+    const fs = validas.filter(f => f.cat === c.i);
+    const t = fs.filter(f => f.min !== null);
+    return Object.assign(c, { n: fs.length, media: painel.tempo && t.length ? t.reduce((s, f) => s + f.min, 0) / t.length : null });
+  });
+  const comTempo = painel.tempo ? validas.filter(f => f.min !== null) : [];
+  const ranking = comTempo.slice().sort((a, b) => b.min - a.min || a.idx - b.idx);
+  const media = comTempo.length ? comTempo.reduce((s, f) => s + f.min, 0) / comTempo.length : null;
+  const topo = ranking.length ? ranking[0] : null;
+  const base = ranking.length > 1 ? ranking[ranking.length - 1] : null;
+  const amplitude = topo && base ? topo.min - base.min : null;
+  const med = a => a.reduce((s, f) => s + f.min, 0) / a.length;
+  const jov = comTempo.filter(f => f.idade !== null && f.idade < 18);
+  const adu = comTempo.filter(f => f.idade !== null && f.idade >= 18);
+  const idades = jov.length >= 2 && adu.length >= 2 ? { jov: med(jov), adu: med(adu), nj: jov.length, na: adu.length } : null;
+  const mapa = new Map();
+  if (painel.app) validas.forEach(f => {
+    const nome = (f.app || "").trim();
+    if (!nome) return;
+    const k = nome.toLowerCase();
+    const atual = mapa.get(k) || { nome, n: 0 };
+    atual.n++;
+    mapa.set(k, atual);
+  });
+  const apps = [...mapa.values()].sort((a, b) => b.n - a.n || a.nome.localeCompare(b.nome));
+  return {
+    total: todas.length, validos: validas.length, orfas: todas.length - validas.length,
+    semTempo: painel.tempo ? validas.length - comTempo.length : 0,
+    semApp: painel.app ? validas.filter(f => !(f.app || "").trim() && !semUsoCat(f.cat)).length : 0,
+    cats, ord: cats.slice().sort((a, b) => b.n - a.n), ranking, media, topo, base, amplitude, idades, apps
+  };
+}
+function quemTexto(a, alvo, usarNomes) {
+  const emp = a.ranking.filter(f => f.min === alvo.min);
+  if (emp.length > 1) return `${emp.length} pessoas empatadas (${emp.map(f => rotulo(f, usarNomes)).join(", ")})`;
+  return rotulo(alvo, usarNomes);
+}
+
+// ---------- Abas ----------
+const ABAS = ["entrevistar", "explicar", "apresentar"];
+let abaAtual = null;
+function irPara(aba, focarAba) {
+  if (!ABAS.includes(aba)) aba = "entrevistar";
+  abaAtual = aba;
+  document.body.dataset.aba = aba;
+  ABAS.forEach(x => {
+    const ativo = x === aba;
+    $("aba-" + x).setAttribute("aria-selected", String(ativo));
+    $("aba-" + x).tabIndex = ativo ? 0 : -1;
+    $("vista-" + x).hidden = !ativo;
+  });
+  if (aba !== "apresentar") { document.body.classList.remove("limpo"); $("bt-mostrar").hidden = true; }
+  atualizar(aba === "apresentar");
+  window.scrollTo(0, 0);
+  if (focarAba) $("aba-" + aba).focus();
+}
+ABAS.forEach((x, k) => {
+  const b = $("aba-" + x);
+  b.addEventListener("click", () => irPara(x));
+  b.addEventListener("keydown", ev => {
+    if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
+    ev.preventDefault();
+    irPara(ABAS[(k + (ev.key === "ArrowRight" ? 1 : ABAS.length - 1)) % ABAS.length], true);
+  });
+});
+document.querySelectorAll("[data-ir]").forEach(b => b.addEventListener("click", () => irPara(b.dataset.ir)));
+
+// ---------- Campos de texto ----------
+const CAMPOS = ["dilema", "pergunta", "criterio", "publico", "autor", "turma", "hora", "frase", "padrao", "conclusao"];
+CAMPOS.forEach(c => { $("p-" + c).addEventListener("input", ev => { painel[c] = ev.target.value; salvar(); atualizar(); }); });
+$("p-nomes").addEventListener("change", ev => { painel.mostrarNomes = ev.target.checked; salvar(); atualizar(); });
+function preencherCampos() {
+  CAMPOS.forEach(c => { $("p-" + c).value = painel[c] || ""; });
+  $("p-nomes").checked = painel.mostrarNomes;
+}
+
+// ---------- Ficha de entrevista ----------
+let form = { app: null, cat: null, editando: -1 };
+function indiceTipo(tipo) {
+  if (!tipo) return null;
+  const i = painel.categorias.findIndex(c => (c.nome || "").trim().toLowerCase() === tipo.toLowerCase());
+  return i >= 0 ? i : null;
+}
+function manterFoco(acao) {
+  const a = document.activeElement;
+  const grupo = a && a.parentElement && a.parentElement.id;
+  const idx = grupo ? [...a.parentElement.children].indexOf(a) : -1;
+  acao();
+  if (grupo && idx >= 0 && $(grupo) && $(grupo).children[idx]) $(grupo).children[idx].focus();
+}
+function desenharFicha() {
+  const escolhido = APPS.find(x => x.nome === form.app);
+  $("f-app-box").hidden = !painel.app;
+  $("f-tempo-box").hidden = !painel.tempo;
+  $("f-outro-box").hidden = !(painel.app && escolhido && escolhido.outro);
+  $("f-tipo-box").hidden = painel.app && !!escolhido && !escolhido.outro && form.cat !== null;
+  $("f-apps").replaceChildren(...APPS.map(x => el("button", { class: "app-op", type: "button", "aria-pressed": String(form.app === x.nome), onclick: () => escolherApp(x) }, x.nome)));
+  $("f-tipos").replaceChildren(...painel.categorias.map((c, i) => ({ nome: (c.nome || "").trim(), i })).filter(c => c.nome)
+    .map(c => el("button", { class: "tipo-op", type: "button", "aria-pressed": String(form.cat === c.i), onclick: () => escolherTipo(c.i) }, c.nome)));
+  $("f-chips").replaceChildren(...TEMPOS.map(t => el("button", { class: "tchip", type: "button", "aria-label": t + " minutos", onclick: () => { $("f-min").value = String(t); } }, String(t))));
+  const n = form.editando >= 0 ? form.editando + 1 : painel.fichas.length + 1;
+  $("ficha-titulo").textContent = form.editando >= 0 ? `Editando a entrevista nº ${n}` : `Entrevista nº ${n}`;
+  $("ficha").classList.toggle("editando", form.editando >= 0);
+  $("f-cancelar").hidden = form.editando < 0;
+}
+function escolherApp(x) {
+  form.app = x.nome;
+  const i = indiceTipo(x.tipo);
+  form.cat = x.outro ? null : i;
+  if (x.nenhum && painel.tempo) $("f-min").value = "0";
+  manterFoco(desenharFicha);
+  if (x.outro) $("f-outro").focus();
+}
+function escolherTipo(i) {
+  form.cat = i;
+  if (painel.tempo && semUsoCat(i) && $("f-min").value.trim() === "") $("f-min").value = "0";
+  manterFoco(desenharFicha);
+}
+function limparFicha(focar) {
+  form = { app: null, cat: null, editando: -1 };
+  ["f-nome", "f-idade", "f-min", "f-outro"].forEach(id => { $(id).value = ""; });
+  desenharFicha();
+  if (focar) $("f-nome").focus();
+}
+function aviso(texto, erro, desfazerFicha) {
+  const m = $("f-msg");
+  m.className = "f-msg " + (erro ? "erro" : "ok");
+  const filhos = [el("span", {}, texto)];
+  if (desfazerFicha) filhos.push(el("button", { class: "mini", type: "button", onclick: () => {
+    const i = painel.fichas.indexOf(desfazerFicha);
+    if (i >= 0) { painel.fichas.splice(i, 1); salvar(); desenharFicha(); atualizar(); }
+    aviso("Entrevista desfeita.", false);
+    $("f-nome").focus();
+  } }, "Desfazer"));
+  m.replaceChildren(...filhos);
+}
+function salvarFicha() {
+  let app = "";
+  const escolhido = APPS.find(x => x.nome === form.app);
+  if (painel.app) {
+    if (!escolhido) return aviso("Toque no aplicativo que a pessoa usa.", true);
+    if (escolhido.outro) {
+      app = $("f-outro").value.trim();
+      if (!app) { $("f-outro").focus(); return aviso("Escreva o nome do aplicativo.", true); }
+    } else if (!escolhido.nenhum) app = escolhido.nome;
+  }
+  if (form.cat === null || !painel.categorias[form.cat] || !painel.categorias[form.cat].nome.trim()) {
+    $("f-tipo-box").hidden = false;
+    return aviso("Toque em: rede social, jogo ou outro.", true);
+  }
+  let min = null;
+  if (painel.tempo) {
+    const v = $("f-min").value.trim().replace(",", ".");
+    if (v === "") { $("f-min").focus(); return aviso("Escreva quanto tempo, em minutos. Se a pessoa não usa, coloque 0.", true); }
+    min = Math.round(Number(v));
+    if (!Number.isFinite(min) || min < 0 || min > 600) { $("f-min").focus(); return aviso("O tempo precisa ser um número de 0 a 600 minutos.", true); }
+  }
+  let idade = null;
+  const idadeTxt = $("f-idade").value.trim();
+  if (idadeTxt !== "") {
+    idade = Math.round(Number(idadeTxt));
+    if (!Number.isFinite(idade) || idade < 1 || idade > 120) { $("f-idade").focus(); return aviso("Confira a idade (de 1 a 120) ou deixe em branco.", true); }
+  }
+  const ficha = { nome: $("f-nome").value.trim(), idade, app, cat: form.cat, min };
+  const editou = form.editando >= 0;
+  let n;
+  if (editou) { painel.fichas[form.editando] = ficha; n = form.editando + 1; }
+  else { painel.fichas.push(ficha); n = painel.fichas.length; }
+  salvar();
+  limparFicha(true);
+  atualizar();
+  const resumo = [ficha.nome || "Pessoa " + n, ficha.app || null, painel.categorias[ficha.cat].nome, painel.tempo ? ficha.min + " min" : null].filter(Boolean).join(" · ");
+  aviso((editou ? `Entrevista ${n} atualizada: ` : `Entrevista ${n} salva: `) + resumo, false, editou ? null : ficha);
+}
+$("f-salvar").addEventListener("click", salvarFicha);
+$("f-cancelar").addEventListener("click", () => { limparFicha(true); aviso("Edição cancelada.", false); });
+["f-nome", "f-idade", "f-min", "f-outro"].forEach(id => $(id).addEventListener("keydown", ev => { if (ev.key === "Enter") { ev.preventDefault(); salvarFicha(); } }));
+
+function editarFicha(i) {
+  const f = painel.fichas[i];
+  if (!f) return;
+  form = { app: null, cat: f.cat, editando: i };
+  const conhecido = APPS.find(x => !x.outro && !x.nenhum && x.nome.toLowerCase() === (f.app || "").toLowerCase());
+  if (painel.app) form.app = conhecido ? conhecido.nome : (f.app ? "Outro" : (semUsoCat(f.cat) ? APPS.find(x => x.nenhum).nome : null));
+  $("f-nome").value = f.nome || "";
+  $("f-idade").value = f.idade === null ? "" : String(f.idade);
+  $("f-min").value = f.min === null ? "" : String(f.min);
+  $("f-outro").value = conhecido ? "" : (f.app || "");
+  desenharFicha();
+  aviso(`Editando a entrevista ${i + 1}. Mude o que precisar e toque em “Salvar entrevista”.`, false);
+  $("ficha").scrollIntoView({ block: "start" });
+  $("f-nome").focus();
+}
+function desenharTabela() {
+  const box = $("fichas-box");
+  if (!painel.fichas.length) {
+    box.replaceChildren(el("p", { class: "vazio-tab" }, "Ninguém ainda. Preencha a ficha acima e toque em “Salvar entrevista”."));
+    return;
+  }
+  const head = el("tr", {},
+    el("th", { scope: "col" }, "Nº"), el("th", { scope: "col" }, "Nome"), el("th", { scope: "col" }, "Idade"),
+    painel.app ? el("th", { scope: "col" }, "Aplicativo") : null,
+    el("th", { scope: "col" }, "Tipo"),
+    painel.tempo ? el("th", { scope: "col" }, "Tempo") : null,
+    el("th", { scope: "col" }, el("span", { class: "sr" }, "Ações")));
+  const linhas = painel.fichas.map((f, i) => {
+    const tipo = painel.categorias[f.cat] && painel.categorias[f.cat].nome.trim();
+    const apagar = el("button", { class: "mini perigo", type: "button", "aria-label": "Apagar a entrevista " + (i + 1) }, "Apagar");
+    let armado = false, timer;
+    apagar.addEventListener("click", () => {
+      if (!armado) {
+        armado = true; apagar.textContent = "Confirmar?";
+        timer = setTimeout(() => { armado = false; apagar.textContent = "Apagar"; }, 4000);
+        return;
+      }
+      clearTimeout(timer);
+      painel.fichas.splice(i, 1);
+      if (form.editando === i) limparFicha(false); else if (form.editando > i) form.editando--;
+      salvar(); desenharFicha(); atualizar();
+      aviso(`Entrevista ${i + 1} apagada.`, false);
+      $("fichas-box").focus();
+    });
+    return el("tr", {},
+      el("td", { class: "num" }, String(i + 1)),
+      el("td", { class: "nome" }, f.nome || "—"),
+      el("td", { class: "num" }, f.idade === null ? "—" : String(f.idade)),
+      painel.app ? el("td", { class: f.app || semUsoCat(f.cat) ? "" : "falta" }, f.app || (semUsoCat(f.cat) ? "—" : "falta")) : null,
+      el("td", { class: tipo ? "" : "falta" }, tipo || "sem tipo"),
+      painel.tempo ? el("td", { class: f.min === null ? "falta" : "num" }, f.min === null ? "falta" : f.min + " min") : null,
+      el("td", {}, el("div", { class: "acoes" },
+        el("button", { class: "mini", type: "button", "aria-label": "Editar a entrevista " + (i + 1), onclick: () => editarFicha(i) }, "Editar"),
+        apagar)));
+  });
+  box.replaceChildren(el("table", { class: "tabela" }, el("caption", { class: "sr" }, "Pessoas entrevistadas"), el("thead", {}, head), el("tbody", {}, ...linhas)));
+}
+(function () {
+  const btn = $("bt-apagar");
+  let armado = false, timer;
+  btn.addEventListener("click", () => {
+    if (!painel.fichas.length) return;
+    if (!armado) {
+      armado = true; btn.textContent = "Toque de novo para apagar todas";
+      timer = setTimeout(() => { armado = false; btn.textContent = "Apagar todas as entrevistas"; }, 4000);
+      return;
+    }
+    clearTimeout(timer); armado = false; btn.textContent = "Apagar todas as entrevistas";
+    painel.fichas = []; salvar(); limparFicha(false); atualizar();
+    aviso("Todas as entrevistas foram apagadas.", false);
+  });
+})();
+
+// ---------- Explicar ----------
+function desenharFatos(a) {
+  const lista = [], avisos = [];
+  if (!a.total) lista.push("Faça as entrevistas na aba 1 para ver os números aqui.");
+  else {
+    lista.push(`Você entrevistou ${plural(a.total, "pessoa", "pessoas")}.`);
+    if (a.ord.length && a.ord[0].n > 0) {
+      const t = a.ord[0], emp = a.ord.filter(c => c.n === t.n);
+      lista.push(emp.length > 1
+        ? `Empate entre ${emp.map(c => c.nome).join(" e ")}, com ${t.n} cada.`
+        : `A resposta mais comum foi ${t.nome}: ${t.n} de ${a.validos} (${pct(t.n, a.validos)}%).`);
+    }
+    a.cats.filter(c => c.n > 0).forEach(c => lista.push(`${c.nome}: ${plural(c.n, "pessoa", "pessoas")}${c.media !== null && !semUsoCat(c.i) ? `, em média ${fmt(c.media)} min` : ""}.`));
+    if (a.apps.length) lista.push(`Aplicativos mais citados: ${a.apps.slice(0, 4).map(x => `${x.nome} (${x.n})`).join(", ")}.`);
+    if (a.topo) {
+      if (a.base && a.amplitude === 0) lista.push(`Todo mundo disse ${a.topo.min} min.`);
+      else {
+        lista.push(`Quem mais usa: ${quemTexto(a, a.topo, true)}, com ${a.topo.min} min.`);
+        if (a.base) {
+          lista.push(`Quem menos usa: ${quemTexto(a, a.base, true)}, com ${a.base.min} min.`);
+          lista.push(`Diferença entre o maior e o menor tempo (amplitude): ${a.amplitude} min.`);
+        }
+      }
+      lista.push(`Média: ${fmt(a.media)} min por pessoa.`);
+    }
+    if (a.idades) lista.push(`Menores de 18 anos: em média ${fmt(a.idades.jov)} min. Adultos: em média ${fmt(a.idades.adu)} min.`);
+    if (a.total < 10) avisos.push(`Faltam ${plural(10 - a.total, "pessoa", "pessoas")} para chegar a 10 entrevistas.`);
+    if (a.semTempo) avisos.push(`${plural(a.semTempo, "entrevista está", "entrevistas estão")} sem o tempo. Edite na aba 1.`);
+    if (a.semApp) avisos.push(`${plural(a.semApp, "entrevista está", "entrevistas estão")} sem o aplicativo. Edite na aba 1.`);
+  }
+  $("fatos").replaceChildren(...lista.map(t => el("li", {}, t)), ...avisos.map(t => el("li", { class: "warn" }, t)));
+}
+const minusc = t => /^[A-ZÀ-Ý][a-zà-ÿ]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t;
+const semPonto = t => t.trim().replace(/[.!?…]+$/, "");
+const primeiraFrase = t => { const m = t.trim().match(/^.*?[.!?](\s|$)/); return m ? m[0].trim() : t.trim(); };
+function desenharRoteiro(a) {
+  const ou = (v, alt) => v && v.trim() ? minusc(semPonto(v)) : alt;
+  const pergunta = painel.pergunta.trim() ? minusc(semPonto(painel.pergunta)) + "?" : "[sua pergunta]?";
+  const crit = painel.criterio.trim() ? minusc(semPonto(primeiraFrase(painel.criterio))) : "[o que contou e o que não contou]";
+  let meio = "[os tipos de resposta e o ranking]";
+  if (a.validos) {
+    const partes = [];
+    const maisComum = a.ord.length && a.ord[0].n > 0 ? `; a mais comum foi ${minusc(a.ord[0].nome)}, com ${plural(a.ord[0].n, "pessoa", "pessoas")}` : "";
+    partes.push(`Separei as respostas em ${a.cats.length} tipos${maisComum}.`);
+    if (a.apps.length) partes.push(`O aplicativo mais citado foi o ${a.apps[0].nome}.`);
+    if (a.topo && a.base && a.amplitude > 0) partes.push(`No ranking, quem mais usa fica ${a.topo.min} minutos no celular e quem menos usa, ${a.base.min}: uma diferença de ${a.amplitude} minutos.`);
+    meio = partes.join(" ");
+  }
+  const beats = [
+    ["0:00–0:10", ["Tema"], `Oi! O meu dilema digital é ${ou(painel.dilema, "[seu tema]")}. A minha pergunta foi: ${pergunta}`],
+    ["0:10–0:25", ["Critério", "Registro"], `O meu critério: ${crit}. Entrevistei ${a.total ? plural(a.total, "pessoa", "pessoas") : "[nº de] pessoas"} e registrei cada uma numa ficha.`],
+    ["0:25–0:45", ["Categoria", "Comparação"], meio],
+    ["0:45–1:00", ["Padrão", "Conclusão"], `O padrão que apareceu: ${ou(painel.padrao, "[seu padrão]")}. A minha conclusão: ${ou(painel.conclusao, "[sua conclusão]")}.`]
+  ];
+  $("roteiro").replaceChildren(...beats.map(([t, keys, fala]) => el("div", { class: "beat" },
+    el("span", { class: "t" }, t),
+    el("div", { class: "d" }, el("div", { class: "keys" }, ...keys.map(k => el("span", { class: "chip" }, k))), el("p", {}, fala)))));
+  $("roteiro").dataset.texto = beats.map(([t, , fala]) => `${t}  ${fala}`).join("\n\n");
+  const palavras = beats.map(b => b[2]).join(" ").split(/\s+/).filter(w => w && !/^\[/.test(w)).length;
+  const segundos = Math.round(palavras / 2.5);
+  const info = $("roteiro-tempo");
+  info.classList.toggle("longo", segundos > 60);
+  info.textContent = `Cerca de ${palavras} palavras: uns ${segundos} segundos falando com calma.` + (segundos > 60 ? " Passou de 1 minuto: encurte o padrão ou a conclusão." : "");
+}
+$("copiar-roteiro").addEventListener("click", ev => {
+  const btn = ev.currentTarget;
+  const txt = $("roteiro").dataset.texto || "";
+  const ok = () => { btn.textContent = "Texto copiado"; setTimeout(() => { btn.textContent = "Copiar o texto"; }, 2000); };
+  const falha = () => {
+    const r = document.createRange(); r.selectNodeContents($("roteiro"));
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    btn.textContent = "Texto selecionado: copie com Ctrl+C";
+  };
+  try { navigator.clipboard.writeText(txt).then(ok, falha); } catch (e) { falha(); }
+});
+
+// ---------- Apresentar: a tela de bloqueio ----------
+const ICONES = {
+  pergunta: '<circle cx="24" cy="24" r="17"/><path d="M19 19a5 5 0 1 1 7 4.6c-1.3.6-2 1.5-2 2.9V28"/><circle cx="24" cy="33.5" r="1.4" fill="currentColor"/>',
+  relogio: '<circle cx="24" cy="24" r="17"/><path d="M24 24V14M24 24l7 4"/>',
+  grade: '<rect x="8" y="8" width="13" height="13" rx="3"/><rect x="27" y="8" width="13" height="13" rx="3"/><rect x="8" y="27" width="13" height="13" rx="3"/><rect x="27" y="27" width="13" height="13" rx="3"/>',
+  balanca: '<path d="M24 8v32M14 40h20M10 14h28"/><path d="M10 14l-6 12h12zM38 14l-6 12h12z"/>',
+  regua: '<path d="M6 30l24-24 12 12-24 24z"/><path d="M14 22l4 4M19 17l3 3M24 12l4 4"/>',
+  mensagem: '<path d="M8 8h32a4 4 0 0 1 4 4v18a4 4 0 0 1-4 4H20l-9 8v-8H8a4 4 0 0 1-4-4V12a4 4 0 0 1 4-4z"/>',
+  pessoa: '<circle cx="24" cy="16" r="8"/><path d="M8 42c2-9 8-13 16-13s14 4 16 13"/>',
+  despertador: '<circle cx="24" cy="26" r="15"/><path d="M24 18v8l5 4"/><path d="M8 12l6-5M40 12l-6-5"/>'
+};
+function svgIcone(nome) {
+  const t = document.createElement("template");
+  t.innerHTML = `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[nome] || ICONES.pergunta}</svg>`;
+  return t.content.firstChild;
+}
+function statusIcones() {
+  const t = document.createElement("template");
+  t.innerHTML = '<svg viewBox="0 0 74 16" width="74" height="16" aria-hidden="true" fill="currentColor">' +
+    '<rect x="0" y="10" width="3" height="6" rx="1"/><rect x="5" y="7" width="3" height="9" rx="1"/><rect x="10" y="4" width="3" height="12" rx="1"/><rect x="15" y="1" width="3" height="15" rx="1"/>' +
+    '<path d="M27 6.5a10 10 0 0 1 13 0l-1.6 1.7a7.6 7.6 0 0 0-9.8 0zM29.8 9.4a6 6 0 0 1 7.4 0l-1.6 1.7a3.6 3.6 0 0 0-4.2 0zM33.5 12.3l1.5 1.7-1.5 1.6-1.5-1.6z"/>' +
+    '<rect x="47" y="2" width="23" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="49.5" y="4.5" width="15" height="7" rx="1.5"/><rect x="71" y="6" width="2.5" height="4" rx="1"/></svg>';
+  return t.content.firstChild;
+}
+function corTipo(i) {
+  const n = ((painel.categorias[i] || {}).nome || "").toLowerCase();
+  if (semUsoCat(i)) return "var(--t-nao)";
+  if (/rede|social/.test(n)) return "var(--t-rede)";
+  if (/jogo/.test(n)) return "var(--t-jogo)";
+  if (/mensag|outro/.test(n)) return "var(--t-msg)";
+  return ["var(--t-rede)", "var(--t-jogo)", "var(--t-msg)", "var(--t-nao)"][i % 4];
+}
+const SIGLAS = { tiktok: "Tk", instagram: "Ig", youtube: "Yt", kwai: "Kw", facebook: "Fb", "free fire": "FF", roblox: "Rb",
+  minecraft: "Mc", "brawl stars": "BS", "clash royale": "CR", whatsapp: "Wa" };
+function sigla(nome) {
+  const k = nome.trim().toLowerCase();
+  if (SIGLAS[k]) return SIGLAS[k];
+  const partes = nome.trim().split(/\s+/);
+  return partes.length > 1 ? (partes[0][0] + partes[1][0]).toUpperCase() : nome.trim().slice(0, 2).replace(/^./, c => c.toUpperCase());
+}
+function desenharFundos() {
+  $("fundos").replaceChildren(...FUNDOS.map(f => el("button", { class: "tb", type: "button", "aria-pressed": String(f.id === painel.fundo),
+    onclick: () => {
+      painel.fundo = f.id; salvar(); document.body.dataset.fundo = f.id;
+      [...$("fundos").children].forEach((b, k) => b.setAttribute("aria-pressed", String(FUNDOS[k].id === f.id)));
+    } }, f.nome)));
+}
+function desenharTela(a, animar) {
+  const nomes = painel.mostrarNomes;
+  const hora = /^\d{2}:\d{2}$/.test(painel.hora) ? painel.hora : "06:30";
+  const autor = painel.autor.trim(), turma = painel.turma.trim();
+  const vazio = t => el("p", { class: "w-vazio" }, t);
+  const parte = (n, t) => el("span", { class: "w-parte" }, `${n} · ${t}`);
+  const tags = (...ts) => el("div", { class: "w-tags" }, ...ts.map(t => el("span", { class: "w-tag" }, t)));
+  const cab = (icone, titulo, ...extra) => el("div", { class: "w-head" }, el("span", { class: "w-ico" }, svgIcone(icone)), el("h3", { class: "w-titulo" }, titulo), ...extra);
+  const fills = [];
+  const barra = (largura, cor) => { const f = el("div", { class: "uso-fill" }); f.style.background = cor; fills.push([f, largura]); return f; };
+
+  $("status-hora").textContent = hora;
+  $("status-ic").replaceChildren(statusIcones());
+
+  // Coluna da esquerda: relógio, tema e pergunta
+  const esquerda = el("div", { class: "ls-col" },
+    el("p", { class: "ls-dia" }, "Dia de aula"),
+    el("p", { class: "ls-relogio" }, hora),
+    autor || turma ? el("p", { class: "ls-autor" }, svgIcone("pessoa"), [autor ? "Pesquisa de " + autor : "Pesquisa", turma].filter(Boolean).join(" · ")) : null,
+    el("article", { class: "w w-tema" },
+      el("div", { class: "w-head" }, parte(1, "Tema"), el("span", { class: "w-tag" }, "Dilema digital")),
+      painel.dilema.trim() ? el("h1", {}, painel.dilema.trim()) : vazio("Escreva o tema na aba Entrevistar."),
+      painel.frase.trim() ? el("p", { class: "w-frase" }, painel.frase.trim()) : null),
+    el("article", { class: "w w-perg" },
+      el("div", { class: "w-head" }, el("span", { class: "w-ico" }, svgIcone("pergunta")), el("h3", { class: "w-titulo" }, "Pergunta de pesquisa"), el("span", { class: "w-hora" }, hora)),
+      el("div", { class: "w-head" }, parte(2, "Pergunta"), tags("Critério")),
+      painel.pergunta.trim() ? el("p", { class: "w-q" }, painel.pergunta.trim()) : vazio("Escreva a pergunta na aba Entrevistar."),
+      painel.criterio.trim() ? el("p", { class: "w-small" }, el("strong", {}, "Critério: "), painel.criterio.trim()) : null,
+      a.total ? el("p", { class: "w-small" }, `Entrevistei ${plural(a.total, "pessoa", "pessoas")}${painel.publico.trim() ? ": " + painel.publico.trim() : ""}.`) : null));
+
+  // Coluna da direita: organização dos resultados
+  const direita = el("div", { class: "ls-col" }, el("div", { class: "w-head ls-secao" }, parte(3, "Organização dos resultados")));
+  if (!a.validos) {
+    direita.append(el("article", { class: "w" }, vazio("Os resultados aparecem aqui quando você salvar as entrevistas."),
+      el("button", { class: "w-ir", type: "button", onclick: () => irPara("entrevistar") }, "Ir para Entrevistar")));
+  } else {
+    if (a.ranking.length > 1) {
+      const topoMin = a.topo.min;
+      const linha = (f, k) => {
+        const ehTopo = a.amplitude > 0 && f.min === topoMin;
+        const ehBase = a.amplitude > 0 && f.min === a.base.min;
+        const det = [f.app || (painel.categorias[f.cat] && painel.categorias[f.cat].nome) || "", f.idade !== null ? f.idade + " anos" : ""].filter(Boolean).join(" · ");
+        return el("li", {},
+          el("span", { class: "uso-pos" }, (k + 1) + "º"),
+          el("span", { class: "uso-quem" }, rotulo(f, nomes),
+            ehTopo ? el("span", { class: "selo" }, "mais usa") : ehBase ? el("span", { class: "selo base" }, "menos usa") : null,
+            det ? el("small", {}, det) : null),
+          el("div", { class: "uso-track", role: "img", "aria-label": `${rotulo(f, nomes)}: ${f.min} minutos` }, barra(topoMin ? f.min / topoMin * 100 : 0, corTipo(f.cat))),
+          el("span", { class: "uso-min" }, f.min + " min"));
+      };
+      const ol = el("ol", { class: "uso" });
+      if (a.ranking.length > 20) {
+        a.ranking.slice(0, 10).forEach((f, k) => ol.append(linha(f, k)));
+        ol.append(el("li", { class: "sep" }, `… mais ${a.ranking.length - 20} pessoas no meio …`));
+        a.ranking.slice(-10).forEach((f, k) => ol.append(linha(f, a.ranking.length - 10 + k)));
+      } else a.ranking.forEach((f, k) => ol.append(linha(f, k)));
+      const presentes = a.cats.filter(c => c.n > 0);
+      direita.append(el("article", { class: "w w-uso" },
+        cab("relogio", "Tempo de uso ao acordar", tags("Registro", "Comparação")),
+        el("p", { class: "w-small" }, "Ranking: de quem mais usa a quem menos usa"),
+        ol,
+        el("div", { class: "legenda" }, ...presentes.map(c => { const i = el("i"); i.style.background = corTipo(c.i); return el("span", {}, i, c.nome); }))));
+    }
+    const linhaDupla = el("div", { class: "w-dupla" });
+    if (a.apps.length) {
+      const tipoApp = new Map();
+      painel.fichas.forEach(f => { const k = (f.app || "").trim().toLowerCase(); if (k && !tipoApp.has(k)) tipoApp.set(k, f.cat); });
+      linhaDupla.append(el("article", { class: "w w-apps" },
+        cab("grade", "Apps mais abertos", tags("Categoria")),
+        el("div", { class: "apps-grid" }, ...a.apps.slice(0, 8).map(x => {
+          const ic = el("span", { class: "app-ic", "aria-hidden": "true" }, sigla(x.nome), el("span", { class: "badge" }, String(x.n)));
+          ic.style.background = corTipo(tipoApp.get(x.nome.toLowerCase()));
+          return el("div", { class: "app-tile" }, ic, el("span", {}, `${x.nome} (${x.n})`));
+        }))));
+    }
+    const tipos = a.cats.filter(c => c.n > 0);
+    const temRedeJogo = tipos.some(c => /rede|social/i.test(c.nome)) && tipos.some(c => /jogo/i.test(c.nome));
+    linhaDupla.append(el("article", { class: "w w-tipos" },
+      cab("balanca", temRedeJogo ? "Redes sociais × jogos" : "Respostas por tipo", tags("Categoria", "Comparação")),
+      el("div", { class: "vs" }, ...tipos.map(c => {
+        const box = el("div", { class: "vs-item" },
+          el("span", { class: "vs-num" }, String(c.n)),
+          el("span", { class: "vs-nome" }, c.nome),
+          el("span", { class: "w-small" }, `${pct(c.n, a.validos)}% das pessoas` + (c.media !== null && !semUsoCat(c.i) ? ` · média ${fmt(c.media)} min` : "")));
+        box.style.borderTopColor = corTipo(c.i);
+        return box;
+      }))));
+    direita.append(linhaDupla);
+    if (a.topo && a.base) {
+      direita.append(el("article", { class: "w w-amp" },
+        cab("regua", "Do maior ao menor tempo", tags("Comparação")),
+        el("div", { class: "amp" }, el("span", { class: "amp-big" }, a.amplitude + " min"),
+          el("p", {}, a.amplitude === 0 ? `Todo mundo disse ${a.topo.min} min.` :
+            `de diferença entre quem mais usa (${a.topo.min} min) e quem menos usa (${a.base.min} min). Média: ${fmt(a.media)} min por pessoa.`)),
+        a.idades ? el("p", { class: "w-small" }, `Menores de 18: média de ${fmt(a.idades.jov)} min. Adultos: média de ${fmt(a.idades.adu)} min.`) : null));
+    }
+  }
+
+  // Conclusão como mensagem
+  const conc = el("article", { class: "w w-conc" },
+    el("div", { class: "w-head" }, el("span", { class: "w-ico" }, svgIcone("mensagem")), el("h3", { class: "w-titulo" }, autor ? "Mensagem de " + autor : "Nova mensagem"), el("span", { class: "w-hora" }, hora)),
+    el("div", { class: "w-head" }, parte(4, "Conclusão final"), tags("Padrão", "Conclusão")),
+    painel.padrao.trim() ? el("p", { class: "w-padrao" }, el("strong", {}, "Padrão: "), painel.padrao.trim()) : vazio("Escreva o padrão na aba Explicar."),
+    painel.conclusao.trim() ? el("p", { class: "bolha" }, painel.conclusao.trim()) : vazio("Escreva a conclusão na aba Explicar."));
+
+  $("ls-grid").replaceChildren(esquerda, direita);
+  $("ls-conc").replaceChildren(conc);
+  const reduzir = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (animar && !reduzir) requestAnimationFrame(() => requestAnimationFrame(() => fills.forEach(([e, w]) => { e.style.width = w + "%"; })));
+  else fills.forEach(([e, w]) => { e.style.transition = "none"; e.style.width = w + "%"; });
+}
+
+// Tela cheia e esconder botões
+const telaBtn = $("bt-tela");
+if (!document.fullscreenEnabled) telaBtn.hidden = true;
+telaBtn.addEventListener("click", () => {
+  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+  const p = document.documentElement.requestFullscreen ? document.documentElement.requestFullscreen() : null;
+  if (p && p.catch) p.catch(() => { telaBtn.hidden = true; });
+});
+document.addEventListener("fullscreenchange", () => { telaBtn.textContent = document.fullscreenElement ? "Sair da tela cheia" : "Tela cheia"; });
+function mostrarBotoes() { document.body.classList.remove("limpo"); $("bt-mostrar").hidden = true; $("aba-apresentar").focus(); }
+$("bt-esconder").addEventListener("click", () => { document.body.classList.add("limpo"); $("bt-mostrar").hidden = false; $("bt-mostrar").focus(); });
+$("bt-mostrar").addEventListener("click", mostrarBotoes);
+document.addEventListener("keydown", ev => { if (ev.key === "Escape" && document.body.classList.contains("limpo") && !document.fullscreenElement) mostrarBotoes(); });
+
+// ---------- Atualizar ----------
+function atualizar(animar) {
+  const a = analisar();
+  const total = painel.fichas.length;
+  $("cont-fichas").textContent = String(total);
+  $("pergunta-ficha").textContent = painel.pergunta.trim() || "Escreva a pergunta em “Tema, pergunta, critério e seu nome”, logo abaixo.";
+  if (form.editando < 0) $("ficha-titulo").textContent = `Entrevista nº ${total + 1}`;
+  $("meta-fill").style.width = Math.min(100, total / 10 * 100) + "%";
+  $("meta-fill").classList.toggle("ok", total >= 10);
+  $("meta-txt").textContent = total >= 10 ? `${total} entrevistas. Meta de 10 pessoas cumprida!` : `${total} de 10 entrevistas (faltam ${10 - total})`;
+  if (abaAtual === "entrevistar") desenharTabela();
+  if (abaAtual === "explicar") { desenharFatos(a); desenharRoteiro(a); }
+  if (abaAtual === "apresentar") desenharTela(a, !!animar);
+}
+
+document.body.dataset.fundo = painel.fundo;
+preencherCampos();
+desenharFundos();
+desenharFicha();
+const inicial = (location.hash || "").replace("#", "");
+irPara(ABAS.includes(inicial) ? inicial : (painel.fichas.length >= 10 ? "apresentar" : "entrevistar"));
+window.addEventListener("hashchange", () => { const h = location.hash.replace("#", ""); if (ABAS.includes(h)) irPara(h); });
+</script>
