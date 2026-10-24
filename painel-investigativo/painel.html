@@ -36,7 +36,7 @@ body[data-fundo="menta"] { --ls-wall: linear-gradient(165deg, #062925 0%, #0E514
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.55; min-height: 100vh; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.55; min-height: 100vh; }
 body[data-aba="apresentar"] { background-color: var(--ls-base); background-image: var(--ls-wall); background-attachment: fixed; color: var(--ls-ink); }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
 body[data-aba="apresentar"]::before { background: var(--ls-base); }
@@ -80,28 +80,29 @@ body[data-aba="apresentar"] .aba[aria-selected="true"] .n { background: var(--ls
 body:not([data-aba="apresentar"]) .ferramentas { display: none; }
 .estilos { display: flex; gap: 4px; flex-wrap: wrap; }
 .tb {
-  font: 700 0.85rem var(--body); padding: 8px 12px; min-height: 40px; border-radius: 999px; border: 1px solid var(--ls-line);
+  font: 700 0.85rem var(--body); padding: 8px 12px; min-height: 44px; border-radius: 999px; border: 1px solid var(--ls-line);
   background: transparent; color: var(--ls-ink); cursor: pointer; white-space: nowrap;
 }
 .tb:hover { border-color: var(--ls-ink); }
 .tb[aria-pressed="true"] { background: var(--ls-ink); color: var(--ls-hi-ink); border-color: var(--ls-ink); }
 body.limpo .barra { display: none; }
+@media (max-width: 700px), (max-height: 500px) { body[data-aba="apresentar"] .barra { position: static; } }
 .mostrar {
   position: fixed; z-index: 6; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   background: rgba(10, 12, 28, 0.78); opacity: 0.5;
 }
 .mostrar:hover, .mostrar:focus-visible { opacity: 1; }
-@media (hover: hover) { .mostrar:not(:hover):not(:focus-visible) { opacity: 0; } }
+@media (hover: hover) { .mostrar:not(:hover):not(:focus) { opacity: 0; } }
 
 /* Botões e campos */
 .btn { font: 700 1rem var(--body); border-radius: 10px; padding: 11px 18px; min-height: 44px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); }
 .btn.ghost { background: transparent; color: var(--accent); }
-.btn.small { font-size: 0.88rem; padding: 7px 12px; min-height: 38px; }
+.btn.small { font-size: 0.88rem; padding: 7px 12px; min-height: 44px; }
 .btn.big { font-size: 1.08rem; padding: 13px 22px; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > label, .lbl { font-weight: 700; font-size: 0.95rem; }
-input[type="text"], input[type="number"], textarea {
+input[type="text"], input[type="number"], input[type="time"], textarea {
   font: inherit; font-size: 1rem; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; min-width: 0;
 }
@@ -137,16 +138,18 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 .meta-fill { height: 100%; background: var(--accent); border-radius: 999px; }
 .meta-fill.ok { background: var(--ok); }
 .meta-txt { font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.table-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.table-box { position: relative; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .tabela { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
 .tabela th, .tabela td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
-.tabela td.nome { white-space: normal; min-width: 6em; overflow-wrap: anywhere; }
+.tabela td:not(.num) { white-space: normal; }
+.tabela td.nome { min-width: 7em; overflow-wrap: break-word; }
+@media (max-width: 560px) { .tabela .opc { display: none; } .tabela th, .tabela td { padding-inline: 4px; } .tabela td.nome { min-width: 0; } .acoes { flex-direction: column; } }
 .tabela tr:last-child td { border-bottom: 0; }
 .tabela th { font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--sunk); }
 .tabela td.num { font-variant-numeric: tabular-nums; font-weight: 700; }
 .tabela td.falta { color: var(--bad); font-weight: 700; }
 .acoes { display: flex; gap: 6px; }
-.mini { font: 700 0.82rem var(--body); padding: 6px 10px; min-height: 36px; border-radius: 8px; border: 1px solid var(--line); background: var(--sunk); color: var(--ink); cursor: pointer; }
+.mini { font: 700 0.82rem var(--body); padding: 6px 10px; min-height: 44px; border-radius: 8px; border: 1px solid var(--line); background: var(--sunk); color: var(--ink); cursor: pointer; }
 .mini:hover { border-color: var(--accent); }
 .mini.perigo { color: var(--bad); }
 .vazio-tab { padding: 14px; color: var(--muted); font-size: 0.95rem; }
@@ -193,7 +196,7 @@ details.dados[open] summary { margin-bottom: 12px; }
 .ls-secao { margin-top: 2px; }
 .w-ico { width: 2em; height: 2em; border-radius: 9px; display: grid; place-items: center; background: var(--ls-chip); flex: none; }
 .w-ico svg { width: 62%; height: 62%; }
-.w-titulo { font-size: 1em; font-weight: 700; margin-right: auto; }
+.w-titulo { font-size: 1em; font-weight: 700; margin-right: auto; flex: 1 1 10em; min-width: 0; }
 .w-hora { font-size: 0.82em; color: var(--ls-muted); font-variant-numeric: tabular-nums; }
 .w-parte { font-size: 0.7em; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: var(--ls-hi); color: var(--ls-hi-ink); white-space: nowrap; }
 .w-tags { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -226,7 +229,7 @@ details.dados[open] summary { margin-bottom: 12px; }
 .apps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(4.6em, 1fr)); gap: 14px 8px; }
 .app-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; font-size: 0.78em; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
 .app-ic { position: relative; width: 3.3em; height: 3.3em; border-radius: 24%; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 1.15em; color: #14102A; }
-.badge { position: absolute; top: -0.45em; right: -0.45em; min-width: 1.55em; height: 1.55em; padding: 0 0.35em; border-radius: 999px; display: grid; place-items: center; background: #E8263F; color: #FFFFFF; font-family: var(--body); font-size: 0.62em; font-weight: 700; border: 2px solid #14102A; }
+.badge { position: absolute; top: -0.45em; right: -0.45em; min-width: 1.55em; height: 1.55em; padding: 0 0.35em; border-radius: 999px; display: grid; place-items: center; background: #D41F38; color: #FFFFFF; font-family: var(--body); font-size: 0.62em; font-weight: 700; border: 2px solid #14102A; }
 .vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .vs-item { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 14px; background: var(--ls-chip); border-top: 4px solid transparent; min-width: 0; }
 .vs-num { font-family: var(--display); font-weight: 700; font-size: 1.9em; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -272,7 +275,7 @@ details.dados[open] summary { margin-bottom: 12px; }
           </div>
           <div class="field">
             <label for="f-idade">Idade (opcional)</label>
-            <input type="number" id="f-idade" min="1" max="120" inputmode="numeric" placeholder="Ex.: 14">
+            <input type="text" id="f-idade" inputmode="numeric" autocomplete="off" placeholder="Ex.: 14">
           </div>
         </div>
         <div class="field" id="f-app-box">
@@ -290,7 +293,7 @@ details.dados[open] summary { margin-bottom: 12px; }
         <div class="field" id="f-tempo-box">
           <label for="f-min">Quanto tempo? (em minutos)</label>
           <div class="tempo-row">
-            <input type="number" id="f-min" min="0" max="600" inputmode="numeric" placeholder="Ex.: 20">
+            <input type="text" id="f-min" inputmode="decimal" autocomplete="off" placeholder="Ex.: 20">
             <div class="tchips" id="f-chips"></div>
           </div>
         </div>
@@ -580,6 +583,8 @@ function desenharFicha() {
   $("f-cancelar").hidden = form.editando < 0;
 }
 function escolherApp(x) {
+  const antes = APPS.find(y => y.nome === form.app);
+  if (antes && antes.nenhum && !x.nenhum && $("f-min").value.trim() === "0") $("f-min").value = "";
   form.app = x.nome;
   const i = indiceTipo(x.tipo);
   form.cat = x.outro ? null : i;
@@ -614,7 +619,7 @@ function salvarFicha() {
   let app = "";
   const escolhido = APPS.find(x => x.nome === form.app);
   if (painel.app) {
-    if (!escolhido) return aviso("Toque no aplicativo que a pessoa usa.", true);
+    if (!escolhido) { $("f-apps").firstElementChild.focus(); return aviso("Toque no aplicativo que a pessoa usa.", true); }
     if (escolhido.outro) {
       app = $("f-outro").value.trim();
       if (!app) { $("f-outro").focus(); return aviso("Escreva o nome do aplicativo.", true); }
@@ -622,6 +627,7 @@ function salvarFicha() {
   }
   if (form.cat === null || !painel.categorias[form.cat] || !painel.categorias[form.cat].nome.trim()) {
     $("f-tipo-box").hidden = false;
+    if ($("f-tipos").firstElementChild) $("f-tipos").firstElementChild.focus();
     return aviso("Toque em: rede social, jogo ou outro.", true);
   }
   let min = null;
@@ -674,9 +680,9 @@ function desenharTabela() {
     return;
   }
   const head = el("tr", {},
-    el("th", { scope: "col" }, "Nº"), el("th", { scope: "col" }, "Nome"), el("th", { scope: "col" }, "Idade"),
+    el("th", { scope: "col" }, "Nº"), el("th", { scope: "col" }, "Nome"), el("th", { scope: "col", class: "opc" }, "Idade"),
     painel.app ? el("th", { scope: "col" }, "Aplicativo") : null,
-    el("th", { scope: "col" }, "Tipo"),
+    el("th", { scope: "col", class: "opc" }, "Tipo"),
     painel.tempo ? el("th", { scope: "col" }, "Tempo") : null,
     el("th", { scope: "col" }, el("span", { class: "sr" }, "Ações")));
   const linhas = painel.fichas.map((f, i) => {
@@ -685,8 +691,9 @@ function desenharTabela() {
     let armado = false, timer;
     apagar.addEventListener("click", () => {
       if (!armado) {
-        armado = true; apagar.textContent = "Confirmar?";
-        timer = setTimeout(() => { armado = false; apagar.textContent = "Apagar"; }, 4000);
+        armado = true; apagar.textContent = "Confirmar?"; apagar.setAttribute("aria-label", `Confirmar: apagar a entrevista ${i + 1}`);
+        aviso(`Toque de novo em “Confirmar?” para apagar a entrevista ${i + 1}.`, false);
+        timer = setTimeout(() => { armado = false; apagar.textContent = "Apagar"; apagar.setAttribute("aria-label", "Apagar a entrevista " + (i + 1)); }, 4000);
         return;
       }
       clearTimeout(timer);
@@ -699,9 +706,9 @@ function desenharTabela() {
     return el("tr", {},
       el("td", { class: "num" }, String(i + 1)),
       el("td", { class: "nome" }, f.nome || "—"),
-      el("td", { class: "num" }, f.idade === null ? "—" : String(f.idade)),
+      el("td", { class: "num opc" }, f.idade === null ? "—" : String(f.idade)),
       painel.app ? el("td", { class: f.app || semUsoCat(f.cat) ? "" : "falta" }, f.app || (semUsoCat(f.cat) ? "—" : "falta")) : null,
-      el("td", { class: tipo ? "" : "falta" }, tipo || "sem tipo"),
+      el("td", { class: tipo ? "opc" : "opc falta" }, tipo || "sem tipo"),
       painel.tempo ? el("td", { class: f.min === null ? "falta" : "num" }, f.min === null ? "falta" : f.min + " min") : null,
       el("td", {}, el("div", { class: "acoes" },
         el("button", { class: "mini", type: "button", "aria-label": "Editar a entrevista " + (i + 1), onclick: () => editarFicha(i) }, "Editar"),
@@ -738,26 +745,27 @@ function desenharFatos(a) {
         : `A resposta mais comum foi ${t.nome}: ${t.n} de ${a.validos} (${pct(t.n, a.validos)}%).`);
     }
     a.cats.filter(c => c.n > 0).forEach(c => lista.push(`${c.nome}: ${plural(c.n, "pessoa", "pessoas")}${c.media !== null && !semUsoCat(c.i) ? `, em média ${fmt(c.media)} min` : ""}.`));
-    if (a.apps.length) lista.push(`Aplicativos mais citados: ${a.apps.slice(0, 4).map(x => `${x.nome} (${x.n})`).join(", ")}.`);
+    if (a.apps.length) lista.push(`Aplicativos citados: ${a.apps.map(x => `${x.nome} (${x.n})`).join(", ")}.`);
     if (a.topo) {
       if (a.base && a.amplitude === 0) lista.push(`Todo mundo disse ${a.topo.min} min.`);
       else {
-        lista.push(`Quem mais usa: ${quemTexto(a, a.topo, true)}, com ${a.topo.min} min.`);
+        lista.push(`Quem mais usa: ${quemTexto(a, a.topo, painel.mostrarNomes)}, com ${a.topo.min} min.`);
         if (a.base) {
-          lista.push(`Quem menos usa: ${quemTexto(a, a.base, true)}, com ${a.base.min} min.`);
+          lista.push(`Quem menos usa: ${quemTexto(a, a.base, painel.mostrarNomes)}, com ${a.base.min} min.`);
           lista.push(`Diferença entre o maior e o menor tempo (amplitude): ${a.amplitude} min.`);
         }
       }
       lista.push(`Média: ${fmt(a.media)} min por pessoa.`);
     }
     if (a.idades) lista.push(`Menores de 18 anos: em média ${fmt(a.idades.jov)} min. Adultos: em média ${fmt(a.idades.adu)} min.`);
-    if (a.total < 10) avisos.push(`Faltam ${plural(10 - a.total, "pessoa", "pessoas")} para chegar a 10 entrevistas.`);
+    if (a.total < 10) avisos.push(`${10 - a.total === 1 ? "Falta" : "Faltam"} ${plural(10 - a.total, "pessoa", "pessoas")} para chegar a 10 entrevistas.`);
     if (a.semTempo) avisos.push(`${plural(a.semTempo, "entrevista está", "entrevistas estão")} sem o tempo. Edite na aba 1.`);
     if (a.semApp) avisos.push(`${plural(a.semApp, "entrevista está", "entrevistas estão")} sem o aplicativo. Edite na aba 1.`);
+    if (a.orfas) avisos.push(`${plural(a.orfas, "entrevista está", "entrevistas estão")} sem tipo. Edite na aba 1.`);
   }
   $("fatos").replaceChildren(...lista.map(t => el("li", {}, t)), ...avisos.map(t => el("li", { class: "warn" }, t)));
 }
-const minusc = t => /^[A-ZÀ-Ý][a-zà-ÿ]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t;
+const minusc = t => /^[A-ZÀ-Ý][a-zà-ÿ]*(?=[\s,.;:!?]|$)/.test(t) && !APPS.some(x => !x.outro && !x.nenhum && t.toLowerCase().startsWith(x.nome.toLowerCase())) ? t[0].toLowerCase() + t.slice(1) : t;
 const semPonto = t => t.trim().replace(/[.!?…]+$/, "");
 const primeiraFrase = t => { const m = t.trim().match(/^.*?[.!?](\s|$)/); return m ? m[0].trim() : t.trim(); };
 function desenharRoteiro(a) {
@@ -767,14 +775,19 @@ function desenharRoteiro(a) {
   let meio = "[os tipos de resposta e o ranking]";
   if (a.validos) {
     const partes = [];
-    const maisComum = a.ord.length && a.ord[0].n > 0 ? `; a mais comum foi ${minusc(a.ord[0].nome)}, com ${plural(a.ord[0].n, "pessoa", "pessoas")}` : "";
+    const lista = xs => xs.join(", ").replace(/, ([^,]*)$/, " e $1");
+    const empCat = a.ord.length && a.ord[0].n > 0 ? a.ord.filter(c => c.n === a.ord[0].n) : [];
+    const maisComum = empCat.length === 1 ? `; o tipo mais comum foi ${minusc(empCat[0].nome)}, com ${plural(empCat[0].n, "pessoa", "pessoas")}`
+      : empCat.length > 1 ? `; deu empate entre ${lista(empCat.map(c => minusc(c.nome)))}, com ${empCat[0].n} cada` : "";
     partes.push(`Separei as respostas em ${a.cats.length} tipos${maisComum}.`);
-    if (a.apps.length) partes.push(`O aplicativo mais citado foi o ${a.apps[0].nome}.`);
+    const empApp = a.apps.length && a.apps[0].n > 1 ? a.apps.filter(x => x.n === a.apps[0].n) : [];
+    if (empApp.length === 1) partes.push(`O aplicativo mais citado foi o ${empApp[0].nome}, com ${plural(empApp[0].n, "pessoa", "pessoas")}.`);
+    else if (empApp.length > 1 && empApp.length <= 3) partes.push(`Os aplicativos mais citados empataram: ${lista(empApp.map(x => x.nome))}.`);
     if (a.topo && a.base && a.amplitude > 0) partes.push(`No ranking, quem mais usa fica ${a.topo.min} minutos no celular e quem menos usa, ${a.base.min}: uma diferença de ${a.amplitude} minutos.`);
     meio = partes.join(" ");
   }
   const beats = [
-    ["0:00–0:10", ["Tema"], `Oi! O meu dilema digital é ${ou(painel.dilema, "[seu tema]")}. A minha pergunta foi: ${pergunta}`],
+    ["0:00–0:10", ["Tema"], `Oi! O meu dilema digital: ${ou(painel.dilema, "[seu tema]")}. A minha pergunta foi: ${pergunta}`],
     ["0:10–0:25", ["Critério", "Registro"], `O meu critério: ${crit}. Entrevistei ${a.total ? plural(a.total, "pessoa", "pessoas") : "[nº de] pessoas"} e registrei cada uma numa ficha.`],
     ["0:25–0:45", ["Categoria", "Comparação"], meio],
     ["0:45–1:00", ["Padrão", "Conclusão"], `O padrão que apareceu: ${ou(painel.padrao, "[seu padrão]")}. A minha conclusão: ${ou(painel.conclusao, "[sua conclusão]")}.`]
@@ -891,7 +904,7 @@ function desenharTela(a, animar) {
         const ehBase = a.amplitude > 0 && f.min === a.base.min;
         const det = [f.app || (painel.categorias[f.cat] && painel.categorias[f.cat].nome) || "", f.idade !== null ? f.idade + " anos" : ""].filter(Boolean).join(" · ");
         return el("li", {},
-          el("span", { class: "uso-pos" }, (k + 1) + "º"),
+          el("span", { class: "uso-pos" }, (a.ranking.findIndex(x => x.min === f.min) + 1) + "º"),
           el("span", { class: "uso-quem" }, rotulo(f, nomes),
             ehTopo ? el("span", { class: "selo" }, "mais usa") : ehBase ? el("span", { class: "selo base" }, "menos usa") : null,
             det ? el("small", {}, det) : null),
@@ -901,7 +914,7 @@ function desenharTela(a, animar) {
       const ol = el("ol", { class: "uso" });
       if (a.ranking.length > 20) {
         a.ranking.slice(0, 10).forEach((f, k) => ol.append(linha(f, k)));
-        ol.append(el("li", { class: "sep" }, `… mais ${a.ranking.length - 20} pessoas no meio …`));
+        ol.append(el("li", { class: "sep" }, `… mais ${plural(a.ranking.length - 20, "pessoa", "pessoas")} no meio …`));
         a.ranking.slice(-10).forEach((f, k) => ol.append(linha(f, a.ranking.length - 10 + k)));
       } else a.ranking.forEach((f, k) => ol.append(linha(f, k)));
       const presentes = a.cats.filter(c => c.n > 0);
@@ -921,7 +934,8 @@ function desenharTela(a, animar) {
           const ic = el("span", { class: "app-ic", "aria-hidden": "true" }, sigla(x.nome), el("span", { class: "badge" }, String(x.n)));
           ic.style.background = corTipo(tipoApp.get(x.nome.toLowerCase()));
           return el("div", { class: "app-tile" }, ic, el("span", {}, `${x.nome} (${x.n})`));
-        }))));
+        })),
+        a.apps.length > 8 ? el("p", { class: "w-small" }, `Também citados: ${a.apps.slice(8).map(x => `${x.nome} (${x.n})`).join(", ")}.`) : null));
     }
     const tipos = a.cats.filter(c => c.n > 0);
     const temRedeJogo = tipos.some(c => /rede|social/i.test(c.nome)) && tipos.some(c => /jogo/i.test(c.nome));
@@ -979,11 +993,11 @@ function atualizar(animar) {
   const a = analisar();
   const total = painel.fichas.length;
   $("cont-fichas").textContent = String(total);
-  $("pergunta-ficha").textContent = painel.pergunta.trim() || "Escreva a pergunta em “Tema, pergunta, critério e seu nome”, logo abaixo.";
+  $("pergunta-ficha").textContent = painel.pergunta.trim() || "Escreva a pergunta em “Tema, pergunta, critério e o seu toque no painel”, logo abaixo.";
   if (form.editando < 0) $("ficha-titulo").textContent = `Entrevista nº ${total + 1}`;
   $("meta-fill").style.width = Math.min(100, total / 10 * 100) + "%";
   $("meta-fill").classList.toggle("ok", total >= 10);
-  $("meta-txt").textContent = total >= 10 ? `${total} entrevistas. Meta de 10 pessoas cumprida!` : `${total} de 10 entrevistas (faltam ${10 - total})`;
+  $("meta-txt").textContent = total >= 10 ? `${total} entrevistas. Meta de 10 pessoas cumprida!` : `${total} de 10 entrevistas (${10 - total === 1 ? "falta 1" : "faltam " + (10 - total)})`;
   if (abaAtual === "entrevistar") desenharTabela();
   if (abaAtual === "explicar") { desenharFatos(a); desenharRoteiro(a); }
   if (abaAtual === "apresentar") desenharTela(a, !!animar);
