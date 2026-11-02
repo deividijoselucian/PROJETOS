@@ -16,6 +16,14 @@ A página tem três abas, na ordem do trabalho:
    com as 4 partes que a banca pede (tema, pergunta, organização dos resultados e
    conclusão). Tem papel de parede, tela cheia e "esconder botões" para gravar.
 
+Na aba Apresentar, o **Modo vídeo** passa sozinho pelas 4 partes no ritmo do texto da aba
+Explicar (que pode ser editado), com o texto no alto para ler e legenda opcional. No programa
+para Windows, ele também grava o painel junto com a câmera e o microfone do computador e salva
+o vídeo (MP4 quando o Edge permite, senão WebM).
+
+Para levar as entrevistas de um aparelho para outro (ou do link para o programa), use
+"Copiar meus dados" e "Carregar estes dados" na aba Entrevistar.
+
 Os dados ficam só no navegador de quem usa (localStorage). Os nomes aparecem como
 "Pessoa 1, Pessoa 2…" no painel, a não ser que se marque "Mostrar os nomes".
 

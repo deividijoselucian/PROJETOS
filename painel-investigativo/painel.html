@@ -170,6 +170,8 @@ details.dados[open] summary { margin-bottom: 12px; }
 .chip { font-size: 0.74rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 @media (max-width: 460px) { .beat { grid-template-columns: minmax(0, 1fr); } .beat .t { padding-block: 6px; } }
 .roteiro-tempo { font-size: 0.95rem; font-weight: 700; color: var(--muted); }
+.beat .d textarea { min-height: 3.4em; }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
 .roteiro-tempo.longo { color: var(--bad); }
 
 /* Apresentar: o painel é a tela de bloqueio do celular na hora de acordar */
@@ -241,6 +243,40 @@ details.dados[open] summary { margin-bottom: 12px; }
 .bolha { align-self: flex-start; max-width: 62em; background: #FFFFFF; color: #14102A; border-radius: 20px 20px 20px 6px; padding: 12px 16px; font-weight: 700; font-size: 1.1em; line-height: 1.4; overflow-wrap: anywhere; }
 .ls-home { width: 8em; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.6); margin: 2px auto 0; }
 @media (min-width: 900px) and (max-height: 950px) { .tela-in { gap: 10px; } .ls-col { gap: 10px; } .w { padding: 12px 16px; gap: 8px; } .uso { gap: 4px; } }
+/* Modo vídeo */
+body.modo-video .barra, body.modo-video .mostrar { display: none !important; }
+body.modo-video .w, body.modo-video .ls-dia, body.modo-video .ls-relogio, body.modo-video .ls-autor, body.modo-video .ls-secao { transition: opacity 0.5s, box-shadow 0.5s; }
+body.modo-video .apagado { opacity: 0.25; }
+body.modo-video .tela-in { padding-bottom: 45vh; }
+body.modo-video .w.foco { box-shadow: 0 0 0 3px var(--ls-hi), 0 18px 50px rgba(0, 0, 0, 0.35); }
+.prompter {
+  position: fixed; z-index: 20; inset: 0 0 auto; height: clamp(120px, 26vh, 250px); overflow: hidden;
+  background: #000000; color: #FFFFFF; display: flex; flex-direction: column; gap: 6px;
+  padding-top: max(10px, env(safe-area-inset-top, 0px)); padding-bottom: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.prompter-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 700 0.9rem var(--body); color: #FFD36B; font-variant-numeric: tabular-nums; }
+.prompter-txt { font: 700 clamp(1.05rem, 2.3vw, 1.8rem)/1.35 var(--body); }
+.prompter .tb, .parar { border-color: rgba(255, 255, 255, 0.45); color: #FFFFFF; }
+.parar { position: fixed; z-index: 21; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); background: rgba(0, 0, 0, 0.55); opacity: 0.6; }
+.parar:hover, .parar:focus-visible { opacity: 1; }
+.legenda-video {
+  position: fixed; z-index: 21; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  width: min(1100px, calc(100% - 32px)); text-align: center; background: rgba(0, 0, 0, 0.78); color: #FFFFFF;
+  font: 700 clamp(1.05rem, 2.1vw, 1.7rem)/1.35 var(--body); padding: 12px 18px; border-radius: 14px;
+}
+.legenda-video:empty { display: none; }
+.progresso { position: fixed; z-index: 21; left: 0; bottom: 0; height: 5px; width: 0; background: var(--ls-hi); }
+.contagem { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(0, 0, 0, 0.55); color: #FFFFFF; font: 700 clamp(6rem, 22vw, 14rem) var(--display); font-variant-numeric: tabular-nums; }
+.dialogo-fundo { position: fixed; inset: 0; z-index: 40; background: rgba(5, 6, 15, 0.72); display: grid; place-items: center; padding: 16px; }
+.dialogo { background: var(--surface); color: var(--ink); border-radius: 16px; padding: 20px; width: min(600px, 100%); max-height: calc(100vh - 32px); overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+.dialogo h2 { font-family: var(--display); font-size: 1.25rem; }
+.dialogo :focus-visible { outline-color: var(--accent); }
+.opcao { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 2px solid var(--line); border-radius: 12px; cursor: pointer; }
+.opcao:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.opcao input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+.opcao.desligada { opacity: 0.6; cursor: not-allowed; }
+.dialogo video { width: 100%; border-radius: 10px; background: #000000; }
 </style>
 
 <header class="barra" id="barra">
@@ -252,6 +288,7 @@ details.dados[open] summary { margin-bottom: 12px; }
     </div>
     <div class="ferramentas">
       <div class="estilos" id="fundos" role="group" aria-label="Papel de parede do painel"></div>
+      <button class="tb" type="button" id="bt-video">▶ Modo vídeo</button>
       <button class="tb" type="button" id="bt-tela">Tela cheia</button>
       <button class="tb" type="button" id="bt-esconder">Esconder botões</button>
     </div>
@@ -333,6 +370,20 @@ details.dados[open] summary { margin-bottom: 12px; }
         </div>
       </details>
 
+      <details class="dados">
+        <summary>Levar as entrevistas para outro aparelho ou para o programa</summary>
+        <div class="stack">
+          <p class="hint">No aparelho onde estão as entrevistas, toque em “Copiar meus dados”. Depois, no outro aparelho ou no programa (.exe), cole no campo abaixo e toque em “Carregar estes dados”.</p>
+          <div class="actions"><button class="btn ghost" type="button" id="bt-copiar-dados">Copiar meus dados</button></div>
+          <div class="field">
+            <label for="dados-colar">Cole aqui os dados copiados</label>
+            <textarea id="dados-colar" rows="3" spellcheck="false" autocomplete="off"></textarea>
+          </div>
+          <div class="actions"><button class="btn" type="button" id="bt-carregar-dados">Carregar estes dados</button></div>
+          <div class="f-msg" id="dados-msg" role="status" aria-live="polite"></div>
+        </div>
+      </details>
+
       <div class="actions">
         <button class="btn" type="button" data-ir="explicar">Próximo: explicar →</button>
         <button class="btn ghost small" type="button" id="bt-apagar">Apagar todas as entrevistas</button>
@@ -358,10 +409,13 @@ details.dados[open] summary { margin-bottom: 12px; }
       </div>
       <div class="stack">
         <h2 class="h">O que falar no vídeo (até 1 minuto)</h2>
+        <p class="hint">Dá para mudar o texto: escreva do seu jeito. O Modo vídeo, na aba Apresentar, mostra este texto para você ler e segue o mesmo tempo.</p>
         <div class="script" id="roteiro"></div>
         <p class="roteiro-tempo" id="roteiro-tempo"></p>
+        <p class="hint" id="roteiro-nota" hidden>Você editou o texto. Se mudar as entrevistas, confira se os números do texto ainda batem.</p>
         <div class="actions">
           <button class="btn ghost" type="button" id="copiar-roteiro">Copiar o texto</button>
+          <button class="btn ghost small" type="button" id="roteiro-auto" hidden>Voltar ao texto automático</button>
           <button class="btn" type="button" data-ir="apresentar">Próximo: apresentar →</button>
         </div>
       </div>
@@ -434,9 +488,9 @@ function meuTema() {
   });
 }
 const CHAVE = "painel-investigativo-v1";
-function carregar() {
-  const s = lerSalvo(CHAVE);
-  if (!s || typeof s !== "object" || !Array.isArray(s.categorias) || s.exemplo === true) return meuTema();
+function carregar() { return normalizar(lerSalvo(CHAVE)) || meuTema(); }
+function normalizar(s) {
+  if (!s || typeof s !== "object" || !Array.isArray(s.categorias) || s.exemplo === true) return null;
   const p = Object.assign(clone(BASE), s);
   p.categorias = s.categorias.map(c => ({ nome: String((c && c.nome) || "") }));
   if (!p.categorias.length) p.categorias = TEMA.categorias.map(nome => ({ nome }));
@@ -459,6 +513,7 @@ function carregar() {
   if (!FUNDOS.some(e => e.id === p.fundo)) p.fundo = "amanhecer";
   if (!/^\d{2}:\d{2}$/.test(String(p.hora || ""))) p.hora = "06:30";
   p.frase = String(p.frase || "");
+  p.falas = Array.isArray(s.falas) && s.falas.length === 4 ? s.falas.map(x => String(x || "")) : null;
   return p;
 }
 let painel = carregar();
@@ -768,7 +823,12 @@ function desenharFatos(a) {
 const minusc = t => /^[A-ZÀ-Ý][a-zà-ÿ]*(?=[\s,.;:!?]|$)/.test(t) && !APPS.some(x => !x.outro && !x.nenhum && t.toLowerCase().startsWith(x.nome.toLowerCase())) ? t[0].toLowerCase() + t.slice(1) : t;
 const semPonto = t => t.trim().replace(/[.!?…]+$/, "");
 const primeiraFrase = t => { const m = t.trim().match(/^.*?[.!?](\s|$)/); return m ? m[0].trim() : t.trim(); };
-function desenharRoteiro(a) {
+const PARTES = ["Tema", "Pergunta de pesquisa", "Organização dos resultados", "Conclusão final"];
+const PALAVRAS_PARTE = [["Tema"], ["Critério", "Registro"], ["Categoria", "Comparação"], ["Padrão", "Conclusão"]];
+const contaPalavras = t => t.split(/\s+/).filter(w => w && !/^\[/.test(w)).length;
+const duracoes = falas => falas.map(f => Math.max(5, Math.round(contaPalavras(f) / 2.5)));
+const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+function gerarFalas(a) {
   const ou = (v, alt) => v && v.trim() ? minusc(semPonto(v)) : alt;
   const pergunta = painel.pergunta.trim() ? minusc(semPonto(painel.pergunta)) + "?" : "[sua pergunta]?";
   const crit = painel.criterio.trim() ? minusc(semPonto(primeiraFrase(painel.criterio))) : "[o que contou e o que não contou]";
@@ -792,27 +852,85 @@ function desenharRoteiro(a) {
     ["0:25–0:45", ["Categoria", "Comparação"], meio],
     ["0:45–1:00", ["Padrão", "Conclusão"], `O padrão que apareceu: ${ou(painel.padrao, "[seu padrão]")}. A minha conclusão: ${ou(painel.conclusao, "[sua conclusão]")}.`]
   ];
-  $("roteiro").replaceChildren(...beats.map(([t, keys, fala]) => el("div", { class: "beat" },
-    el("span", { class: "t" }, t),
-    el("div", { class: "d" }, el("div", { class: "keys" }, ...keys.map(k => el("span", { class: "chip" }, k))), el("p", {}, fala)))));
-  $("roteiro").dataset.texto = beats.map(([t, , fala]) => `${t}  ${fala}`).join("\n\n");
-  const palavras = beats.map(b => b[2]).join(" ").split(/\s+/).filter(w => w && !/^\[/.test(w)).length;
-  const segundos = Math.round(palavras / 2.5);
-  const info = $("roteiro-tempo");
-  info.classList.toggle("longo", segundos > 60);
-  info.textContent = `Cerca de ${palavras} palavras: uns ${segundos} segundos falando com calma.` + (segundos > 60 ? " Passou de 1 minuto: encurte o padrão ou a conclusão." : "");
+  return beats.map(b => b[2]);
 }
+function falasAtuais(a) { return painel.falas || gerarFalas(a); }
+function falasNaTela() { return [0, 1, 2, 3].map(k => $("fala-" + k) ? $("fala-" + k).value : ""); }
+function desenharRoteiro(a) {
+  const falas = falasAtuais(a);
+  $("roteiro").replaceChildren(...falas.map((fala, i) => {
+    const ta = el("textarea", { id: "fala-" + i, rows: "3", "aria-label": `Texto da parte ${i + 1}: ${PALAVRAS_PARTE[i].join(" e ")}` });
+    ta.value = fala;
+    ta.addEventListener("input", () => {
+      painel.falas = falasNaTela(); salvar(); atualizarTempoRoteiro();
+      $("roteiro-auto").hidden = false; $("roteiro-nota").hidden = false;
+    });
+    return el("div", { class: "beat" }, el("span", { class: "t", id: "fala-t-" + i }),
+      el("div", { class: "d" }, el("div", { class: "keys" }, ...PALAVRAS_PARTE[i].map(k => el("span", { class: "chip" }, k))), ta));
+  }));
+  $("roteiro-auto").hidden = !painel.falas;
+  $("roteiro-nota").hidden = !painel.falas;
+  atualizarTempoRoteiro();
+}
+function atualizarTempoRoteiro() {
+  const falas = falasNaTela();
+  const d = duracoes(falas);
+  let t = 0;
+  d.forEach((x, i) => { $("fala-t-" + i).textContent = `${mmss(t)}–${mmss(t + x)}`; t += x; });
+  const palavras = falas.reduce((n, f) => n + contaPalavras(f), 0);
+  const info = $("roteiro-tempo");
+  info.classList.toggle("longo", t > 60);
+  info.textContent = `Cerca de ${palavras} palavras: uns ${t} segundos falando com calma.` + (t > 60 ? " Passou de 1 minuto: encurte o texto acima." : "");
+}
+$("roteiro-auto").addEventListener("click", () => { painel.falas = null; salvar(); desenharRoteiro(analisar()); $("copiar-roteiro").focus(); });
 $("copiar-roteiro").addEventListener("click", ev => {
   const btn = ev.currentTarget;
-  const txt = $("roteiro").dataset.texto || "";
+  const falas = falasNaTela(), d = duracoes(falas);
+  let t = 0;
+  const txt = falas.map((f, i) => { const linha = `${mmss(t)}–${mmss(t + d[i])}  ${f}`; t += d[i]; return linha; }).join("\n\n");
   const ok = () => { btn.textContent = "Texto copiado"; setTimeout(() => { btn.textContent = "Copiar o texto"; }, 2000); };
-  const falha = () => {
-    const r = document.createRange(); r.selectNodeContents($("roteiro"));
-    const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
-    btn.textContent = "Texto selecionado: copie com Ctrl+C";
-  };
+  const falha = () => { btn.textContent = "Não deu para copiar: selecione o texto e use Ctrl+C"; };
   try { navigator.clipboard.writeText(txt).then(ok, falha); } catch (e) { falha(); }
 });
+
+// ---------- Levar os dados para outro aparelho ----------
+$("bt-copiar-dados").addEventListener("click", () => {
+  const txt = "PAINEL-INVESTIGATIVO:" + JSON.stringify(painel);
+  const msg = $("dados-msg");
+  const falha = () => {
+    const ta = $("dados-colar"); ta.value = txt; ta.focus(); ta.select();
+    msg.className = "f-msg ok"; msg.textContent = "Os dados estão no campo abaixo, já selecionados: copie com Ctrl+C.";
+  };
+  try {
+    navigator.clipboard.writeText(txt).then(() => {
+      msg.className = "f-msg ok";
+      msg.textContent = `Copiado: ${plural(painel.fichas.length, "entrevista", "entrevistas")}. Agora cole no outro aparelho ou no programa.`;
+    }, falha);
+  } catch (e) { falha(); }
+});
+(function () {
+  const btn = $("bt-carregar-dados");
+  let armado = false, timer;
+  btn.addEventListener("click", () => {
+    const msg = $("dados-msg");
+    const txt = $("dados-colar").value.trim().replace(/^PAINEL-INVESTIGATIVO:/, "");
+    let novo = null;
+    try { novo = normalizar(JSON.parse(txt)); } catch (e) { novo = null; }
+    if (!novo) { msg.className = "f-msg erro"; msg.textContent = "Não reconheci esses dados. Copie de novo no outro aparelho e cole tudo aqui."; return; }
+    if (painel.fichas.length && !armado) {
+      armado = true;
+      btn.textContent = `Toque de novo: troca as ${painel.fichas.length} entrevistas daqui pelas ${novo.fichas.length} copiadas`;
+      timer = setTimeout(() => { armado = false; btn.textContent = "Carregar estes dados"; }, 5000);
+      return;
+    }
+    clearTimeout(timer); armado = false; btn.textContent = "Carregar estes dados";
+    painel = novo; salvar();
+    document.body.dataset.fundo = painel.fundo;
+    preencherCampos(); desenharFundos(); limparFicha(false); atualizar();
+    $("dados-colar").value = "";
+    msg.className = "f-msg ok"; msg.textContent = `Pronto: ${plural(painel.fichas.length, "entrevista carregada", "entrevistas carregadas")}.`;
+  });
+})();
 
 // ---------- Apresentar: a tela de bloqueio ----------
 const ICONES = {
@@ -870,7 +988,7 @@ function desenharTela(a, animar) {
   const tags = (...ts) => el("div", { class: "w-tags" }, ...ts.map(t => el("span", { class: "w-tag" }, t)));
   const cab = (icone, titulo, ...extra) => el("div", { class: "w-head" }, el("span", { class: "w-ico" }, svgIcone(icone)), el("h3", { class: "w-titulo" }, titulo), ...extra);
   const fills = [];
-  const barra = (largura, cor) => { const f = el("div", { class: "uso-fill" }); f.style.background = cor; fills.push([f, largura]); return f; };
+  const barra = (largura, cor) => { const f = el("div", { class: "uso-fill" }); f.style.background = cor; f.dataset.w = largura; fills.push([f, largura]); return f; };
 
   $("status-hora").textContent = hora;
   $("status-ic").replaceChildren(statusIcones());
@@ -972,6 +1090,283 @@ function desenharTela(a, animar) {
   const reduzir = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (animar && !reduzir) requestAnimationFrame(() => requestAnimationFrame(() => fills.forEach(([e, w]) => { e.style.width = w + "%"; })));
   else fills.forEach(([e, w]) => { e.style.transition = "none"; e.style.width = w + "%"; });
+}
+
+// ---------- Modo vídeo ----------
+const noArtefato = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+const podeGravar = !noArtefato && !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+const CORES_FUNDO = {
+  amanhecer: [[0, "#141838"], [0.38, "#4B2468"], [0.72, "#D2506A"], [1, "#F5A35A"]],
+  noite: [[0, "#070A1C"], [0.6, "#14204A"], [1, "#24356E"]],
+  ceu: [[0, "#173F80"], [0.55, "#2A72C0"], [1, "#5FAEE0"]],
+  menta: [[0, "#062925"], [0.55, "#0E5146"], [1, "#1B8C72"]]
+};
+let video = null;
+
+function abrirDialogo(conteudo, rotulo) {
+  fecharDialogo();
+  const caixa = el("div", { class: "dialogo", role: "dialog", "aria-modal": "true", "aria-label": rotulo }, ...conteudo);
+  const fundo = el("div", { class: "dialogo-fundo", id: "dialogo" }, caixa);
+  fundo.addEventListener("keydown", ev => {
+    if (ev.key === "Escape") { ev.stopPropagation(); fecharDialogo(); return; }
+    if (ev.key !== "Tab") return;
+    const foco = [...caixa.querySelectorAll("button:not([disabled]), a[href], input:not([disabled]), video")];
+    if (!foco.length) return;
+    const primeiro = foco[0], ultimo = foco[foco.length - 1];
+    if (ev.shiftKey && document.activeElement === primeiro) { ev.preventDefault(); ultimo.focus(); }
+    else if (!ev.shiftKey && document.activeElement === ultimo) { ev.preventDefault(); primeiro.focus(); }
+  });
+  document.body.append(fundo);
+  const inicial = caixa.querySelector("input:checked, button, a[href]");
+  if (inicial) inicial.focus();
+}
+function fecharDialogo() { const d = $("dialogo"); if (d) { d.remove(); $("bt-video").focus(); } }
+
+$("bt-video").addEventListener("click", () => {
+  const falas = falasAtuais(analisar());
+  const total = duracoes(falas).reduce((n, x) => n + x, 0);
+  const opcao = (valor, titulo, texto, marcado, desligado) => {
+    const r = el("input", { type: "radio", name: "modo-video", value: valor });
+    r.checked = marcado; r.disabled = !!desligado;
+    return el("label", { class: "opcao" + (desligado ? " desligada" : "") }, r,
+      el("span", {}, el("strong", {}, titulo), el("br"), el("span", { class: "hint" }, texto)));
+  };
+  const ler = el("input", { type: "checkbox", id: "mv-ler" }); ler.checked = true;
+  const legenda = el("input", { type: "checkbox", id: "mv-legenda" });
+  abrirDialogo([
+    el("h2", {}, "Modo vídeo"),
+    el("p", {}, `O painel passa sozinho pelas 4 partes em ${total} segundos, no ritmo do texto da aba Explicar.`),
+    total > 60 ? el("p", { class: "f-msg erro" }, `O texto está com ${total} segundos e o vídeo pode ter até 1 minuto. Encurte o texto na aba Explicar.`) : null,
+    opcao("celular", "Gravar com o celular", "O painel roda na tela e você se grava com o celular, aparecendo ao lado da tela e falando o texto.", !podeGravar, false),
+    opcao("camera", "Gravar com a câmera do computador",
+      podeGravar ? "Grava o painel, a sua imagem e a sua voz e salva o vídeo na pasta Downloads. O navegador vai pedir para usar a tela, a câmera e o microfone."
+        : "Só funciona no programa para Windows (.exe). Aqui, use o celular.", podeGravar, !podeGravar),
+    el("label", { class: "check-inline", for: "mv-ler" }, ler, el("span", {}, "Mostrar o texto no alto da tela para eu ler (na gravação pela câmera do computador, ele fica de fora do vídeo)")),
+    el("label", { class: "check-inline", for: "mv-legenda" }, legenda, el("span", {}, "Mostrar legenda embaixo do painel")),
+    el("div", { class: "actions" },
+      el("button", { class: "btn big", type: "button", onclick: () => {
+        const modo = document.querySelector('input[name="modo-video"]:checked').value;
+        const opcoes = { modo, prompter: $("mv-ler").checked, legenda: $("mv-legenda").checked, contagem: true };
+        const d = $("dialogo"); if (d) d.remove();
+        iniciarVideo(opcoes);
+      } }, "Começar"),
+      el("button", { class: "btn ghost", type: "button", onclick: fecharDialogo }, "Cancelar"))
+  ], "Modo vídeo");
+});
+
+function frases(texto) { return (texto.match(/[^.!?]+[.!?]*/g) || [texto]).map(f => f.trim()).filter(Boolean); }
+function esperar(ms) {
+  return new Promise(res => {
+    const t = setTimeout(res, ms);
+    if (video) video.acordar = () => { clearTimeout(t); res(); };
+  });
+}
+function alturaPrompter() { const p = $("prompter"); return p ? p.getBoundingClientRect().bottom : 0; }
+function rolarPara(alvos) {
+  if (!alvos.length) return;
+  const rs = alvos.map(e => e.getBoundingClientRect());
+  const topo = Math.min(...rs.map(r => r.top)), base = Math.max(...rs.map(r => r.bottom));
+  const H = alturaPrompter(), util = window.innerHeight - H - (video && video.opcoes.legenda ? 120 : 0);
+  const alvo = window.scrollY + topo - H - Math.max(12, (util - (base - topo)) / 2);
+  const reduzir = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({ top: Math.max(0, alvo), behavior: reduzir || (video && video.opcoes.semAnimacao) ? "auto" : "smooth" });
+}
+function animarBarras() {
+  document.querySelectorAll(".uso-fill").forEach(f => {
+    f.style.transition = "none"; f.style.width = "0"; void f.offsetWidth;
+    f.style.transition = ""; f.style.width = (f.dataset.w || 0) + "%";
+  });
+}
+async function iniciarVideo(opcoes) {
+  if (video) return;
+  irPara("apresentar");
+  const a = analisar();
+  const falas = falasAtuais(a);
+  const durs = opcoes.duracoes || duracoes(falas);
+  desenharTela(a, false);
+  window.scrollTo(0, 0);
+  video = { opcoes, parar: false, acordar: null, parte: 0, inicio: 0, total: durs.reduce((n, x) => n + x, 0) };
+  document.body.classList.add("modo-video");
+  if (opcoes.prompter) document.body.append(el("div", { class: "prompter", id: "prompter" },
+    el("div", { class: "prompter-top" }, el("span", { id: "pr-parte" }), el("span", { id: "pr-tempo" }),
+      el("button", { class: "tb", type: "button", onclick: pararVideo }, "Parar (Esc)")),
+    el("p", { class: "prompter-txt", id: "pr-txt" })));
+  else if (!opcoes.semControles) document.body.append(el("button", { class: "tb parar", id: "pr-parar", type: "button", onclick: pararVideo }, "Parar"));
+  if (opcoes.legenda) document.body.append(el("div", { class: "legenda-video", id: "legenda", "aria-live": "polite" }));
+  if (!opcoes.semControles) document.body.append(el("div", { class: "progresso", id: "progresso" }));
+
+  let gravacao = null;
+  if (opcoes.modo === "camera") {
+    try { gravacao = await prepararGravacao(); }
+    catch (e) {
+      encerrarVideo();
+      const motivo = e && e.name === "NotFoundError" ? "Não achei câmera ou microfone neste computador."
+        : e && e.name === "NotAllowedError" ? "O navegador não recebeu permissão para usar a tela, a câmera ou o microfone."
+        : "Não deu para começar a gravação.";
+      abrirDialogo([el("h2", {}, "Não deu para gravar"), el("p", {}, motivo + " Você pode gravar com o celular: escolha essa opção no Modo vídeo."),
+        el("div", { class: "actions" }, el("button", { class: "btn", type: "button", onclick: fecharDialogo }, "Entendi"))], "Não deu para gravar");
+      return;
+    }
+  }
+  const q = sel => [...document.querySelectorAll(sel)];
+  const todos = q(".w, .ls-dia, .ls-relogio, .ls-autor, .ls-secao");
+  const resultados = [{ alvos: q(".ls-secao, .w-uso"), peso: 0.45 }, { alvos: q(".w-apps, .w-tipos"), peso: 0.3 }, { alvos: q(".w-amp"), peso: 0.25 }]
+    .filter(p => p.alvos.some(e => e.classList.contains("w")));
+  const grupos = [
+    [{ alvos: q(".ls-dia, .ls-relogio, .ls-autor, .w-tema"), peso: 1 }],
+    [{ alvos: q(".w-perg"), peso: 1 }],
+    resultados.length ? resultados : [{ alvos: q("#ls-grid .ls-col:last-child .w, .ls-secao"), peso: 1 }],
+    [{ alvos: q(".w-conc"), peso: 1 }]
+  ];
+  const passos = [];
+  grupos.forEach((g, i) => {
+    const soma = g.reduce((n, p) => n + p.peso, 0) || 1;
+    g.forEach((p, k) => passos.push({ parte: i, primeiro: k === 0, alvos: p.alvos, ms: durs[i] * 1000 * p.peso / soma }));
+  });
+  if (opcoes.contagem) {
+    const c = el("div", { class: "contagem", "aria-live": "assertive" });
+    document.body.append(c);
+    for (const n of ["3", "2", "1"]) { if (video.parar) break; c.textContent = n; await esperar(1000); }
+    c.remove();
+  }
+  if (gravacao && !video.parar) gravacao.comecar();
+  video.inicio = performance.now();
+  const relogio = setInterval(() => {
+    if (!video) return;
+    const t = (performance.now() - video.inicio) / 1000;
+    if ($("pr-tempo")) $("pr-tempo").textContent = `${mmss(t)} / ${mmss(video.total)}`;
+    if ($("progresso")) $("progresso").style.width = Math.min(100, t / video.total * 100) + "%";
+  }, 200);
+  for (const p of passos) {
+    if (video.parar) break;
+    video.parte = p.parte;
+    todos.forEach(e => { e.classList.toggle("apagado", !p.alvos.includes(e)); e.classList.toggle("foco", p.alvos.includes(e) && e.classList.contains("w")); });
+    if ($("pr-parte")) $("pr-parte").textContent = `${p.parte + 1} · ${PARTES[p.parte]}`;
+    if ($("pr-txt")) $("pr-txt").textContent = falas[p.parte];
+    rolarPara(p.alvos);
+    if (p.alvos.some(e => e.classList.contains("w-uso"))) animarBarras();
+    if (p.primeiro && opcoes.legenda) legendar(falas[p.parte], durs[p.parte] * 1000, opcoes.tempos && opcoes.tempos[p.parte]);
+    await esperar(p.ms);
+  }
+  if (!video.parar) await esperar(700);
+  clearInterval(relogio);
+  const interrompido = video.parar;
+  const segundos = (performance.now() - video.inicio) / 1000;
+  encerrarVideo();
+  if (gravacao) {
+    const blob = await gravacao.parar();
+    mostrarResultado(blob, segundos, interrompido);
+  }
+}
+async function legendar(texto, ms, tempos) {
+  const partes = frases(texto);
+  const exatos = Array.isArray(tempos) && tempos.length === partes.length;
+  const pesos = exatos ? tempos : partes.map(f => Math.max(1, contaPalavras(f)));
+  const soma = pesos.reduce((n, x) => n + x, 0);
+  const atual = video;
+  for (let i = 0; i < partes.length; i++) {
+    if (!video || video !== atual || video.parar) return;
+    const leg = $("legenda"); if (!leg) return;
+    leg.textContent = partes[i];
+    await new Promise(r => setTimeout(r, ms * pesos[i] / soma));
+  }
+}
+function pararVideo() { if (!video) return; video.parar = true; if (video.acordar) video.acordar(); }
+function encerrarVideo() {
+  ["prompter", "pr-parar", "legenda", "progresso"].forEach(id => { const e = $(id); if (e) e.remove(); });
+  document.querySelectorAll(".apagado, .foco").forEach(e => e.classList.remove("apagado", "foco"));
+  document.body.classList.remove("modo-video");
+  video = null;
+  $("bt-video").focus();
+}
+document.addEventListener("keydown", ev => { if (video && ev.key === "Escape" && !document.fullscreenElement) { ev.preventDefault(); pararVideo(); } });
+
+async function prepararGravacao() {
+  const cam = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, audio: { echoCancellation: true, noiseSuppression: true } });
+  let tela;
+  try { tela = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false, preferCurrentTab: true, selfBrowserSurface: "include", surfaceSwitching: "exclude" }); }
+  catch (e) { cam.getTracks().forEach(t => t.stop()); throw e; }
+  const vCam = el("video"), vTela = el("video");
+  [[vCam, cam], [vTela, tela]].forEach(([v, s]) => { v.muted = true; v.playsInline = true; v.srcObject = s; });
+  await Promise.all([vCam.play(), vTela.play()]);
+  const W = 1280, H = 720;
+  const canvas = el("canvas"); canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  const fluxo = canvas.captureStream(30);
+  cam.getAudioTracks().forEach(t => fluxo.addTrack(t));
+  const tipos = ["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm"];
+  const mime = tipos.find(t => MediaRecorder.isTypeSupported(t)) || "";
+  const rec = new MediaRecorder(fluxo, mime ? { mimeType: mime, videoBitsPerSecond: 5000000 } : undefined);
+  const pedacos = [];
+  rec.ondataavailable = e => { if (e.data && e.data.size) pedacos.push(e.data); };
+  let ativo = true;
+  const passo = () => { if (!ativo) return; desenharQuadro(ctx, W, H, vTela, vCam); requestAnimationFrame(passo); };
+  passo();
+  tela.getVideoTracks()[0].addEventListener("ended", pararVideo);
+  return {
+    comecar() { if (rec.state === "inactive") rec.start(1000); },
+    parar() {
+      return new Promise(res => {
+        const fim = () => {
+          ativo = false;
+          [cam, tela].forEach(s => s.getTracks().forEach(t => t.stop()));
+          res(new Blob(pedacos, { type: (rec.mimeType || mime || "video/webm").split(";")[0] }));
+        };
+        if (rec.state === "inactive") fim(); else { rec.onstop = fim; rec.stop(); }
+      });
+    }
+  };
+}
+function desenharQuadro(ctx, W, H, vTela, vCam) {
+  const g = ctx.createLinearGradient(0, 0, W * 0.27, H);
+  (CORES_FUNDO[painel.fundo] || CORES_FUNDO.amanhecer).forEach(([pos, cor]) => g.addColorStop(pos, cor));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const faixa = 200, areaH = H - faixa - 16;
+  const fw = vTela.videoWidth, fh = vTela.videoHeight;
+  if (fw && fh) {
+    const escala = fw / window.innerWidth;
+    const corte = Math.min(fh - 2, Math.round(alturaPrompter() * escala));
+    const sh = fh - corte, k = Math.min(W / fw, areaH / sh);
+    const dw = fw * k, dh = sh * k;
+    ctx.drawImage(vTela, 0, corte, fw, sh, (W - dw) / 2, Math.max(0, (areaH - dh) / 2), dw, dh);
+  }
+  const y0 = H - faixa;
+  const caixa = (x, y, w, h, r) => { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); };
+  ctx.fillStyle = "rgba(10, 12, 28, 0.85)"; caixa(16, y0, W - 32, faixa - 16, 18); ctx.fill();
+  const cw = 245, ch = faixa - 16;
+  if (vCam.videoWidth) {
+    const vw = vCam.videoWidth, vh = vCam.videoHeight, alvo = cw / ch;
+    let sw = vw, sh = vh;
+    if (vw / vh > alvo) sw = vh * alvo; else sh = vw / alvo;
+    ctx.save(); caixa(16, y0, cw, ch, 18); ctx.clip();
+    ctx.translate(16 + cw, y0); ctx.scale(-1, 1);
+    ctx.drawImage(vCam, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, cw, ch);
+    ctx.restore();
+  }
+  const x = 16 + cw + 28, larg = W - x - 40;
+  const parte = video ? video.parte : 0;
+  const caber = (texto, fonte) => { ctx.font = fonte; let t = texto; while (t.length > 4 && ctx.measureText(t).width > larg) t = t.slice(0, -2); return t === texto ? t : t.trim() + "…"; };
+  ctx.fillStyle = "#FFD36B"; ctx.fillText(caber(`${parte + 1} · ${PARTES[parte].toUpperCase()}`, "700 22px 'Atkinson Hyperlegible', sans-serif"), x, y0 + 46);
+  ctx.fillStyle = "#FFFFFF"; ctx.fillText(caber(painel.dilema.trim() || "Painel Investigativo", "700 30px Unbounded, 'Arial Black', sans-serif"), x, y0 + 94);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.85)"; ctx.fillText(caber(PALAVRAS_PARTE[parte].join(" · "), "700 22px 'Atkinson Hyperlegible', sans-serif"), x, y0 + 134);
+  const autor = [painel.autor.trim() ? "Pesquisa de " + painel.autor.trim() : "", painel.turma.trim()].filter(Boolean).join(" · ");
+  if (autor) { ctx.fillStyle = "rgba(255, 255, 255, 0.7)"; ctx.fillText(caber(autor, "400 20px 'Atkinson Hyperlegible', sans-serif"), x, y0 + 168); }
+}
+function mostrarResultado(blob, segundos, interrompido) {
+  const url = URL.createObjectURL(blob);
+  const ext = /mp4/.test(blob.type) ? "mp4" : "webm";
+  const nome = "Apresentacao-" + (painel.autor.trim() || "Painel").replace(/[^\p{L}\p{N}]+/gu, "-") + "." + ext;
+  const v = el("video", { controls: "", src: url, preload: "metadata" });
+  abrirDialogo([
+    el("h2", {}, interrompido ? "Gravação interrompida" : "Seu vídeo ficou pronto"),
+    v,
+    el("p", { class: "hint" }, `Cerca de ${Math.round(segundos)} segundos. Assista antes de enviar.` + (ext === "webm" ? " O arquivo é .webm: se o lugar de envio não aceitar, converta para .mp4." : "")),
+    el("div", { class: "actions" },
+      el("a", { class: "btn big", href: url, download: nome }, "Salvar o vídeo"),
+      el("button", { class: "btn ghost", type: "button", onclick: () => { fecharDialogo(); $("bt-video").click(); } }, "Gravar de novo"),
+      el("button", { class: "btn ghost", type: "button", onclick: fecharDialogo }, "Fechar")),
+    el("p", { class: "hint" }, "O vídeo vai para a pasta Downloads do computador.")
+  ], "Seu vídeo");
 }
 
 // Tela cheia e esconder botões
