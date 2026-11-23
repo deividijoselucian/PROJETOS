@@ -1235,6 +1235,7 @@ function resumo(camId, base) {
   const r = {
     dias: d, abs: a, mans: m, km: soma(d, kmDia), comb: soma(a, x => x.valor), litros: soma(dsl, x => x.litros),
     gastoDiesel: soma(dsl, x => x.valor), arla: soma(a.filter(x => !ehDiesel(x)), x => x.valor), manut: soma(m, x => x.valor),
+    litrosArla: soma(a.filter(x => !ehDiesel(x)), x => x.litros), nAbs: dsl.length,
     datas: new Set(d.map(x => x.data)).size, cams: new Set(d.map(x => x.caminhaoId)).size,
   };
   r.tanque = kmlDe(x => noPeriodo(x.data) && (!camId || x.caminhaoId === camId), camId, r.km, r.litros);
@@ -1256,7 +1257,8 @@ function kpisHTML(r, frota) {
   const subCusto = (mt.custoKm ? 'Meta ' + fRkm(mt.custoKm) : 'Combustível + manutenção ÷ km') + (frota ? ' · frota ' + fRkm(frota.custo) : '');
   return [
     ['Km rodados', `${nf0.format(r.km)}<small>km</small>`, r.datas ? `${plural(r.datas, 'dia', 'dias')} com lançamento${frota ? '' : ' · ' + plural(r.cams, 'caminhão', 'caminhões')}` : 'Nenhum km lançado no período', '', true],
-    ['Combustível', fR(r.comb), r.litros ? `${nf0.format(r.litros)} L de diesel · ${fR(r.precoL)}/L${r.arla ? ' · Arla ' + fR(r.arla) : ''}` : 'Nenhum abastecimento no período', ''],
+    ['Litros abastecidos', `${nf0.format(r.litros)}<small>L</small>`, r.litros ? `de diesel em ${plural(r.nAbs, 'abastecimento', 'abastecimentos')}${r.litrosArla ? ' · mais ' + nf0.format(r.litrosArla) + ' L de Arla 32' : ''}` : 'Nenhum abastecimento no período', ''],
+    ['Combustível', fR(r.comb), r.litros ? `Diesel a ${fR(r.precoL)} o litro${r.arla ? ' · Arla ' + fR(r.arla) : ''}` : 'Nenhum abastecimento no período', ''],
     ['Manutenção', fR(r.manut), r.mans.length ? plural(r.mans.length, 'serviço', 'serviços') : 'Nenhuma manutenção no período', ''],
     ['Custo por km', r.custo == null ? '—' : fR(r.custo), subCusto, pill(sCusto)],
     ['Consumo médio', r.kml == null ? '—' : `${nf2.format(r.kml)}<small>km/l</small>`, subKml, pill(sKml)],
@@ -1295,21 +1297,21 @@ function renderPainel(alertas) {
   UI.linhasPainel = linhasCam;
   const totSemi = soma(mans.filter(m => m.veiculoTipo === 'semirreboque'), m => m.valor);
   tabela('#t-painel',
-    [['Caminhão'], ['Motorista'], ['Semirreboque'], ['Situação'], ['Km', 'n'], ['Combustível', 'n'], ['Consumo', 'n'], ['Manutenção', 'n'], ['Custo/km', 'n'], ['', 'n']],
+    [['Caminhão'], ['Motorista'], ['Semirreboque'], ['Situação'], ['Km', 'n'], ['Litros', 'n'], ['Combustível', 'n'], ['Consumo', 'n'], ['Manutenção', 'n'], ['Custo/km', 'n'], ['', 'n']],
     linhasCam.map(r => `<tr${r.c.situacao === 'fora' ? ' class="inativo"' : ''}>
       <td>${celVeiculoCam(r.c)}</td>
       <td>${r.c.motoristaId ? esc(nomeMot(r.c.motoristaId)) : '<span class="sem">Sem motorista</span>'}</td>
       <td>${r.c.semirreboqueId ? placaHTML((semi(r.c.semirreboqueId) || {}).placa) : '<span class="sem">—</span>'}</td>
       <td>${pillSit(SIT_CAM, r.c.situacao)}</td>
-      <td class="n">${fKm(r.km)}</td><td class="n">${fR(r.comb)}</td><td class="n">${fKml(r.kml)}</td><td class="n">${fR(r.manut)}</td><td class="n">${fRkm(r.custo)}</td>
+      <td class="n">${fKm(r.km)}</td><td class="n">${fL(r.litros)}</td><td class="n">${fR(r.comb)}</td><td class="n">${fKml(r.kml)}</td><td class="n">${fR(r.manut)}</td><td class="n">${fRkm(r.custo)}</td>
       <td class="acoes"><a class="lnk" href="#relatorio" data-acao="ver-extrato" data-cam="${esc(r.id)}">Extrato</a></td></tr>`),
-    `<tr><td colspan="4">Total da frota${totSemi ? ` <span class="fraco">(manutenção inclui ${fR(totSemi)} dos semirreboques)</span>` : ''}</td><td class="n">${fKm(frota.km)}</td><td class="n">${fR(frota.comb)}</td><td class="n">${fKml(frota.kml)}</td><td class="n">${fR(frota.manut)}</td><td class="n">${fRkm(frota.custo)}</td><td></td></tr>`,
+    `<tr><td colspan="4">Total da frota${totSemi ? ` <span class="fraco">(manutenção inclui ${fR(totSemi)} dos semirreboques)</span>` : ''}</td><td class="n">${fKm(frota.km)}</td><td class="n">${fL(frota.litros)}</td><td class="n">${fR(frota.comb)}</td><td class="n">${fKml(frota.kml)}</td><td class="n">${fR(frota.manut)}</td><td class="n">${fRkm(frota.custo)}</td><td></td></tr>`,
     'Nenhum caminhão cadastrado.');
 
   // por motorista
-  tabela('#t-motoristas-p', [['Motorista'], ['Dias', 'n'], ['Km', 'n'], ['Consumo', 'n'], ['Caminhões']],
+  tabela('#t-motoristas-p', [['Motorista'], ['Dias', 'n'], ['Km', 'n'], ['Litros', 'n'], ['Consumo', 'n'], ['Caminhões']],
     porMotorista(base).map(x => `<tr><td class="forte">${x.id ? esc(nomeMot(x.id)) : '<span class="sem">Sem motorista</span>'}</td>
-      <td class="n">${x.datas.size}</td><td class="n">${fKm(x.km)}</td><td class="n">${fKml(x.kml)}</td>
+      <td class="n">${x.datas.size}</td><td class="n">${fKm(x.km)}</td><td class="n">${fL(x.litros)}</td><td class="n">${fKml(x.kml)}</td>
       <td>${Array.from(x.cams).map(id => esc(cam(id) ? mostraPlaca(cam(id).placa) : '')).join(', ')}</td></tr>`),
     null, 'Ninguém rodou no período.');
 
@@ -1344,6 +1346,7 @@ function porMotorista(base, camId) {
 const S_KM = { nome: 'Km rodados', cor: 'var(--chart-bar)' };
 const S_COMB = { nome: 'Combustível', cor: 'var(--s-comb)' };
 const S_MANUT = { nome: 'Manutenção', cor: 'var(--s-manut)' };
+const S_DIESEL = { nome: 'Litros de diesel', cor: 'var(--s-comb)' };
 function passoBonito(bruto) {
   if (!(bruto > 0)) return 1;
   const pot = Math.pow(10, Math.floor(Math.log10(bruto)));
@@ -1574,7 +1577,8 @@ function evolucaoMensal(camId, n) {
     const km = soma(dias, kmDia), comb = soma(abs, a => a.valor), litros = soma(abs.filter(ehDiesel), a => a.litros), manut = soma(mans, x => x.valor);
     const t = kmlDe(a => doMes(a) && (!camId || a.caminhaoId === camId), camId, km, litros);
     const nome = MESES[Number(m.slice(5)) - 1];
-    return { m, curto: nome.slice(0, 3) + '/' + m.slice(2, 4), longo: nomeMes(m + '-01'), km, comb, litros, manut, kml: t ? t.kml : null, tanque: t, custo: km ? (comb + manut) / km : null };
+    const litrosArla = soma(abs.filter(a => !ehDiesel(a)), a => a.litros), nAbs = abs.filter(ehDiesel).length;
+    return { m, curto: nome.slice(0, 3) + '/' + m.slice(2, 4), longo: nomeMes(m + '-01'), km, comb, litros, litrosArla, nAbs, manut, kml: t ? t.kml : null, tanque: t, custo: km ? (comb + manut) / km : null };
   });
 }
 
@@ -1823,8 +1827,8 @@ function figura(id, titulo, sub, legenda) {
 }
 function emitido() { const d = new Date(); return 'Emitido em ' + fmtData(iso(d)) + ' às ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
 function tabelaMesesHTML(ev) {
-  return `<thead><tr><th>Mês</th><th class="n">Km rodados</th><th class="n">Combustível</th><th class="n">Manutenção</th><th class="n">Consumo</th><th class="n">Custo por km</th></tr></thead><tbody>`
-    + ev.map(m => `<tr><td class="d">${esc(m.longo)}</td><td class="n">${fKm(m.km)}</td><td class="n">${fR(m.comb)}</td><td class="n">${fR(m.manut)}</td><td class="n">${fKml(m.kml)}</td><td class="n">${fRkm(m.custo)}</td></tr>`).join('') + '</tbody>';
+  return `<thead><tr><th>Mês</th><th class="n">Km rodados</th><th class="n">Litros de diesel</th><th class="n">Combustível</th><th class="n">Manutenção</th><th class="n">Consumo</th><th class="n">Custo por km</th></tr></thead><tbody>`
+    + ev.map(m => `<tr><td class="d">${esc(m.longo)}</td><td class="n">${fKm(m.km)}</td><td class="n">${fL(m.litros)}</td><td class="n">${fR(m.comb)}</td><td class="n">${fR(m.manut)}</td><td class="n">${fKml(m.kml)}</td><td class="n">${fRkm(m.custo)}</td></tr>`).join('') + '</tbody>';
 }
 function textoMeta(v, fmt, nome) { return v ? `Linha tracejada: ${nome} de ${fmt(v)}.` : ''; }
 
@@ -1862,25 +1866,29 @@ function relatorioFrota(el) {
         ${figura('gr-r-custo', 'Custo por km', 'Quanto menos, melhor. Combustível + manutenção ÷ km. ' + (mt.custoKm ? textoMeta(mt.custoKm, fRkm, 'meta') : 'Linha tracejada: média da frota.'))}
         ${figura('gr-r-gasto', 'Gasto por caminhão', 'Combustível e manutenção no período.', [S_COMB, S_MANUT])}
         ${figura('gr-r-km', 'Km rodados por caminhão', 'Soma dos lançamentos de km do dia.')}
+        ${figura('gr-r-litros', 'Litros abastecidos por caminhão', 'Diesel colocado no período. O Arla 32 aparece ao passar o dedo ou o mouse.')}
+        ${figura('gr-r-precocam', 'Preço médio do diesel por caminhão', 'Valor pago ÷ litros. Linha tracejada: média da frota.')}
       </div>
     </section>
     <section class="rel-sec">
       <h3>Evolução</h3>
       <div class="graficos">
         ${figura('gr-r-dia', 'Km rodados por dia', 'Toda a frota. Linha tracejada: média dos dias com lançamento.')}
+        ${figura('gr-r-preco', 'Preço do diesel por litro', 'Cada ponto é um abastecimento.')}
         ${figura('gr-r-mes', 'Gasto mês a mês', 'Últimos 6 meses até o fim do período.', [S_COMB, S_MANUT])}
+        ${figura('gr-r-litrosmes', 'Litros de diesel mês a mês', 'Últimos 6 meses até o fim do período.')}
         ${figura('gr-r-kmlmes', 'Consumo mês a mês (km/l)', 'Últimos 6 meses. ' + textoMeta(mt.kml, fKml, 'meta'))}
         ${figura('gr-r-customes', 'Custo por km mês a mês', 'Últimos 6 meses. ' + textoMeta(mt.custoKm, fRkm, 'meta'))}
       </div>
       <details class="tabela-dados" open><summary>Mês a mês em tabela</summary><div class="tabela-box"><table class="tabela">${tabelaMesesHTML(ev)}</table></div></details>
     </section>
     <section class="rel-sec">
-      <h3>Motoristas, manutenção e diesel</h3>
+      <h3>Motoristas e manutenção</h3>
       <div class="graficos">
         ${figura('gr-r-mot', 'Km por motorista', 'Pelos lançamentos de km do dia.')}
-        ${figura('gr-r-serv', 'Manutenção por serviço', 'Caminhões e semirreboques.')}
-        ${figura('gr-r-preco', 'Preço do diesel por litro', 'Cada ponto é um abastecimento.')}
+        ${figura('gr-r-motlitros', 'Litros abastecidos por motorista', 'Diesel dos abastecimentos lançados com o motorista.')}
         ${figura('gr-r-motkml', 'Consumo por motorista (km/l)', 'De tanque cheio a tanque cheio, nos abastecimentos feitos pelo motorista.')}
+        ${figura('gr-r-serv', 'Manutenção por serviço', 'Caminhões e semirreboques.')}
       </div>
     </section>
     <section class="rel-sec">
@@ -1912,9 +1920,18 @@ function relatorioFrota(el) {
     itens: linhas.map(r => ({ rot: mostraPlaca(r.c.placa), longo: rotuloCam(r.c), valores: [r.km], extra: plural(r.datas, 'dia rodado', 'dias rodados') })).sort((a, b) => b.valores[0] - a.valores[0]),
     series: [S_KM], fmt: fKm, titulo: 'Km rodados por caminhão', vazio: 'Nenhum km lançado no período.',
   });
+  graficoBarras($('#gr-r-litros'), {
+    itens: linhas.map(r => ({ rot: mostraPlaca(r.c.placa), longo: rotuloCam(r.c), valores: [r.litros], extra: plural(r.nAbs, 'abastecimento', 'abastecimentos') + ' · ' + fR(r.gastoDiesel) + (r.litrosArla ? ' · mais ' + fL(r.litrosArla) + ' de Arla 32' : '') })).sort((a, b) => b.valores[0] - a.valores[0]),
+    series: [S_DIESEL], fmt: fL, titulo: 'Litros abastecidos por caminhão', vazio: 'Nenhum abastecimento de diesel no período.',
+  });
+  graficoBarras($('#gr-r-precocam'), {
+    itens: linhas.filter(r => r.precoL).map(r => ({ rot: mostraPlaca(r.c.placa), longo: rotuloCam(r.c), valores: [r.precoL], extra: fL(r.litros) + ' por ' + fR(r.gastoDiesel) })).sort((a, b) => b.valores[0] - a.valores[0]),
+    series: [S_COMB], fmt: v => fR(v) + '/L', meta: frota.precoL, rotMeta: 'frota ' + fR(frota.precoL || 0), titulo: 'Preço médio do diesel por caminhão', vazio: 'Nenhum abastecimento de diesel no período.',
+  });
   graficoKmPorDia($('#gr-r-dia'), base.dias, null, null);
   graficosMensais(ev, mt);
   const pm = porMotorista(base).filter(x => x.id);
+  graficoBarras($('#gr-r-motlitros'), { itens: pm.filter(x => x.litros).map(x => ({ rot: nomeMot(x.id), valores: [x.litros], extra: fR(x.comb) })).sort((a, b) => b.valores[0] - a.valores[0]), series: [S_DIESEL], fmt: fL, titulo: 'Litros abastecidos por motorista', vazio: 'Nenhum abastecimento lançado com motorista no período.' });
   graficoBarras($('#gr-r-mot'), { itens: pm.map(x => ({ rot: nomeMot(x.id), valores: [x.km], extra: plural(x.datas.size, 'dia', 'dias') })), series: [S_KM], fmt: fKm, titulo: 'Km por motorista', vazio: 'Ninguém rodou no período.' });
   graficoBarras($('#gr-r-motkml'), {
     itens: pm.filter(x => x.kml).map(x => ({ rot: nomeMot(x.id), valores: [x.kml], extra: fKm(x.tanque.km) + ' com ' + fL(x.tanque.litros) })).sort((a, b) => b.valores[0] - a.valores[0]),
@@ -1926,6 +1943,7 @@ function relatorioFrota(el) {
 }
 
 function graficosMensais(ev, mt) {
+  graficoColunas($('#gr-r-litrosmes'), { baldes: ev.map(m => ({ curto: m.curto, longo: m.longo, valores: [m.litros], extra: (m.nAbs ? plural(m.nAbs, 'abastecimento', 'abastecimentos') : '') + (m.litrosArla ? ' · mais ' + fL(m.litrosArla) + ' de Arla 32' : '') })), series: [S_DIESEL], fmt: fL, fmtEixo: v => nf0.format(v), larguraMax: 44, titulo: 'Litros de diesel mês a mês', vazio: 'Nenhum abastecimento de diesel nos últimos 6 meses.' });
   graficoColunas($('#gr-r-mes'), { baldes: ev.map(m => ({ curto: m.curto, longo: m.longo, valores: [m.comb, m.manut], extra: m.km ? fKm(m.km) + ' rodados' : '' })), series: [S_COMB, S_MANUT], fmt: fR, fmtEixo: v => v >= 1000 ? nf0.format(v / 1000) + ' mil' : nf0.format(v), larguraMax: 44, titulo: 'Gasto mês a mês', vazio: 'Nenhum gasto nos últimos 6 meses.' });
   graficoColunas($('#gr-r-kmlmes'), { baldes: ev.map(m => ({ curto: m.curto, longo: m.longo, valores: [m.kml || 0], extra: m.tanque ? fKm(m.tanque.km) + ' com ' + fL(m.tanque.litros) : '' })), series: [S_KM], fmt: fKml, textoZero: 'Nenhum tanque cheio fechado no mês', fmtEixo: v => nf1.format(v), larguraMax: 44, meta: mt.kml || null, rotMeta: mt.kml ? 'meta ' + nf2.format(mt.kml) : '', titulo: 'Consumo mês a mês', vazio: 'Precisa de km e de abastecimento de diesel.' });
   graficoColunas($('#gr-r-customes'), { baldes: ev.map(m => ({ curto: m.curto, longo: m.longo, valores: [m.custo || 0], extra: m.km ? fR(m.comb + m.manut) + ' em ' + fKm(m.km) : '' })), series: [S_MANUT], fmt: fRkm, textoZero: 'Sem km lançado no mês', fmtEixo: v => nf2.format(v), larguraMax: 44, meta: mt.custoKm || null, rotMeta: mt.custoKm ? 'meta ' + fR(mt.custoKm) : '', titulo: 'Custo por km mês a mês', vazio: 'Precisa de km lançado.' });
@@ -1975,6 +1993,8 @@ function relatorioCaminhao(el, c) {
         ${figura('gr-c-custo', 'Custo por km', 'Este caminhão ao lado da média da frota. ' + textoMeta(mt.custoKm, fRkm, 'meta'))}
         ${figura('gr-c-dia', 'Km rodados por dia', 'Linha tracejada: média dos dias com lançamento.')}
         ${figura('gr-r-mes', 'Gasto mês a mês', 'Últimos 6 meses até o fim do período.', [S_COMB, S_MANUT])}
+        ${figura('gr-r-litrosmes', 'Litros de diesel mês a mês', 'Últimos 6 meses até o fim do período.')}
+        ${figura('gr-c-preco', 'Preço do diesel por litro', 'Cada ponto é um abastecimento deste caminhão.')}
         ${figura('gr-r-kmlmes', 'Consumo mês a mês (km/l)', 'Últimos 6 meses. ' + textoMeta(mt.kml, fKml, 'meta'))}
         ${figura('gr-r-customes', 'Custo por km mês a mês', 'Últimos 6 meses. ' + textoMeta(mt.custoKm, fRkm, 'meta'))}
         ${figura('gr-c-mot', 'Quem dirigiu', 'Km por motorista neste caminhão.')}
@@ -1996,6 +2016,7 @@ function relatorioCaminhao(el, c) {
   graficosMensais(ev, mt);
   graficoBarras($('#gr-c-mot'), { itens: porMotorista(base, c.id).filter(x => x.id).map(x => ({ rot: nomeMot(x.id), valores: [x.km], extra: plural(x.datas.size, 'dia', 'dias') })), series: [S_KM], fmt: fKm, titulo: 'Quem dirigiu', vazio: 'Nenhum km lançado no período.' });
   graficoServicos($('#gr-c-serv'), r.mans);
+  graficoPrecoDiesel($('#gr-c-preco'), r.abs);
 }
 
 /* metas de consumo e de custo */

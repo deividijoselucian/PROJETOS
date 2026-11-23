@@ -6,7 +6,7 @@ com gráficos e o extrato de cada caminhão.
 
 ## Abas
 
-1. **Painel**: números do período (km rodados, combustível, manutenção, custo por km,
+1. **Painel**: números do período (km rodados, litros abastecidos, combustível, manutenção, custo por km,
    consumo), o que precisa de atenção, tabela por caminhão, km por dia, gasto por
    caminhão, por motorista e por semirreboque. O período pode ser hoje, 7 dias, este mês,
    mês passado, este ano ou datas escolhidas.
@@ -20,8 +20,9 @@ com gráficos e o extrato de cada caminhão.
 4. **Manutenção**: serviço, valor, oficina, km, e a próxima por km ou por data. A lista de
    próximas manutenções avisa quando está perto ou vencida.
 5. **Relatório**: indicadores com metas de consumo (km/l) e custo por km, gráficos
-   (consumo, custo por km, gasto e km por caminhão, km por dia, gasto, consumo e custo
-   mês a mês, km e consumo por motorista, manutenção por serviço, preço do diesel) e o
+   (consumo, custo por km, gasto, km, litros e preço do diesel por caminhão, km por dia,
+   gasto, litros de diesel, consumo e custo
+   mês a mês, km, litros e consumo por motorista, manutenção por serviço, preço do diesel) e o
    **extrato por caminhão**: todos os lançamentos em ordem de data, com o gasto
    acumulado. Dá para imprimir (no programa do Windows), baixar o relatório (.html) e
    baixar o extrato (.csv).
