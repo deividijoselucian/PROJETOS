@@ -1,0 +1,2718 @@
+<title>Sistema Carlise</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+:root {
+  /* Layout: barra de asfalto fixa com as abas por tarefa (Painel, Km do dia, Abastecer, Manutenção, Frota).
+     Cada aba é uma coluna: formulário em cima, lista com filtro embaixo. Placas no padrão Mercosul. */
+  --bg: #EEF1F5; --surface: #FFFFFF; --sunk: #E4E8EF; --ink: #151A23; --muted: #535E72; --line: #D3D9E3;
+  --accent: #1C47B5; --accent-hover: #15398F; --accent-ink: #FFFFFF; --accent-soft: #E2E8FA;
+  --ok: #0B7550; --ok-soft: #DBF2E7; --warn: #8A5300; --warn-soft: #FBEDD3; --bad: #BA2E29; --bad-soft: #FBE2E0;
+  --chart-grid: #E1E6EE; --chart-base: #9AA4B5; --chart-bar: #3A4456; --chart-mean: #8A5300; --chart-meta: #151A23;
+  --s-comb: #eb6834; --s-manut: #2a78d6; --realce: brightness(0.82);
+  /* barra e placa: objetos do mundo da estrada, iguais nos dois temas */
+  --asfalto: #171C24; --asfalto-ink: #F3F5F8; --asfalto-muted: #A9B2C1; --asfalto-line: #2C3441; --faixa: #F2C230;
+  --placa-fundo: #FFFFFF; --placa-borda: #2A2E36; --placa-faixa: #1F3E9C; --placa-tinta: #101216;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sombra: 0 1px 2px rgba(21, 26, 35, 0.06), 0 6px 18px rgba(21, 26, 35, 0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1117; --surface: #161B24; --sunk: #1D2430; --ink: #E7EBF2; --muted: #9CA6B8; --line: #2B3443;
+    --accent: #87A3FF; --accent-hover: #A9BEFF; --accent-ink: #0E1117; --accent-soft: #1E2A4C;
+    --ok: #4FCB96; --ok-soft: #12372A; --warn: #F1B65C; --warn-soft: #3A2A0F; --bad: #FF8F87; --bad-soft: #421D1C;
+    --chart-grid: #252E3B; --chart-base: #4A5568; --chart-bar: #A8B3C6; --chart-mean: #F1B65C; --chart-meta: #E7EBF2;
+    --s-comb: #d95926; --s-manut: #3987e5; --realce: brightness(1.22);
+    --asfalto: #0A0D12; --asfalto-line: #232A35;
+    --sombra: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1117; --surface: #161B24; --sunk: #1D2430; --ink: #E7EBF2; --muted: #9CA6B8; --line: #2B3443;
+  --accent: #87A3FF; --accent-hover: #A9BEFF; --accent-ink: #0E1117; --accent-soft: #1E2A4C;
+  --ok: #4FCB96; --ok-soft: #12372A; --warn: #F1B65C; --warn-soft: #3A2A0F; --bad: #FF8F87; --bad-soft: #421D1C;
+  --chart-grid: #252E3B; --chart-base: #4A5568; --chart-bar: #A8B3C6; --chart-mean: #F1B65C; --chart-meta: #E7EBF2;
+  --s-comb: #d95926; --s-manut: #3987e5; --realce: brightness(1.22);
+  --asfalto: #0A0D12; --asfalto-line: #232A35;
+  --sombra: none; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; min-height: 100vh; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--asfalto); }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Barra de cima */
+.barra { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--asfalto); color: var(--asfalto-ink); border-bottom: 1px solid var(--asfalto-line); }
+.barra-in, .abas {
+  max-width: 1200px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.barra-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px 4px; }
+.marca { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.marca svg { width: 34px; height: 34px; flex: none; }
+.marca-nome { font-family: var(--display); font-weight: 700; font-size: 1.35rem; letter-spacing: 0.01em; line-height: 1.1; }
+.marca-sub { font-size: 0.8rem; color: var(--asfalto-muted); line-height: 1.2; }
+.estado { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--asfalto-muted); border: 1px solid var(--asfalto-line); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+.estado::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--asfalto-muted); }
+.estado[data-modo="nuvem"]::before { background: #4FCB96; }
+.estado[data-modo="local"]::before { background: var(--faixa); }
+.estado[data-modo="erro"]::before, .estado[data-modo="leitura"]::before { background: #FF8F87; }
+@media (max-width: 520px) { .estado { font-size: 0; gap: 0; padding: 7px; } .marca-sub { display: none; } }
+.abas { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.abas::-webkit-scrollbar { display: none; }
+.aba {
+  flex: none; position: relative; color: var(--asfalto-muted); text-decoration: none; font-weight: 600; font-size: 0.98rem;
+  padding: 12px 12px 14px; min-height: 44px; display: inline-flex; align-items: center; gap: 6px;
+}
+.aba:hover { color: var(--asfalto-ink); }
+.aba[aria-selected="true"] { color: var(--asfalto-ink); }
+.aba[aria-selected="true"]::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: 4px; height: 3px;
+  background: repeating-linear-gradient(90deg, var(--faixa) 0 12px, transparent 12px 19px);
+}
+.aba .cont { font-size: 0.72rem; font-weight: 700; background: var(--faixa); color: #171C24; border-radius: 999px; padding: 0 6px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+
+/* Página */
+.wrap {
+  max-width: 1200px; margin: 0 auto; padding-block: 20px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px;
+}
+.vista { display: flex; flex-direction: column; gap: 22px; }
+.h1 { font-family: var(--display); font-weight: 700; font-size: 1.9rem; line-height: 1.1; }
+.h2 { font-family: var(--display); font-weight: 600; font-size: 1.35rem; line-height: 1.15; }
+.hint { color: var(--muted); font-size: 0.92rem; }
+.cab { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; justify-content: space-between; }
+.cab > * { min-width: 0; }
+.bloco { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.bloco-cab { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: end; justify-content: space-between; }
+.bloco-cab > div:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.duas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 22px; }
+
+/* Faixas de aviso */
+.faixa-aviso { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 12px 14px; }
+.faixa-aviso p { min-width: 0; flex: 1 1 280px; }
+.faixa-aviso.exemplo { background: var(--warn-soft); border-color: transparent; }
+.faixa-aviso.leitura { background: var(--bad-soft); border-color: transparent; }
+
+/* Período */
+.periodos { display: flex; flex-wrap: wrap; gap: 4px; background: var(--sunk); border-radius: 10px; padding: 4px; }
+.seg { font: 600 0.92rem var(--body); color: var(--ink); background: transparent; border: 0; border-radius: 7px; padding: 8px 12px; min-height: 40px; cursor: pointer; }
+.seg:hover { background: var(--surface); }
+.seg[aria-pressed="true"] { background: var(--surface); color: var(--accent); box-shadow: var(--sombra); outline: 1px solid var(--line); }
+.datas { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 0.92rem; }
+.datas label { display: inline-flex; gap: 6px; align-items: center; }
+
+/* Números do período */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; container-type: inline-size; }
+.kpi-rot { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.kpi-val { font-family: var(--display); font-weight: 700; font-size: 2rem; font-size: min(2rem, 15cqi); line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi-val small { font-size: 1.05rem; font-weight: 600; color: var(--muted); margin-left: 3px; }
+.kpi-sub { font-size: 0.86rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.kpi.destaque { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.kpi.destaque .kpi-rot, .kpi.destaque .kpi-sub, .kpi.destaque .kpi-val small { color: var(--accent-ink); opacity: 0.85; }
+
+/* Alertas */
+.alertas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.alertas li { display: flex; gap: 10px; align-items: baseline; padding: 10px 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.alertas li:first-child { border-top: 0; }
+.alertas li span:last-child { min-width: 0; flex: 1 1 220px; }
+
+/* Selos */
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; background: var(--sunk); color: var(--muted); line-height: 1.5; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.info { background: var(--accent-soft); color: var(--accent); }
+.pill.vencido::before { content: "!"; width: auto; height: auto; background: none; font-weight: 800; }
+
+/* Placa Mercosul */
+.placa {
+  display: inline-flex; flex-direction: column; align-items: stretch; vertical-align: middle; flex: none;
+  background: var(--placa-fundo); color: var(--placa-tinta); border: 1.5px solid var(--placa-borda); border-radius: 4px; overflow: hidden; line-height: 1;
+}
+.placa-faixa { background: var(--placa-faixa); color: #FFFFFF; font: 700 0.46rem/1 var(--body); letter-spacing: 0.16em; text-align: center; padding: 1px 4px 1px; }
+.placa-n { font: 700 1.02rem/1 var(--display); letter-spacing: 0.08em; padding: 2px 6px 2px 7px; text-align: center; font-variant-numeric: tabular-nums; }
+.placa.g .placa-faixa { font-size: 0.58rem; padding: 2px 4px; }
+.placa.g .placa-n { font-size: 1.4rem; padding: 3px 9px 3px 10px; }
+.sem { color: var(--muted); }
+.veic { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.veic-txt { font-size: 0.84rem; color: var(--muted); line-height: 1.25; min-width: 0; }
+
+/* Tabelas */
+.tabela-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.tabela { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+.tabela th, .tabela td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tabela th { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); background: var(--sunk); white-space: nowrap; }
+.tabela td.n, .tabela th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tabela td.d { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tabela tbody tr:last-child td { border-bottom: 0; }
+.tabela tfoot td { font-weight: 700; background: var(--sunk); border-bottom: 0; border-top: 1px solid var(--line); }
+.tabela td.acoes { white-space: nowrap; text-align: right; }
+.tabela td.det { min-width: 15em; }
+.tabela .fraco { color: var(--muted); font-size: 0.86rem; }
+.tabela .forte { font-weight: 700; }
+.tabela tr.inativo td { color: var(--muted); }
+.vazio-txt { color: var(--muted); padding: 18px; text-align: center; }
+
+/* Botões */
+.btn { font: 700 0.98rem var(--body); border-radius: 9px; padding: 10px 18px; min-height: 44px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.ghost:hover { background: var(--accent-soft); }
+.btn.small { font-size: 0.88rem; padding: 7px 12px; min-height: 40px; }
+.btn.perigo { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.lnk { font: 600 0.9rem var(--body); background: none; border: 0; color: var(--accent); cursor: pointer; padding: 8px 6px; min-height: 36px; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.lnk:hover { text-decoration-thickness: 2px; }
+.lnk.perigo { color: var(--bad); }
+.conf { display: inline-flex; gap: 4px; align-items: center; font-size: 0.88rem; font-weight: 600; }
+.acoes-linha { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+/* Formulários */
+.ficha { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--sombra); scroll-margin-top: 120px; }
+.ficha.editando { border: 2px dashed var(--accent); }
+.ficha-cab { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 14px; }
+.campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.campo.largo { grid-column: 1 / -1; }
+.campo > label, .rot { font-weight: 600; font-size: 0.9rem; }
+.campo .dica { font-size: 0.82rem; color: var(--muted); }
+input[type="text"], input[type="date"], input:not([type]), select {
+  font: inherit; font-size: 1rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 11px; min-height: 44px; width: 100%; min-width: 0;
+}
+select { cursor: pointer; }
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); background: var(--surface); }
+input[aria-invalid="true"] { border-color: var(--bad); }
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filtros select { width: auto; max-width: 100%; min-height: 40px; padding: 7px 10px; font-size: 0.92rem; background: var(--surface); }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.95rem; cursor: pointer; }
+.check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+.calc { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.calc:empty { display: none; }
+.calc .grande { font-family: var(--display); font-weight: 700; font-size: 1.6rem; }
+.calc .aviso { color: var(--warn); font-weight: 600; font-size: 0.92rem; }
+.calc .erro { color: var(--bad); font-weight: 600; font-size: 0.92rem; }
+.calc .info { color: var(--muted); font-size: 0.92rem; }
+.f-msg { font-weight: 600; font-size: 0.95rem; }
+.f-msg.erro { color: var(--bad); }
+.f-msg.ok { color: var(--ok); }
+.fieldset { border: 0; padding: 0; margin: 0; display: contents; }
+
+/* Conjuntos */
+.conjuntos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.conj { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.conj.mudou { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.engate { display: flex; align-items: center; gap: 0; flex-wrap: wrap; row-gap: 6px; }
+.engate .pino { width: 26px; height: 2px; background: repeating-linear-gradient(90deg, var(--muted) 0 4px, transparent 4px 7px); position: relative; }
+.engate .pino.ligado { background: var(--ink); height: 3px; }
+.engate .pino.ligado::after { content: ""; position: absolute; right: -2px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--ink); }
+.engate .solto { font-size: 0.84rem; color: var(--muted); border: 1.5px dashed var(--line); border-radius: 4px; padding: 6px 10px; }
+.conj-info { font-size: 0.86rem; color: var(--muted); }
+.conj .campo label { font-size: 0.84rem; }
+.conj-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Gráficos */
+.graficos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+.graf { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.graf figcaption { display: flex; flex-direction: column; gap: 2px; }
+.graf figcaption strong { font-family: var(--display); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
+.graf figcaption span { font-size: 0.86rem; color: var(--muted); }
+.legenda { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.86rem; color: var(--muted); }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.legenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.grafico-box { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 10px 6px; min-height: 90px; }
+.grafico-box svg { display: block; width: 100%; height: auto; overflow: visible; }
+.grafico-box text { fill: var(--muted); font: 500 11px var(--body); font-variant-numeric: tabular-nums; }
+.grafico-box text.rot-cat { fill: var(--ink); font-weight: 600; font-size: 12px; }
+.grafico-box text.val { fill: var(--ink); font-weight: 600; font-size: 12px; }
+.grafico-box tspan.st.ok { fill: var(--ok); }
+.grafico-box tspan.st.bad { fill: var(--bad); }
+.grafico-box .grade { stroke: var(--chart-grid); stroke-width: 1; }
+.grafico-box .base { stroke: var(--chart-base); stroke-width: 1; }
+.grafico-box .ref { stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; }
+.grafico-box .ref.media { stroke: var(--chart-mean); }
+.grafico-box .ref.meta { stroke: var(--chart-meta); }
+.grafico-box text.ref-rot { font-weight: 700; }
+.grafico-box text.val, .grafico-box text.ref-rot { paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.grafico-box text.ref-rot.media { fill: var(--chart-mean); }
+.grafico-box text.ref-rot.meta { fill: var(--chart-meta); }
+.grafico-box .linha-serie { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.grafico-box .ponto { stroke: var(--surface); stroke-width: 2; }
+.grafico-box .col:hover .marca, .grafico-box .col.ativa .marca { filter: var(--realce); }
+.grafico-box .alvo { fill: transparent; }
+.dica-graf { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 0.84rem; line-height: 1.4; padding: 6px 10px; border-radius: 7px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); font-variant-numeric: tabular-nums; z-index: 3; }
+.dica-graf b { font-weight: 700; }
+details.tabela-dados > summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: 0.92rem; padding: 6px 0; min-height: 36px; }
+
+/* Relatório */
+.barra-rel { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.barra-rel .filtros select { min-width: 220px; }
+.metas { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-size: 0.92rem; }
+.metas input { width: 84px; min-height: 40px; padding: 7px 9px; text-align: right; font-variant-numeric: tabular-nums; }
+.relatorio { display: flex; flex-direction: column; gap: 28px; }
+.rel-cab { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; justify-content: space-between; border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+.rel-cab > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rel-eyebrow { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.rel-titulo { font-family: var(--display); font-size: 2.3rem; font-weight: 700; line-height: 1.02; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.rel-titulo .veic-txt { font-family: var(--body); font-size: 1.05rem; font-weight: 600; color: var(--muted); }
+.rel-sec { display: flex; flex-direction: column; gap: 14px; }
+.rel-sec > h3 { font-family: var(--display); font-weight: 700; font-size: 1.55rem; line-height: 1.1; }
+.rel-sec > p.hint { margin-top: -8px; }
+.rel-ficha { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.rel-ficha div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rel-ficha dt { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.rel-ficha dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.pill.t-km::before { background: var(--chart-bar); }
+.pill.t-comb::before { background: var(--s-comb); }
+.pill.t-manut::before { background: var(--s-manut); }
+.pill.t-km, .pill.t-comb, .pill.t-manut, .pill.t-troca { background: var(--sunk); color: var(--ink); }
+.kpi .pill { align-self: flex-start; margin-top: 2px; }
+.rodape-rel { font-size: 0.82rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+body.impresso { background: #FFFFFF; }
+body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px 40px; }
+
+@media print {
+  body.imprimir-rel .barra, body.imprimir-rel .nao-imprime, body.imprimir-rel .faixa-aviso, body.imprimir-rel .toast,
+  body.imprimir-rel .vista:not(#v-relatorio) { display: none !important; }
+  body.imprimir-rel, body.impresso { background: #FFFFFF; }
+  body.imprimir-rel::before { display: none; }
+  body.imprimir-rel .wrap { padding: 0; max-width: none; }
+  .graf, .kpi, .rel-ficha, .tabela tr, .rel-cab { break-inside: avoid; }
+  .relatorio .tabela-box { overflow: visible; }
+  .graficos { grid-template-columns: 1fr 1fr; }
+}
+
+/* Vazio */
+.vazio-grande { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 28px 22px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+.vazio-grande ol { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+
+/* Aviso rápido */
+.toast {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 20;
+  background: var(--ink); color: var(--bg); font-weight: 600; padding: 11px 18px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+  max-width: calc(100% - 32px); width: max-content;
+}
+.toast.erro { background: var(--bad); color: #FFFFFF; }
+.carregando { color: var(--muted); padding: 28px 0; }
+@media (prefers-reduced-motion: no-preference) { .toast { animation: sobe 0.18s ease-out; } @keyframes sobe { from { opacity: 0; transform: translate(-50%, 8px); } } }
+@media (max-width: 560px) {
+  .h1 { font-size: 1.6rem; }
+  .ficha { padding: 14px; }
+  .tabela th, .tabela td { padding: 8px 8px; }
+}
+</style>
+
+<header class="barra">
+  <div class="barra-in">
+    <div class="marca">
+      <svg viewBox="0 0 34 34" aria-hidden="true">
+        <rect x="0.5" y="0.5" width="33" height="33" rx="7" fill="#1F3E9C"/>
+        <rect x="4" y="10" width="15" height="11" rx="1.2" fill="#FFFFFF"/>
+        <path d="M20.5 13.5h5.2l3.8 4.2v3.3h-9z" fill="#FFFFFF"/>
+        <path d="M22.3 15h2.8l2.1 2.4h-4.9z" fill="#1F3E9C"/>
+        <rect x="4" y="22" width="25.5" height="1.6" fill="#FFFFFF"/>
+        <circle cx="9" cy="25" r="2.6" fill="#F2C230"/><circle cx="15" cy="25" r="2.6" fill="#F2C230"/><circle cx="25.5" cy="25" r="2.6" fill="#F2C230"/>
+      </svg>
+      <div><div class="marca-nome">Sistema Carlise</div><div class="marca-sub">Controle da frota de caminhões</div></div>
+    </div>
+    <span class="estado" id="estado" data-modo="carregando" role="status">Carregando…</span>
+  </div>
+  <nav class="abas" aria-label="Seções do sistema" role="tablist">
+    <a class="aba" role="tab" href="#painel" data-aba="painel">Painel <span class="cont" id="cont-alertas" hidden></span></a>
+    <a class="aba" role="tab" href="#dia" data-aba="dia">Km do dia</a>
+    <a class="aba" role="tab" href="#abastecer" data-aba="abastecer">Abastecer</a>
+    <a class="aba" role="tab" href="#manutencao" data-aba="manutencao">Manutenção</a>
+    <a class="aba" role="tab" href="#relatorio" data-aba="relatorio">Relatório</a>
+    <a class="aba" role="tab" href="#frota" data-aba="frota">Frota</a>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div class="faixa-aviso exemplo" id="aviso-exemplo" hidden>
+    <p><strong>Estes são dados de exemplo.</strong> <span id="aviso-exemplo-txt"></span> Quando quiser começar com a sua frota, apague os exemplos.</p>
+    <span id="aviso-exemplo-acao"><button class="btn small" type="button" data-acao="pedir-apagar-exemplo">Apagar os exemplos</button></span>
+  </div>
+  <div class="faixa-aviso leitura" id="aviso-leitura" hidden>
+    <p><strong>Você pode ver, mas não salvar.</strong> Peça para quem compartilhou este link dar acesso de edição.</p>
+  </div>
+
+  <!-- PAINEL -->
+  <section class="vista" id="v-painel" data-vista="painel">
+    <div class="cab">
+      <div class="bloco" style="gap:4px">
+        <h1 class="h1">Painel da frota</h1>
+        <p class="hint" id="painel-periodo-txt"></p>
+      </div>
+      <div class="slot-periodo nao-imprime">
+      <div class="bloco" id="periodo-box" style="gap:8px; align-items:flex-end">
+        <div class="periodos" role="group" aria-label="Período">
+          <button class="seg" type="button" data-periodo="hoje">Hoje</button>
+          <button class="seg" type="button" data-periodo="7d">7 dias</button>
+          <button class="seg" type="button" data-periodo="mes">Este mês</button>
+          <button class="seg" type="button" data-periodo="mesant">Mês passado</button>
+          <button class="seg" type="button" data-periodo="ano">Este ano</button>
+          <button class="seg" type="button" data-periodo="datas">Escolher datas</button>
+        </div>
+        <div class="datas" id="datas-livres" hidden>
+          <label for="p-ini">De</label><input type="date" id="p-ini" style="width:auto">
+          <label for="p-fim">até</label><input type="date" id="p-fim" style="width:auto">
+        </div>
+      </div>
+      </div>
+    </div>
+
+    <div class="carregando" id="painel-carregando">Carregando os dados da frota…</div>
+
+    <div class="vazio-grande" id="painel-vazio" hidden>
+      <h2 class="h2">Comece pela frota</h2>
+      <ol>
+        <li>Cadastre os caminhões, os semirreboques e os motoristas na aba Frota.</li>
+        <li>Todo dia, lance o km de cada caminhão em Km do dia.</li>
+        <li>Lance cada abastecimento e cada manutenção.</li>
+      </ol>
+      <p class="hint">O painel mostra o km rodado, o gasto com diesel e manutenção, o custo por km e o que precisa de atenção.</p>
+      <div class="acoes-linha">
+        <a class="btn" href="#frota" data-acao="abrir-form" data-form="f-cam">Cadastrar o primeiro caminhão</a>
+        <button class="btn ghost" type="button" data-acao="carregar-exemplo">Ver com dados de exemplo</button>
+      </div>
+    </div>
+
+    <div class="vista" id="painel-conteudo" hidden>
+      <div class="kpis" id="kpis"></div>
+
+      <section class="bloco" id="bloco-alertas" hidden>
+        <div class="bloco-cab"><div><h2 class="h2">Precisa de atenção</h2></div></div>
+        <ul class="alertas" id="alertas"></ul>
+      </section>
+
+      <section class="bloco">
+        <div class="bloco-cab">
+          <div><h2 class="h2">Caminhões no período</h2><p class="hint">Motorista e semirreboque de agora. Km, diesel e manutenção do período escolhido.</p></div>
+          <button class="btn ghost small" type="button" data-csv="painel">Baixar planilha (.csv)</button>
+        </div>
+        <div class="tabela-box"><table class="tabela" id="t-painel"></table></div>
+      </section>
+
+      <div class="graficos">
+        <figure class="graf">
+          <div class="bloco-cab">
+            <figcaption><strong id="grafico-titulo">Km rodados por dia</strong><span id="grafico-hint"></span></figcaption>
+            <div class="filtros"><label class="sr" for="g-cam">Caminhão do gráfico</label><select id="g-cam" data-lista="filtro-caminhoes" data-vazio="Toda a frota"></select></div>
+          </div>
+          <div class="grafico-box" id="gr-p-km"></div>
+          <details class="tabela-dados"><summary>Ver os números em tabela</summary><div class="tabela-box"><table class="tabela" id="t-grafico"></table></div></details>
+        </figure>
+        <figure class="graf">
+          <figcaption><strong>Gasto por caminhão</strong><span>Combustível e manutenção no período.</span></figcaption>
+          <div class="legenda"><span><i style="background:var(--s-comb)"></i>Combustível</span><span><i style="background:var(--s-manut)"></i>Manutenção</span></div>
+          <div class="grafico-box" id="gr-p-gasto"></div>
+          <p class="hint"><a href="#relatorio">Ver o relatório completo, com indicadores e extrato de cada caminhão</a></p>
+        </figure>
+      </div>
+
+      <div class="duas">
+        <section class="bloco">
+          <div class="bloco-cab"><div><h2 class="h2">Por motorista</h2><p class="hint">Quem dirigiu no período, pelos lançamentos de km e abastecimento.</p></div></div>
+          <div class="tabela-box"><table class="tabela" id="t-motoristas-p"></table></div>
+        </section>
+        <section class="bloco">
+          <div class="bloco-cab"><div><h2 class="h2">Semirreboques</h2><p class="hint">Onde cada um está engatado e quanto rodou no período.</p></div></div>
+          <div class="tabela-box"><table class="tabela" id="t-semis-p"></table></div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- KM DO DIA -->
+  <section class="vista" id="v-dia" data-vista="dia" hidden>
+    <form class="ficha" id="f-dia" novalidate data-col="dias">
+      <div class="ficha-cab">
+        <h1 class="h1" data-novo="Lançar km do dia" data-editar="Corrigir lançamento de km">Lançar km do dia</h1>
+        <button class="btn ghost small" type="button" data-acao="cancelar-edicao" hidden>Cancelar a correção</button>
+      </div>
+      <div class="campos">
+        <div class="campo"><label for="dia-data">Data</label><input type="date" id="dia-data" name="data"></div>
+        <div class="campo"><label for="dia-cam">Caminhão</label><select id="dia-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
+        <div class="campo"><label for="dia-mot">Motorista</label><select id="dia-mot" name="motoristaId" data-lista="motoristas"></select></div>
+        <div class="campo"><label for="dia-semi">Semirreboque engatado</label><select id="dia-semi" name="semirreboqueId" data-lista="semis-opc"></select></div>
+        <div class="campo"><label for="dia-ki">Km inicial (hodômetro)</label><input type="text" id="dia-ki" name="kmInicial" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica" id="dia-ki-dica"></span></div>
+        <div class="campo"><label for="dia-kf">Km final</label><input type="text" id="dia-kf" name="kmFinal" data-tipo="int" inputmode="numeric" autocomplete="off"></div>
+        <div class="campo"><label for="dia-orig">Saiu de</label><input type="text" id="dia-orig" name="origem" list="lista-lugares" autocomplete="off"></div>
+        <div class="campo"><label for="dia-dest">Chegou em</label><input type="text" id="dia-dest" name="destino" list="lista-lugares" autocomplete="off"></div>
+        <div class="campo largo"><label for="dia-obs">Observação</label><input type="text" id="dia-obs" name="obs" autocomplete="off" placeholder="Carga, cliente, nota fiscal, ocorrência…"></div>
+      </div>
+      <div class="calc" id="dia-calc" aria-live="polite"></div>
+      <label class="check" id="dia-conj-box" hidden><input type="checkbox" id="dia-conj" checked><span id="dia-conj-txt"></span></label>
+      <div class="acoes-linha"><button class="btn" type="submit" data-novo="Salvar o dia" data-editar="Salvar a correção">Salvar o dia</button><p class="f-msg" role="status"></p></div>
+    </form>
+
+    <section class="bloco">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Km lançados</h2><p class="hint" id="dias-resumo"></p></div>
+        <div class="filtros">
+          <label class="sr" for="fd-cam">Caminhão</label><select id="fd-cam" data-lista="filtro-caminhoes" data-vazio="Todos os caminhões"></select>
+          <label class="sr" for="fd-mes">Mês</label><select id="fd-mes" data-lista="meses"></select>
+          <button class="btn ghost small" type="button" data-csv="dias">Baixar planilha (.csv)</button>
+        </div>
+      </div>
+      <div class="tabela-box"><table class="tabela" id="t-dias"></table></div>
+    </section>
+  </section>
+
+  <!-- ABASTECER -->
+  <section class="vista" id="v-abastecer" data-vista="abastecer" hidden>
+    <form class="ficha" id="f-ab" novalidate data-col="abastecimentos">
+      <div class="ficha-cab">
+        <h1 class="h1" data-novo="Lançar abastecimento" data-editar="Corrigir abastecimento">Lançar abastecimento</h1>
+        <button class="btn ghost small" type="button" data-acao="cancelar-edicao" hidden>Cancelar a correção</button>
+      </div>
+      <div class="campos">
+        <div class="campo"><label for="ab-data">Data</label><input type="date" id="ab-data" name="data"></div>
+        <div class="campo"><label for="ab-cam">Caminhão</label><select id="ab-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
+        <div class="campo"><label for="ab-mot">Motorista</label><select id="ab-mot" name="motoristaId" data-lista="mot-opc"></select></div>
+        <div class="campo"><label for="ab-km">Km no hodômetro</label><input type="text" id="ab-km" name="km" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica" id="ab-km-dica"></span></div>
+        <div class="campo"><label for="ab-comb">Combustível</label><select id="ab-comb" name="combustivel">
+          <option>Diesel S10</option><option>Diesel S500</option><option>Arla 32</option>
+        </select></div>
+        <div class="campo"><label for="ab-litros">Litros</label><input type="text" id="ab-litros" name="litros" data-tipo="dec" inputmode="decimal" autocomplete="off"></div>
+        <div class="campo"><label for="ab-valor">Valor pago (R$)</label><input type="text" id="ab-valor" name="valor" data-tipo="dec" inputmode="decimal" autocomplete="off"></div>
+        <div class="campo"><label for="ab-posto">Posto e cidade</label><input type="text" id="ab-posto" name="posto" list="lista-postos" autocomplete="off"></div>
+        <div class="campo largo"><label class="check" for="ab-cheio"><input type="checkbox" id="ab-cheio" name="tanqueCheio" checked><span>Completou o tanque <span class="hint">(assim o sistema calcula o km/l de um tanque cheio até o outro)</span></span></label></div>
+      </div>
+      <div class="calc" id="ab-calc" aria-live="polite"></div>
+      <div class="acoes-linha"><button class="btn" type="submit" data-novo="Salvar abastecimento" data-editar="Salvar a correção">Salvar abastecimento</button><p class="f-msg" role="status"></p></div>
+    </form>
+
+    <section class="bloco">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Abastecimentos</h2><p class="hint" id="ab-resumo"></p></div>
+        <div class="filtros">
+          <label class="sr" for="fa-cam">Caminhão</label><select id="fa-cam" data-lista="filtro-caminhoes" data-vazio="Todos os caminhões"></select>
+          <label class="sr" for="fa-mes">Mês</label><select id="fa-mes" data-lista="meses"></select>
+          <button class="btn ghost small" type="button" data-csv="abastecimentos">Baixar planilha (.csv)</button>
+        </div>
+      </div>
+      <div class="tabela-box"><table class="tabela" id="t-ab"></table></div>
+    </section>
+  </section>
+
+  <!-- MANUTENÇÃO -->
+  <section class="vista" id="v-manutencao" data-vista="manutencao" hidden>
+    <form class="ficha" id="f-man" novalidate data-col="manutencoes">
+      <div class="ficha-cab">
+        <h1 class="h1" data-novo="Lançar manutenção" data-editar="Corrigir manutenção">Lançar manutenção</h1>
+        <button class="btn ghost small" type="button" data-acao="cancelar-edicao" hidden>Cancelar a correção</button>
+      </div>
+      <div class="campos">
+        <div class="campo"><label for="man-data">Data</label><input type="date" id="man-data" name="data"></div>
+        <div class="campo"><label for="man-veic">Caminhão ou semirreboque</label><select id="man-veic" name="veiculo" data-lista="veiculos"></select></div>
+        <div class="campo"><label for="man-tipo">Serviço</label><select id="man-tipo" name="tipo"></select></div>
+        <div class="campo" data-so-caminhao><label for="man-km">Km do caminhão</label><input type="text" id="man-km" name="km" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica" id="man-km-dica"></span></div>
+        <div class="campo"><label for="man-valor">Valor (R$)</label><input type="text" id="man-valor" name="valor" data-tipo="dec" inputmode="decimal" autocomplete="off"><span class="dica">Peças e mão de obra. Garantia: 0.</span></div>
+        <div class="campo"><label for="man-oficina">Oficina</label><input type="text" id="man-oficina" name="oficina" list="lista-oficinas" autocomplete="off"></div>
+        <div class="campo largo"><label for="man-desc">O que foi feito</label><input type="text" id="man-desc" name="descricao" autocomplete="off" placeholder="Peças trocadas, defeito, nota…"></div>
+        <div class="campo" data-so-caminhao><label for="man-pkm">Próxima com quantos km</label><input type="text" id="man-pkm" name="proximaKm" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica">Ex.: troca de óleo: km de hoje + 30.000</span></div>
+        <div class="campo"><label for="man-pdata">Próxima na data</label><input type="date" id="man-pdata" name="proximaData"><span class="dica">Deixe em branco se não tiver.</span></div>
+      </div>
+      <div class="acoes-linha"><button class="btn" type="submit" data-novo="Salvar manutenção" data-editar="Salvar a correção">Salvar manutenção</button><p class="f-msg" role="status"></p></div>
+    </form>
+
+    <section class="bloco" id="bloco-proximas">
+      <div class="bloco-cab"><div><h2 class="h2">Próximas manutenções</h2><p class="hint">A última de cada serviço, em cada veículo, com a próxima marcada.</p></div></div>
+      <div class="tabela-box"><table class="tabela" id="t-proximas"></table></div>
+    </section>
+
+    <section class="bloco">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Manutenções feitas</h2><p class="hint" id="man-resumo"></p></div>
+        <div class="filtros">
+          <label class="sr" for="fm-veic">Veículo</label><select id="fm-veic" data-lista="filtro-veiculos" data-vazio="Todos os veículos"></select>
+          <label class="sr" for="fm-mes">Mês</label><select id="fm-mes" data-lista="meses"></select>
+          <button class="btn ghost small" type="button" data-csv="manutencoes">Baixar planilha (.csv)</button>
+        </div>
+      </div>
+      <div class="tabela-box"><table class="tabela" id="t-man"></table></div>
+    </section>
+  </section>
+
+  <!-- RELATÓRIO -->
+  <section class="vista" id="v-relatorio" data-vista="relatorio" hidden>
+    <div class="cab nao-imprime">
+      <div class="bloco" style="gap:4px"><h1 class="h1">Relatório</h1><p class="hint">Indicadores, gráficos e o extrato de cada caminhão no período.</p></div>
+      <div class="slot-periodo"></div>
+    </div>
+    <div class="barra-rel nao-imprime">
+      <div class="filtros">
+        <label class="rot" for="rel-cam">Mostrar</label>
+        <select id="rel-cam" data-lista="filtro-caminhoes" data-vazio="Toda a frota"></select>
+      </div>
+      <form class="metas" id="f-metas" novalidate>
+        <span class="rot">Metas:</span>
+        <label for="meta-kml">consumo</label><input type="text" id="meta-kml" inputmode="decimal" autocomplete="off" placeholder="2,50"><span>km/l</span>
+        <label for="meta-custo">custo R$</label><input type="text" id="meta-custo" inputmode="decimal" autocomplete="off" placeholder="3,00"><span>por km</span>
+        <button class="btn small ghost" type="submit">Salvar metas</button>
+      </form>
+      <div class="acoes-linha">
+        <button class="btn small" type="button" data-acao="imprimir" id="btn-imprimir">Imprimir</button>
+        <button class="btn small ghost" type="button" data-acao="baixar-relatorio">Baixar relatório (.html)</button>
+        <button class="btn small ghost" type="button" data-csv="extrato">Baixar extrato (.csv)</button>
+      </div>
+    </div>
+    <article class="relatorio" id="relatorio"></article>
+  </section>
+
+  <!-- FROTA -->
+  <section class="vista" id="v-frota" data-vista="frota" hidden>
+    <div class="cab"><div class="bloco" style="gap:4px"><h1 class="h1">Frota</h1><p class="hint">Caminhões, semirreboques, motoristas e quem está com quem.</p></div></div>
+
+    <section class="bloco">
+      <div class="bloco-cab"><div><h2 class="h2">Conjuntos agora</h2><p class="hint">Escolha o motorista e o semirreboque de cada caminhão. A troca fica registrada com a data.</p></div></div>
+      <div class="conjuntos" id="conjuntos"></div>
+    </section>
+
+    <section class="bloco" id="sec-cam">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Caminhões</h2></div>
+        <button class="btn small" type="button" data-acao="abrir-form" data-form="f-cam">Cadastrar caminhão</button>
+      </div>
+      <form class="ficha" id="f-cam" novalidate data-col="caminhoes" hidden>
+        <div class="ficha-cab">
+          <h3 class="h2" data-novo="Cadastrar caminhão" data-editar="Editar caminhão">Cadastrar caminhão</h3>
+          <button class="btn ghost small" type="button" data-acao="fechar-form">Fechar</button>
+        </div>
+        <div class="campos">
+          <div class="campo"><label for="cam-placa">Placa</label><input type="text" id="cam-placa" name="placa" autocomplete="off" autocapitalize="characters" placeholder="ABC1D23" maxlength="8"></div>
+          <div class="campo"><label for="cam-tipo">Tipo</label><select id="cam-tipo" name="tipo"></select></div>
+          <div class="campo"><label for="cam-marca">Marca</label><input type="text" id="cam-marca" name="marca" list="lista-marcas" autocomplete="off"></div>
+          <div class="campo"><label for="cam-modelo">Modelo</label><input type="text" id="cam-modelo" name="modelo" autocomplete="off" placeholder="FH 460, R 450, Actros 2546…"></div>
+          <div class="campo"><label for="cam-ano">Ano</label><input type="text" id="cam-ano" name="ano" data-tipo="ano" inputmode="numeric" autocomplete="off" maxlength="4"></div>
+          <div class="campo"><label for="cam-km">Km no hodômetro hoje</label><input type="text" id="cam-km" name="kmInicial" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica">O ponto de partida. Depois o km sobe com os lançamentos.</span></div>
+          <div class="campo"><label for="cam-mot">Motorista</label><select id="cam-mot" name="motoristaId" data-lista="mot-opc"></select></div>
+          <div class="campo"><label for="cam-semi">Semirreboque engatado</label><select id="cam-semi" name="semirreboqueId" data-lista="semis-opc"></select></div>
+          <div class="campo"><label for="cam-sit">Situação</label><select id="cam-sit" name="situacao"></select></div>
+          <div class="campo largo"><label for="cam-obs">Observação</label><input type="text" id="cam-obs" name="obs" autocomplete="off" placeholder="Renavam, chassi, rastreador, seguro…"></div>
+        </div>
+        <div class="acoes-linha"><button class="btn" type="submit" data-novo="Salvar caminhão" data-editar="Salvar alterações">Salvar caminhão</button><p class="f-msg" role="status"></p></div>
+      </form>
+      <div class="tabela-box"><table class="tabela" id="t-cam"></table></div>
+    </section>
+
+    <section class="bloco" id="sec-semi">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Semirreboques</h2></div>
+        <button class="btn small" type="button" data-acao="abrir-form" data-form="f-semi">Cadastrar semirreboque</button>
+      </div>
+      <form class="ficha" id="f-semi" novalidate data-col="semirreboques" hidden>
+        <div class="ficha-cab">
+          <h3 class="h2" data-novo="Cadastrar semirreboque" data-editar="Editar semirreboque">Cadastrar semirreboque</h3>
+          <button class="btn ghost small" type="button" data-acao="fechar-form">Fechar</button>
+        </div>
+        <div class="campos">
+          <div class="campo"><label for="semi-placa">Placa</label><input type="text" id="semi-placa" name="placa" autocomplete="off" autocapitalize="characters" placeholder="ABC1D23" maxlength="8"></div>
+          <div class="campo"><label for="semi-tipo">Tipo</label><select id="semi-tipo" name="tipo"></select></div>
+          <div class="campo"><label for="semi-eixos">Eixos</label><select id="semi-eixos" name="eixos"><option value="2">2 eixos</option><option value="3" selected>3 eixos</option><option value="4">4 eixos</option><option value="5">5 ou mais</option></select></div>
+          <div class="campo"><label for="semi-marca">Fabricante</label><input type="text" id="semi-marca" name="marca" list="lista-fabricantes" autocomplete="off"></div>
+          <div class="campo"><label for="semi-ano">Ano</label><input type="text" id="semi-ano" name="ano" data-tipo="ano" inputmode="numeric" autocomplete="off" maxlength="4"></div>
+          <div class="campo"><label for="semi-sit">Situação</label><select id="semi-sit" name="situacao"></select></div>
+          <div class="campo largo"><label for="semi-obs">Observação</label><input type="text" id="semi-obs" name="obs" autocomplete="off"></div>
+        </div>
+        <p class="hint">Para engatar num caminhão, use “Conjuntos agora”, no alto desta aba.</p>
+        <div class="acoes-linha"><button class="btn" type="submit" data-novo="Salvar semirreboque" data-editar="Salvar alterações">Salvar semirreboque</button><p class="f-msg" role="status"></p></div>
+      </form>
+      <div class="tabela-box"><table class="tabela" id="t-semi"></table></div>
+    </section>
+
+    <section class="bloco" id="sec-mot">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Motoristas</h2></div>
+        <button class="btn small" type="button" data-acao="abrir-form" data-form="f-mot">Cadastrar motorista</button>
+      </div>
+      <form class="ficha" id="f-mot" novalidate data-col="motoristas" hidden>
+        <div class="ficha-cab">
+          <h3 class="h2" data-novo="Cadastrar motorista" data-editar="Editar motorista">Cadastrar motorista</h3>
+          <button class="btn ghost small" type="button" data-acao="fechar-form">Fechar</button>
+        </div>
+        <div class="campos">
+          <div class="campo"><label for="mot-nome">Nome</label><input type="text" id="mot-nome" name="nome" autocomplete="off"></div>
+          <div class="campo"><label for="mot-tel">Telefone</label><input type="text" id="mot-tel" name="telefone" inputmode="tel" autocomplete="off"></div>
+          <div class="campo"><label for="mot-cnh">Nº da CNH</label><input type="text" id="mot-cnh" name="cnh" inputmode="numeric" autocomplete="off"></div>
+          <div class="campo"><label for="mot-cat">Categoria</label><select id="mot-cat" name="categoria"><option>E</option><option>D</option><option>C</option><option>AE</option><option>AD</option><option>AC</option></select></div>
+          <div class="campo"><label for="mot-vcnh">Validade da CNH</label><input type="date" id="mot-vcnh" name="validadeCnh"></div>
+          <div class="campo"><label for="mot-vtox">Validade do exame toxicológico</label><input type="date" id="mot-vtox" name="validadeToxicologico"></div>
+          <div class="campo"><label for="mot-sit">Situação</label><select id="mot-sit" name="situacao"></select></div>
+          <div class="campo largo"><label for="mot-obs">Observação</label><input type="text" id="mot-obs" name="obs" autocomplete="off"></div>
+        </div>
+        <div class="acoes-linha"><button class="btn" type="submit" data-novo="Salvar motorista" data-editar="Salvar alterações">Salvar motorista</button><p class="f-msg" role="status"></p></div>
+      </form>
+      <div class="tabela-box"><table class="tabela" id="t-mot"></table></div>
+    </section>
+
+    <section class="bloco">
+      <div class="bloco-cab"><div><h2 class="h2">Trocas de motorista e de semirreboque</h2><p class="hint">As 30 últimas.</p></div></div>
+      <div class="tabela-box"><table class="tabela" id="t-trocas"></table></div>
+    </section>
+
+    <section class="bloco" id="sec-dados">
+      <div class="bloco-cab"><div><h2 class="h2">Dados</h2><p class="hint" id="dados-onde"></p></div></div>
+      <div class="ficha">
+        <div class="acoes-linha">
+          <button class="btn" type="button" data-acao="backup">Salvar cópia de tudo (.json)</button>
+          <button class="btn ghost" type="button" data-acao="restaurar">Carregar uma cópia</button>
+          <input type="file" id="arquivo-copia" accept=".json,application/json" hidden>
+        </div>
+        <p class="hint">A cópia guarda caminhões, semirreboques, motoristas e todos os lançamentos. Ao carregar uma cópia, os registros dela entram aqui; os que já existem com o mesmo código são atualizados, e nada é apagado.</p>
+        <p class="hint" id="dados-ultima"></p>
+        <div class="acoes-linha" id="dados-exemplo"></div>
+      </div>
+    </section>
+  </section>
+</main>
+
+<datalist id="lista-lugares"></datalist>
+<datalist id="lista-postos"></datalist>
+<datalist id="lista-oficinas"></datalist>
+<datalist id="lista-marcas"><option value="Volvo"><option value="Scania"><option value="Mercedes-Benz"><option value="DAF"><option value="Volkswagen"><option value="Iveco"><option value="Ford"></datalist>
+<datalist id="lista-fabricantes"><option value="Randon"><option value="Librelato"><option value="Facchini"><option value="Noma"><option value="Guerra"><option value="Rodofort"><option value="Pastre"><option value="Schiffer"></datalist>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+'use strict';
+/* ====================================================================
+   Sistema Carlise: controle da frota (caminhões, semirreboques, motoristas,
+   km do dia, abastecimentos e manutenções).
+   Onde os dados ficam: aberto pelo link do claude.ai, na conta (capability db),
+   em qualquer aparelho. Aberto como arquivo ou pelo programa do Windows,
+   no próprio navegador (localStorage), com cópia em .json.
+   ==================================================================== */
+
+const COLS = ['caminhoes', 'semirreboques', 'motoristas', 'dias', 'abastecimentos', 'manutencoes', 'trocas', 'config'];
+const D = {};
+COLS.forEach(c => { D[c] = new Map(); });
+
+const TIPOS_CAM = ['Cavalo mecânico 4x2', 'Cavalo mecânico 6x2', 'Cavalo mecânico 6x4', 'Toco', 'Truck', 'Bitruck', '3/4', 'VUC', 'Outro'];
+const TIPOS_SEMI = ['Graneleiro', 'Baú', 'Baú frigorífico', 'Sider', 'Grade baixa', 'Basculante', 'Tanque', 'Porta-contêiner', 'Prancha', 'Cegonha', 'Outro'];
+const TIPOS_MANUT = ['Troca de óleo e filtros', 'Revisão preventiva', 'Pneus', 'Freios', 'Suspensão', 'Elétrica', 'Motor', 'Câmbio e embreagem', 'Funilaria e pintura', 'Lubrificação e graxa', 'Corretiva (quebra)', 'Outro'];
+const SIT_CAM = { rodando: 'Rodando', parado: 'Parado', oficina: 'Na oficina', fora: 'Fora da frota' };
+const SIT_SEMI = { rodando: 'Em uso', parado: 'Parado', oficina: 'Na oficina', fora: 'Fora da frota' };
+const SIT_MOT = { ativo: 'Ativo', afastado: 'De férias ou afastado', desligado: 'Desligado' };
+const PILL_SIT = { rodando: 'ok', parado: '', oficina: 'warn', fora: '', ativo: 'ok', afastado: 'warn', desligado: '' };
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const FORM_DA_COL = { dias: 'f-dia', abastecimentos: 'f-ab', manutencoes: 'f-man', caminhoes: 'f-cam', semirreboques: 'f-semi', motoristas: 'f-mot' };
+const VISTA_DO_FORM = { 'f-dia': 'dia', 'f-ab': 'abastecer', 'f-man': 'manutencao', 'f-cam': 'frota', 'f-semi': 'frota', 'f-mot': 'frota' };
+
+/* ---------- utilidades ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const espera = ms => new Promise(r => setTimeout(r, ms));
+function novoId(prefixo) { return prefixo + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function hojeISO() { return iso(new Date()); }
+function dataDe(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function somaDias(s, n) { const d = dataDe(s); d.setDate(d.getDate() + n); return iso(d); }
+function difDias(a, b) { return Math.round((dataDe(b) - dataDe(a)) / 86400000); }
+function fimDoMes(s) { const d = dataDe(s.slice(0, 8) + '01'); d.setMonth(d.getMonth() + 1); d.setDate(0); return iso(d); }
+function mesAnterior(s) { const d = dataDe(s.slice(0, 8) + '01'); d.setMonth(d.getMonth() - 1); return iso(d); }
+const fmtData = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '';
+const fmtDataCurta = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '';
+const fmtDiaSemana = s => s ? SEMANA[dataDe(s).getDay()] + ', ' + fmtData(s) : '';
+const nomeMes = s => MESES[Number(s.slice(5, 7)) - 1] + ' de ' + s.slice(0, 4);
+const nf0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const nf2 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const fKm = n => n == null ? '—' : nf0.format(n) + ' km';
+const fL = n => n == null ? '—' : nf1.format(n) + ' L';
+const fR = n => n == null ? '—' : brl.format(n);
+const fKml = n => n == null || !isFinite(n) ? '—' : nf2.format(n) + ' km/l';
+const fRkm = n => n == null || !isFinite(n) ? '—' : brl.format(n) + '/km';
+const soma = (lista, f) => lista.reduce((t, x) => t + (Number(f(x)) || 0), 0);
+const plural = (n, um, varios) => nf0.format(n) + ' ' + (n === 1 ? um : varios);
+
+function lerNumero(txt, inteiro) {
+  let s = String(txt ?? '').trim().replace(/\s|R\$/g, '');
+  if (!s) return null;
+  if (inteiro) {
+    if (/[^\d.,]/.test(s)) return NaN;
+    s = s.replace(/[.,](?=\d{3}(?:\D|$))/g, '').split(/[.,]/)[0];
+    return s ? parseInt(s, 10) : NaN;
+  }
+  if (/[^\d.,-]/.test(s)) return NaN;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+function normPlaca(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function mostraPlaca(p) { return /^[A-Z]{3}\d{4}$/.test(p) ? p.slice(0, 3) + '-' + p.slice(3) : p; }
+function placaHTML(p, grande) {
+  if (!p) return '<span class="sem">—</span>';
+  return `<span class="placa${grande ? ' g' : ''}" title="Placa ${esc(mostraPlaca(p))}"><span class="placa-faixa" aria-hidden="true">BRASIL</span><span class="placa-n">${esc(mostraPlaca(p))}</span></span>`;
+}
+
+/* ---------- consultas ---------- */
+const todos = col => Array.from(D[col].values());
+const cam = id => D.caminhoes.get(id);
+const semi = id => D.semirreboques.get(id);
+const mot = id => D.motoristas.get(id);
+const porPlaca = (a, b) => (a.placa || '').localeCompare(b.placa || '');
+const porNome = (a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
+const camAtivos = () => todos('caminhoes').filter(c => c.situacao !== 'fora').sort(porPlaca);
+const semisAtivos = () => todos('semirreboques').filter(s => s.situacao !== 'fora').sort(porPlaca);
+const motsAtivos = () => todos('motoristas').filter(m => m.situacao !== 'desligado').sort(porNome);
+const kmDia = r => Math.max(0, (r.kmFinal || 0) - (r.kmInicial || 0));
+const ehDiesel = a => a.combustivel !== 'Arla 32';
+function descCam(c) { return c ? [c.marca, c.modelo].filter(Boolean).join(' ') || c.tipo || '' : ''; }
+function rotuloCam(c) { return c ? mostraPlaca(c.placa) + (descCam(c) ? ' · ' + descCam(c) : '') : '(apagado)'; }
+function rotuloSemi(s) { return s ? mostraPlaca(s.placa) + (s.tipo ? ' · ' + s.tipo : '') : '(apagado)'; }
+function nomeMot(id) { const m = mot(id); return m ? m.nome : (id ? '(apagado)' : ''); }
+function camDoSemi(semiId) { return todos('caminhoes').find(c => c.semirreboqueId === semiId && c.situacao !== 'fora'); }
+function camDoMot(motId) { return todos('caminhoes').find(c => c.motoristaId === motId && c.situacao !== 'fora'); }
+
+let cacheKm = new Map();
+let cacheConsumo = null;
+function kmAtual(camId) {
+  if (cacheKm.has(camId)) return cacheKm.get(camId);
+  const c = cam(camId);
+  let km = (c && c.kmInicial) || 0;
+  for (const r of D.dias.values()) if (r.caminhaoId === camId && r.kmFinal > km) km = r.kmFinal;
+  for (const a of D.abastecimentos.values()) if (a.caminhaoId === camId && a.km > km) km = a.km;
+  for (const m of D.manutencoes.values()) if (m.veiculoTipo === 'caminhao' && m.veiculoId === camId && m.km > km) km = m.km;
+  cacheKm.set(camId, km);
+  return km;
+}
+/* último lançamento de km do caminhão, antes da data (inclusive) e sem contar o registro em edição */
+function ultimoDia(camId, ate, exceto) {
+  let u = null;
+  for (const r of D.dias.values()) {
+    if (r.caminhaoId !== camId || r.id === exceto) continue;
+    if (ate && r.data > ate) continue;
+    if (!u || r.data > u.data || (r.data === u.data && (r.kmFinal || 0) > (u.kmFinal || 0))) u = r;
+  }
+  return u;
+}
+
+/* km/l de tanque cheio a tanque cheio, por abastecimento */
+function consumoPorAbastecimento() {
+  const res = new Map();
+  const porCam = new Map();
+  for (const a of D.abastecimentos.values()) {
+    if (!ehDiesel(a) || !a.km) continue;
+    if (!porCam.has(a.caminhaoId)) porCam.set(a.caminhaoId, []);
+    porCam.get(a.caminhaoId).push(a);
+  }
+  for (const lista of porCam.values()) {
+    lista.sort((x, y) => x.km - y.km || (x.data < y.data ? -1 : 1));
+    let base = null, litros = 0;
+    const doCam = [];
+    for (const a of lista) {
+      if (!base) { if (a.tanqueCheio) { base = a; litros = 0; } continue; }
+      litros += a.litros || 0;
+      if (a.tanqueCheio) {
+        const km = a.km - base.km;
+        if (km > 0 && litros > 0) { const r = { km, litros, kml: km / litros }; res.set(a.id, r); doCam.push(r); }
+        base = a; litros = 0;
+      }
+    }
+    if (doCam.length >= 3) {
+      const media = soma(doCam, r => r.km) / soma(doCam, r => r.litros);
+      doCam.forEach(r => { r.media = media; r.baixo = r.kml < media * 0.85; });
+    }
+  }
+  return res;
+}
+
+function consumos() { if (!cacheConsumo) cacheConsumo = consumoPorAbastecimento(); return cacheConsumo; }
+/* soma dos trechos de tanque cheio a tanque cheio dos abastecimentos que passam no filtro */
+function consumoTanques(filtro) {
+  const cons = consumos();
+  let km = 0, litros = 0;
+  for (const a of D.abastecimentos.values()) { if (!filtro(a)) continue; const k = cons.get(a.id); if (k) { km += k.km; litros += k.litros; } }
+  return litros ? { km, litros, kml: km / litros } : null;
+}
+/* consumo do jeito certo: de tanque cheio a tanque cheio. Só quando nunca se marcou tanque cheio
+   (para o caminhão, ou na frota) é que vale a conta simples km rodados ÷ litros. */
+function kmlDe(filtro, camId, kmSimples, litrosSimples) {
+  const t = consumoTanques(filtro);
+  if (t) return t;
+  if (consumoTanques(a => !camId || a.caminhaoId === camId)) return null;
+  return litrosSimples && kmSimples ? { km: kmSimples, litros: litrosSimples, kml: kmSimples / litrosSimples, simples: true } : null;
+}
+
+/* ---------- período do painel ---------- */
+const UI = {
+  aba: 'painel',
+  periodo: 'mes', pIni: '', pFim: '',
+  grafCam: '',
+  relCam: '',
+  confirmar: null,
+  pedirApagarExemplo: false,
+  pendTroca: {},
+  somenteLeitura: false,
+};
+let P = { ini: '', fim: '', nome: '' };
+function calcPeriodo() {
+  const h = hojeISO();
+  const mai = s => s.charAt(0).toUpperCase() + s.slice(1);
+  switch (UI.periodo) {
+    case 'hoje': return { ini: h, fim: h, nome: 'Hoje, ' + fmtData(h), titulo: mai(fmtDiaSemana(h)) };
+    case '7d': return { ini: somaDias(h, -6), fim: h, nome: 'Últimos 7 dias: ' + fmtDataCurta(somaDias(h, -6)) + ' a ' + fmtData(h), titulo: 'Últimos 7 dias' };
+    case 'mesant': { const i = mesAnterior(h); return { ini: i, fim: fimDoMes(i), nome: 'Mês passado: ' + nomeMes(i), titulo: mai(nomeMes(i)) }; }
+    case 'ano': return { ini: h.slice(0, 4) + '-01-01', fim: h.slice(0, 4) + '-12-31', nome: 'Ano de ' + h.slice(0, 4), titulo: 'Ano de ' + h.slice(0, 4) };
+    case 'datas': {
+      let i = UI.pIni || h.slice(0, 8) + '01', f = UI.pFim || h;
+      if (f < i) [i, f] = [f, i];
+      return { ini: i, fim: f, nome: 'De ' + fmtData(i) + ' a ' + fmtData(f), titulo: fmtData(i) + ' a ' + fmtData(f) };
+    }
+    default: return { ini: h.slice(0, 8) + '01', fim: fimDoMes(h), nome: 'Este mês: ' + nomeMes(h), titulo: mai(nomeMes(h)) };
+  }
+}
+const metas = () => D.config.get('metas') || {};
+const noPeriodo = d => d && d >= P.ini && d <= P.fim;
+
+/* ====================================================================
+   Armazenamento: nuvem (db do claude.ai) ou este aparelho (localStorage)
+   ==================================================================== */
+const CHAVE_LOCAL = 'sistema-carlise:dados:v1';
+const CHAVE_COPIA = 'sistema-carlise:ultima-copia';
+const Armazem = { modo: 'carregando', db: null, recebidos: new Set(), confirmados: new Set(), semConexao: false };
+
+function lerLocal() {
+  try {
+    const o = JSON.parse(localStorage.getItem(CHAVE_LOCAL) || '{}') || {};
+    COLS.forEach(c => { D[c] = new Map(Object.entries(o[c] || {})); });
+  } catch (e) { COLS.forEach(c => { D[c] = new Map(); }); }
+}
+function gravarLocal() {
+  try {
+    const o = {};
+    COLS.forEach(c => { o[c] = Object.fromEntries(D[c]); });
+    localStorage.setItem(CHAVE_LOCAL, JSON.stringify(o));
+    return true;
+  } catch (e) { return false; }
+}
+function iniciarLocal() {
+  Armazem.modo = 'local';
+  lerLocal();
+  window.addEventListener('storage', e => { if (e.key === CHAVE_LOCAL) { lerLocal(); agendarRender(); } });
+  agendarRender();
+}
+function iniciarNuvem(db) {
+  Armazem.db = db;
+  Armazem.modo = 'carregando';
+  const timer = setTimeout(() => { if (Armazem.confirmados.size < COLS.length) { Armazem.semConexao = true; if (Armazem.modo === 'carregando') Armazem.modo = 'nuvem'; agendarRender(); } }, 10000);
+  for (const c of COLS) {
+    db.collection(c).onSnapshot(snap => {
+      const m = new Map();
+      for (const d of snap.docs) { const v = d.data(); if (v) m.set(d.id, Object.assign({}, v, { id: d.id })); }
+      D[c] = m;
+      Armazem.recebidos.add(c);
+      if (!snap.metadata.fromCache) Armazem.confirmados.add(c);
+      if (Armazem.recebidos.size === COLS.length && Armazem.modo === 'carregando') Armazem.modo = 'nuvem';
+      if (Armazem.confirmados.size === COLS.length) { clearTimeout(timer); Armazem.semConexao = false; }
+      agendarRender();
+    }, err => {
+      clearTimeout(timer);
+      Armazem.recebidos.add(c);
+      if (Armazem.modo === 'carregando') Armazem.modo = 'nuvem';
+      Armazem.semConexao = true;
+      if (err && err.code === 'revoked') UI.somenteLeitura = true;
+      agendarRender();
+    });
+  }
+  agendarRender();
+}
+function limpo(o) { const x = JSON.parse(JSON.stringify(o)); delete x.id; return x; }
+
+async function gravar(col, obj) {
+  if (UI.somenteLeitura) throw { code: 'invalid_argument' };
+  const antes = D[col].get(obj.id);
+  D[col].set(obj.id, obj);
+  cacheKm = new Map(); cacheConsumo = null;
+  if (Armazem.modo === 'local') {
+    if (!gravarLocal()) { if (antes) D[col].set(obj.id, antes); else D[col].delete(obj.id); throw { code: 'local' }; }
+    agendarRender();
+    return;
+  }
+  const ref = Armazem.db.collection(col).doc(obj.id);
+  try {
+    try { await ref.set(limpo(obj)); }
+    catch (e) { if (e && e.code === 'unavailable') { await espera(500 + Math.random() * 900); await ref.set(limpo(obj)); } else throw e; }
+  } catch (e) {
+    if (antes) D[col].set(obj.id, antes); else D[col].delete(obj.id);
+    if (e && e.code === 'invalid_argument') UI.somenteLeitura = true;
+    agendarRender();
+    throw e;
+  }
+  agendarRender();
+}
+async function apagar(col, id) {
+  if (UI.somenteLeitura) throw { code: 'invalid_argument' };
+  const antes = D[col].get(id);
+  D[col].delete(id);
+  cacheKm = new Map(); cacheConsumo = null;
+  if (Armazem.modo === 'local') {
+    if (!gravarLocal()) { if (antes) D[col].set(id, antes); throw { code: 'local' }; }
+    agendarRender();
+    return;
+  }
+  try { await Armazem.db.collection(col).doc(id).delete(); }
+  catch (e) {
+    if (antes) D[col].set(id, antes);
+    if (e && e.code === 'invalid_argument') UI.somenteLeitura = true;
+    agendarRender();
+    throw e;
+  }
+  agendarRender();
+}
+/* várias gravações: no aparelho, de uma vez; na nuvem, 4 por vez (documentos diferentes) */
+async function gravarVarios(ops, aoAvancar) {
+  if (UI.somenteLeitura) throw { code: 'invalid_argument' };
+  if (Armazem.modo === 'local') {
+    const copia = {};
+    COLS.forEach(c => { copia[c] = new Map(D[c]); });
+    for (const [tipo, col, x] of ops) { if (tipo === 'set') D[col].set(x.id, x); else D[col].delete(x); }
+    cacheKm = new Map(); cacheConsumo = null;
+    if (!gravarLocal()) { COLS.forEach(c => { D[c] = copia[c]; }); throw { code: 'local' }; }
+    agendarRender();
+    return;
+  }
+  let i = 0, feitos = 0, erro = null;
+  const trabalhador = async () => {
+    while (i < ops.length && !erro) {
+      const [tipo, col, x] = ops[i++];
+      try { if (tipo === 'set') await gravar(col, x); else await apagar(col, x); }
+      catch (e) { erro = e; }
+      feitos++;
+      if (aoAvancar) aoAvancar(feitos, ops.length);
+    }
+  };
+  await Promise.all([trabalhador(), trabalhador(), trabalhador(), trabalhador()]);
+  if (erro) throw erro;
+}
+function msgErro(e) {
+  switch (e && e.code) {
+    case 'invalid_argument': return 'Você não tem permissão para salvar aqui. Peça acesso de edição a quem compartilhou.';
+    case 'quota_exceeded': return 'O espaço de dados está cheio. Salve uma cópia e apague lançamentos antigos.';
+    case 'resource_exhausted': return 'Muitas gravações de uma vez. Espere alguns segundos e tente de novo.';
+    case 'local': return 'Não consegui salvar neste computador: o armazenamento do navegador está cheio ou bloqueado.';
+    case 'revoked': return 'O acesso a estes dados foi retirado.';
+    default: return 'Não consegui salvar agora. Confira a internet e tente de novo.';
+  }
+}
+
+/* ====================================================================
+   Desenho da tela
+   ==================================================================== */
+let renderPendente = false;
+function agendarRender() {
+  if (renderPendente) return;
+  renderPendente = true;
+  requestAnimationFrame(() => { renderPendente = false; render(); });
+}
+function render() {
+  cacheKm = new Map(); cacheConsumo = null;
+  P = calcPeriodo();
+  renderEstado();
+  renderAvisos();
+  atualizarSelects();
+  atualizarDatalists();
+  const alertas = calcAlertas();
+  const cont = $('#cont-alertas');
+  const urgentes = alertas.filter(a => a.nivel === 'vencido').length;
+  cont.hidden = !urgentes;
+  cont.textContent = urgentes;
+  cont.title = urgentes ? plural(urgentes, 'item vencido', 'itens vencidos') : '';
+  $$('[data-periodo]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.periodo === UI.periodo)));
+  $('#datas-livres').hidden = UI.periodo !== 'datas';
+  if (UI.aba === 'painel') renderPainel(alertas);
+  else if (UI.aba === 'dia') { renderListaDias(); calcDia(); }
+  else if (UI.aba === 'abastecer') { renderListaAb(); calcAb(); }
+  else if (UI.aba === 'manutencao') renderManut();
+  else if (UI.aba === 'relatorio') renderRelatorio();
+  else if (UI.aba === 'frota') renderFrota();
+}
+
+function renderEstado() {
+  const el = $('#estado');
+  let modo = Armazem.modo, txt = 'Carregando…';
+  if (UI.somenteLeitura) { modo = 'leitura'; txt = 'Só leitura'; }
+  else if (modo === 'nuvem' && Armazem.semConexao) { modo = 'erro'; txt = 'Sem conexão: pode estar desatualizado'; }
+  else if (modo === 'nuvem') txt = 'Salvo na sua conta';
+  else if (modo === 'local') txt = 'Salvo neste computador';
+  el.dataset.modo = modo;
+  el.textContent = txt;
+  el.title = txt;
+  $$('form.ficha button[type="submit"]').forEach(b => { b.disabled = UI.somenteLeitura || Armazem.modo === 'carregando'; });
+}
+function renderAvisos() {
+  $('#aviso-leitura').hidden = !UI.somenteLeitura;
+  const ex = {};
+  let total = 0;
+  for (const c of COLS) { const n = todos(c).filter(x => x.exemplo).length; ex[c] = n; if (c !== 'config') total += n; }
+  const av = $('#aviso-exemplo');
+  av.hidden = !total;
+  if (total) {
+    $('#aviso-exemplo-txt').textContent = `São ${plural(ex.caminhoes, 'caminhão', 'caminhões')}, ${plural(ex.semirreboques, 'semirreboque', 'semirreboques')}, ${plural(ex.motoristas, 'motorista', 'motoristas')} e ${plural(ex.dias + ex.abastecimentos + ex.manutencoes, 'lançamento', 'lançamentos')} inventados para mostrar como o sistema funciona.`;
+    $('#aviso-exemplo-acao').innerHTML = UI.pedirApagarExemplo
+      ? `<span class="conf">Apagar todos os exemplos? <button class="btn small perigo" type="button" data-acao="apagar-exemplo">Sim, apagar</button> <button class="btn small ghost" type="button" data-acao="nao-apagar-exemplo">Não</button></span>`
+      : `<button class="btn small" type="button" data-acao="pedir-apagar-exemplo">Apagar os exemplos</button>`;
+  }
+}
+
+/* ---------- listas de escolha ---------- */
+function opcoes(lista) { return lista.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join(''); }
+function htmlLista(tipo, el) {
+  const vazio = el.dataset.vazio;
+  switch (tipo) {
+    case 'caminhoes': return '<option value="">Escolha o caminhão</option>' + opcoes(camAtivos().map(c => [c.id, rotuloCam(c)]));
+    case 'motoristas': return '<option value="">Escolha o motorista</option>' + opcoes(motsAtivos().map(m => [m.id, m.nome]));
+    case 'mot-opc': return '<option value="">Sem motorista</option>' + opcoes(motsAtivos().map(m => [m.id, m.nome]));
+    case 'semis-opc': return '<option value="">Sem semirreboque</option>' + opcoes(semisAtivos().map(s => [s.id, rotuloSemi(s)]));
+    case 'veiculos': return '<option value="">Escolha o veículo</option>'
+      + '<optgroup label="Caminhões">' + opcoes(camAtivos().map(c => ['caminhao:' + c.id, rotuloCam(c)])) + '</optgroup>'
+      + '<optgroup label="Semirreboques">' + opcoes(semisAtivos().map(s => ['semirreboque:' + s.id, rotuloSemi(s)])) + '</optgroup>';
+    case 'filtro-caminhoes': return `<option value="">${esc(vazio)}</option>` + opcoes(todos('caminhoes').sort(porPlaca).map(c => [c.id, rotuloCam(c) + (c.situacao === 'fora' ? ' (fora da frota)' : '')]));
+    case 'filtro-veiculos': return `<option value="">${esc(vazio)}</option>`
+      + '<optgroup label="Caminhões">' + opcoes(todos('caminhoes').sort(porPlaca).map(c => ['caminhao:' + c.id, rotuloCam(c)])) + '</optgroup>'
+      + '<optgroup label="Semirreboques">' + opcoes(todos('semirreboques').sort(porPlaca).map(s => ['semirreboque:' + s.id, rotuloSemi(s)])) + '</optgroup>';
+    case 'meses': {
+      const h = hojeISO();
+      const set = new Set();
+      let m = h.slice(0, 7);
+      for (let i = 0; i < 12; i++) { set.add(m); m = mesAnterior(m + '-01').slice(0, 7); }
+      for (const c of ['dias', 'abastecimentos', 'manutencoes']) for (const x of D[c].values()) if (x.data) set.add(x.data.slice(0, 7));
+      const lista = Array.from(set).sort().reverse();
+      return lista.map(v => `<option value="${v}">${esc(MESES[Number(v.slice(5)) - 1].replace(/^./, l => l.toUpperCase()) + ' de ' + v.slice(0, 4))}</option>`).join('') + '<option value="todos">Todos os meses</option>';
+    }
+  }
+  return '';
+}
+function rotuloDoValor(tipo, v) {
+  if (!v) return '';
+  if (tipo === 'veiculos' || tipo === 'filtro-veiculos') { const [t, id] = v.split(':'); return t === 'caminhao' ? rotuloCam(cam(id)) : rotuloSemi(semi(id)); }
+  if (tipo === 'motoristas' || tipo === 'mot-opc') return nomeMot(v);
+  if (tipo === 'semis-opc') return rotuloSemi(semi(v));
+  return rotuloCam(cam(v));
+}
+function garantirOpcao(sel, v) {
+  if (!v || Array.from(sel.options).some(o => o.value === v)) return;
+  const o = document.createElement('option');
+  o.value = v;
+  o.textContent = rotuloDoValor(sel.dataset.lista, v);
+  sel.appendChild(o);
+}
+function atualizarSelects() {
+  for (const sel of $$('select[data-lista]')) {
+    const html = htmlLista(sel.dataset.lista, sel);
+    const v = sel.value;
+    if (sel.dataset.sig !== html) {
+      sel.innerHTML = html;
+      sel.dataset.sig = html;
+      if (v) { garantirOpcao(sel, v); sel.value = v; }
+    }
+    if (sel.dataset.lista === 'meses' && !sel.value) sel.value = hojeISO().slice(0, 7);
+  }
+}
+function atualizarDatalists() {
+  const preencher = (id, valores) => {
+    const html = Array.from(new Set(valores.filter(Boolean).map(v => v.trim()))).sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 200).map(v => `<option value="${esc(v)}">`).join('');
+    const el = document.getElementById(id);
+    if (el.dataset.sig !== html) { el.innerHTML = html; el.dataset.sig = html; }
+  };
+  preencher('lista-lugares', todos('dias').flatMap(r => [r.origem, r.destino]));
+  preencher('lista-postos', todos('abastecimentos').map(a => a.posto));
+  preencher('lista-oficinas', todos('manutencoes').map(m => m.oficina));
+}
+
+/* ---------- células reutilizadas ---------- */
+function celVeiculoCam(c, sub) {
+  if (!c) return '<span class="sem">(apagado)</span>';
+  const texto = sub === undefined ? descCam(c) : sub;
+  return `<div class="veic">${placaHTML(c.placa)}${texto ? `<span class="veic-txt">${esc(texto)}</span>` : ''}</div>`;
+}
+function celSemi(s) {
+  if (!s) return '<span class="sem">Sem semirreboque</span>';
+  return `<div class="veic">${placaHTML(s.placa)}<span class="veic-txt">${esc(s.tipo || '')}</span></div>`;
+}
+function pillSit(mapa, sit) { return `<span class="pill ${PILL_SIT[sit] || ''}">${esc(mapa[sit] || mapa[Object.keys(mapa)[0]])}</span>`; }
+function acoesHTML(col, id) {
+  const chave = col + ':' + id;
+  if (UI.confirmar === chave) return `<span class="conf">Apagar? <button class="lnk perigo" type="button" data-acao="apagar-sim" data-alvo="${esc(chave)}">Sim, apagar</button><button class="lnk" type="button" data-acao="apagar-nao">Não</button></span>`;
+  return `<button class="lnk" type="button" data-acao="editar" data-alvo="${esc(chave)}">Editar</button><button class="lnk" type="button" data-acao="apagar" data-alvo="${esc(chave)}">Apagar</button>`;
+}
+function tabela(el, cab, linhas, rodape, vazio) {
+  const t = typeof el === 'string' ? $(el) : el;
+  if (!linhas.length) { t.innerHTML = `<tbody><tr><td class="vazio-txt">${esc(vazio)}</td></tr></tbody>`; return; }
+  const th = cab.map(([txt, cls]) => `<th scope="col"${cls ? ` class="${cls}"` : ''}>${txt}</th>`).join('');
+  t.innerHTML = `<thead><tr>${th}</tr></thead><tbody>${linhas.join('')}</tbody>${rodape ? `<tfoot>${rodape}</tfoot>` : ''}`;
+}
+
+/* ====================================================================
+   PAINEL
+   ==================================================================== */
+function calcAlertas() {
+  const h = hojeISO();
+  const out = [];
+  for (const m of todos('motoristas')) {
+    if (m.situacao === 'desligado') continue;
+    for (const [campo, nome] of [['validadeCnh', 'A CNH'], ['validadeToxicologico', 'O exame toxicológico']]) {
+      if (!m[campo]) continue;
+      const d = difDias(h, m[campo]);
+      if (d < 0) out.push({ nivel: 'vencido', ordem: d, txt: `${nome} de ${m.nome} venceu em ${fmtData(m[campo])}.` });
+      else if (d <= 30) out.push({ nivel: 'breve', ordem: d, txt: `${nome} de ${m.nome} vence ${d === 0 ? 'hoje' : d === 1 ? 'amanhã' : 'em ' + d + ' dias'} (${fmtData(m[campo])}).` });
+    }
+  }
+  for (const p of proximasManutencoes()) {
+    if (p.faltaKm != null) {
+      if (p.faltaKm <= 0) out.push({ nivel: 'vencido', ordem: -100000 + p.faltaKm, txt: `${p.tipo} do ${p.placa}: passou ${fKm(-p.faltaKm)} do previsto (${fKm(p.proximaKm)}).` });
+      else if (p.faltaKm <= 2000) out.push({ nivel: 'breve', ordem: p.faltaKm / 100, txt: `${p.tipo} do ${p.placa}: faltam ${fKm(p.faltaKm)} (previsto aos ${fKm(p.proximaKm)}).` });
+    }
+    if (p.faltaDias != null) {
+      if (p.faltaDias < 0) out.push({ nivel: 'vencido', ordem: p.faltaDias, txt: `${p.tipo} do ${p.placa}: estava marcada para ${fmtData(p.proximaData)}.` });
+      else if (p.faltaDias <= 15) out.push({ nivel: 'breve', ordem: p.faltaDias, txt: `${p.tipo} do ${p.placa}: marcada para ${fmtData(p.proximaData)} (${p.faltaDias === 0 ? 'hoje' : 'em ' + p.faltaDias + ' dias'}).` });
+    }
+  }
+  for (const c of camAtivos()) {
+    if (c.situacao !== 'rodando') continue;
+    const u = ultimoDia(c.id);
+    if (!u) continue;
+    const d = difDias(u.data, h);
+    if (d >= 3) out.push({ nivel: 'aviso', ordem: -d, txt: `${mostraPlaca(c.placa)} está rodando e não tem km lançado desde ${fmtData(u.data)} (${d} dias).` });
+  }
+  const peso = { vencido: 0, breve: 1, aviso: 2 };
+  return out.sort((a, b) => peso[a.nivel] - peso[b.nivel] || a.ordem - b.ordem);
+}
+function proximasManutencoes() {
+  const ult = new Map();
+  for (const m of D.manutencoes.values()) {
+    const k = m.veiculoTipo + ':' + m.veiculoId + ':' + m.tipo;
+    const u = ult.get(k);
+    if (!u || m.data > u.data || (m.data === u.data && (m.km || 0) > (u.km || 0))) ult.set(k, m);
+  }
+  const h = hojeISO();
+  const out = [];
+  for (const m of ult.values()) {
+    if (!m.proximaKm && !m.proximaData) continue;
+    const v = m.veiculoTipo === 'caminhao' ? cam(m.veiculoId) : semi(m.veiculoId);
+    if (!v || v.situacao === 'fora') continue;
+    const r = { m, tipo: m.tipo, placa: mostraPlaca(v.placa), veiculo: v, veiculoTipo: m.veiculoTipo, proximaKm: null, proximaData: null, faltaKm: null, faltaDias: null };
+    if (m.proximaKm && m.veiculoTipo === 'caminhao') { r.proximaKm = m.proximaKm; r.faltaKm = m.proximaKm - kmAtual(m.veiculoId); }
+    if (m.proximaData) { r.proximaData = m.proximaData; r.faltaDias = difDias(h, m.proximaData); }
+    if (r.proximaKm == null && r.proximaData == null) continue;
+    out.push(r);
+  }
+  return out;
+}
+
+function resumoPeriodo() {
+  const dias = todos('dias').filter(r => noPeriodo(r.data));
+  const abs = todos('abastecimentos').filter(a => noPeriodo(a.data));
+  const mans = todos('manutencoes').filter(m => noPeriodo(m.data));
+  return { dias, abs, mans };
+}
+/* números do período: da frota toda (camId vazio) ou de um caminhão */
+function resumo(camId, base) {
+  const { dias, abs, mans } = base || resumoPeriodo();
+  const d = camId ? dias.filter(r => r.caminhaoId === camId) : dias;
+  const a = camId ? abs.filter(x => x.caminhaoId === camId) : abs;
+  const m = camId ? mans.filter(x => x.veiculoTipo === 'caminhao' && x.veiculoId === camId) : mans;
+  const dsl = a.filter(ehDiesel);
+  const r = {
+    dias: d, abs: a, mans: m, km: soma(d, kmDia), comb: soma(a, x => x.valor), litros: soma(dsl, x => x.litros),
+    gastoDiesel: soma(dsl, x => x.valor), arla: soma(a.filter(x => !ehDiesel(x)), x => x.valor), manut: soma(m, x => x.valor),
+    datas: new Set(d.map(x => x.data)).size, cams: new Set(d.map(x => x.caminhaoId)).size,
+  };
+  r.tanque = kmlDe(x => noPeriodo(x.data) && (!camId || x.caminhaoId === camId), camId, r.km, r.litros);
+  r.kml = r.tanque ? r.tanque.kml : null;
+  r.custo = r.km ? (r.comb + r.manut) / r.km : null;
+  r.precoL = r.litros ? r.gastoDiesel / r.litros : null;
+  return r;
+}
+function seloMeta(valor, meta, maiorMelhor) {
+  if (valor == null || !meta) return null;
+  const bom = maiorMelhor ? valor >= meta : valor <= meta;
+  return bom ? { txt: '✓ na meta', cls: 'ok' } : { txt: maiorMelhor ? '▼ abaixo da meta' : '▲ acima da meta', cls: 'bad' };
+}
+function kpisHTML(r, frota) {
+  const mt = metas();
+  const pill = s => s ? `<span class="pill ${s.cls === 'ok' ? 'ok' : 'bad'}">${esc(s.txt.replace(/^[✓▼▲] /, ''))}</span>` : '';
+  const sKml = seloMeta(r.kml, mt.kml, true), sCusto = seloMeta(r.custo, mt.custoKm, false);
+  const subKml = (mt.kml ? 'Meta ' + fKml(mt.kml) : 'Do tanque cheio ao tanque cheio') + (frota ? ' · frota ' + fKml(frota.kml) : '');
+  const subCusto = (mt.custoKm ? 'Meta ' + fRkm(mt.custoKm) : 'Combustível + manutenção ÷ km') + (frota ? ' · frota ' + fRkm(frota.custo) : '');
+  return [
+    ['Km rodados', `${nf0.format(r.km)}<small>km</small>`, r.datas ? `${plural(r.datas, 'dia', 'dias')} com lançamento${frota ? '' : ' · ' + plural(r.cams, 'caminhão', 'caminhões')}` : 'Nenhum km lançado no período', '', true],
+    ['Combustível', fR(r.comb), r.litros ? `${nf0.format(r.litros)} L de diesel · ${fR(r.precoL)}/L${r.arla ? ' · Arla ' + fR(r.arla) : ''}` : 'Nenhum abastecimento no período', ''],
+    ['Manutenção', fR(r.manut), r.mans.length ? plural(r.mans.length, 'serviço', 'serviços') : 'Nenhuma manutenção no período', ''],
+    ['Custo por km', r.custo == null ? '—' : fR(r.custo), subCusto, pill(sCusto)],
+    ['Consumo médio', r.kml == null ? '—' : `${nf2.format(r.kml)}<small>km/l</small>`, subKml, pill(sKml)],
+  ].map(([rot, val, sub, extra, dest]) => `<div class="kpi${dest ? ' destaque' : ''}"><span class="kpi-rot">${rot}</span><span class="kpi-val">${val}</span><span class="kpi-sub">${esc(sub)}</span>${extra}</div>`).join('');
+}
+/* uma linha por caminhão: os ativos e os que tiveram lançamento no período */
+function linhasPorCaminhao(base) {
+  const ids = new Set(camAtivos().map(c => c.id));
+  base.dias.forEach(r => ids.add(r.caminhaoId));
+  base.abs.forEach(a => ids.add(a.caminhaoId));
+  base.mans.filter(m => m.veiculoTipo === 'caminhao').forEach(m => ids.add(m.veiculoId));
+  return Array.from(ids).filter(id => cam(id)).map(id => Object.assign(resumo(id, base), { id, c: cam(id) })).sort((a, b) => porPlaca(a.c, b.c));
+}
+
+function renderPainel(alertas) {
+  $('#painel-periodo-txt').textContent = P.nome;
+  const carregando = Armazem.modo === 'carregando';
+  const vazio = !carregando && D.caminhoes.size === 0;
+  $('#painel-carregando').hidden = !carregando;
+  $('#painel-vazio').hidden = !vazio;
+  $('#painel-conteudo').hidden = carregando || vazio;
+  if (carregando || vazio) return;
+
+  const base = resumoPeriodo();
+  const { dias, mans } = base;
+  const frota = resumo('', base);
+  $('#kpis').innerHTML = kpisHTML(frota);
+
+  // alertas
+  $('#bloco-alertas').hidden = !alertas.length;
+  const rotNivel = { vencido: ['bad vencido', 'Vencido'], breve: ['warn', 'Em breve'], aviso: ['info', 'Conferir'] };
+  $('#alertas').innerHTML = alertas.map(a => `<li><span class="pill ${rotNivel[a.nivel][0]}">${rotNivel[a.nivel][1]}</span><span>${esc(a.txt)}</span></li>`).join('');
+
+  // por caminhão
+  const linhasCam = linhasPorCaminhao(base);
+  UI.linhasPainel = linhasCam;
+  const totSemi = soma(mans.filter(m => m.veiculoTipo === 'semirreboque'), m => m.valor);
+  tabela('#t-painel',
+    [['Caminhão'], ['Motorista'], ['Semirreboque'], ['Situação'], ['Km', 'n'], ['Combustível', 'n'], ['Consumo', 'n'], ['Manutenção', 'n'], ['Custo/km', 'n'], ['', 'n']],
+    linhasCam.map(r => `<tr${r.c.situacao === 'fora' ? ' class="inativo"' : ''}>
+      <td>${celVeiculoCam(r.c)}</td>
+      <td>${r.c.motoristaId ? esc(nomeMot(r.c.motoristaId)) : '<span class="sem">Sem motorista</span>'}</td>
+      <td>${r.c.semirreboqueId ? placaHTML((semi(r.c.semirreboqueId) || {}).placa) : '<span class="sem">—</span>'}</td>
+      <td>${pillSit(SIT_CAM, r.c.situacao)}</td>
+      <td class="n">${fKm(r.km)}</td><td class="n">${fR(r.comb)}</td><td class="n">${fKml(r.kml)}</td><td class="n">${fR(r.manut)}</td><td class="n">${fRkm(r.custo)}</td>
+      <td class="acoes"><a class="lnk" href="#relatorio" data-acao="ver-extrato" data-cam="${esc(r.id)}">Extrato</a></td></tr>`),
+    `<tr><td colspan="4">Total da frota${totSemi ? ` <span class="fraco">(manutenção inclui ${fR(totSemi)} dos semirreboques)</span>` : ''}</td><td class="n">${fKm(frota.km)}</td><td class="n">${fR(frota.comb)}</td><td class="n">${fKml(frota.kml)}</td><td class="n">${fR(frota.manut)}</td><td class="n">${fRkm(frota.custo)}</td><td></td></tr>`,
+    'Nenhum caminhão cadastrado.');
+
+  // por motorista
+  tabela('#t-motoristas-p', [['Motorista'], ['Dias', 'n'], ['Km', 'n'], ['Consumo', 'n'], ['Caminhões']],
+    porMotorista(base).map(x => `<tr><td class="forte">${x.id ? esc(nomeMot(x.id)) : '<span class="sem">Sem motorista</span>'}</td>
+      <td class="n">${x.datas.size}</td><td class="n">${fKm(x.km)}</td><td class="n">${fKml(x.kml)}</td>
+      <td>${Array.from(x.cams).map(id => esc(cam(id) ? mostraPlaca(cam(id).placa) : '')).join(', ')}</td></tr>`),
+    null, 'Ninguém rodou no período.');
+
+  // semirreboques
+  const linhasSemi = todos('semirreboques').filter(s => s.situacao !== 'fora' || dias.some(r => r.semirreboqueId === s.id)).sort(porPlaca).map(s => {
+    const c = camDoSemi(s.id);
+    return `<tr><td>${celSemi(s)}</td><td>${c ? placaHTML(c.placa) : '<span class="sem">Desengatado</span>'}</td>
+      <td class="n">${fKm(soma(dias.filter(r => r.semirreboqueId === s.id), kmDia))}</td>
+      <td class="n">${fR(soma(mans.filter(m => m.veiculoTipo === 'semirreboque' && m.veiculoId === s.id), m => m.valor))}</td></tr>`;
+  });
+  tabela('#t-semis-p', [['Semirreboque'], ['Engatado em'], ['Km', 'n'], ['Manutenção', 'n']], linhasSemi, null, 'Nenhum semirreboque cadastrado.');
+
+  // gráficos
+  const camF = UI.grafCam && cam(UI.grafCam) ? UI.grafCam : '';
+  $('#grafico-hint').textContent = camF ? 'Só o ' + rotuloCam(cam(camF)) + '.' : 'Soma de todos os caminhões.';
+  graficoKmPorDia($('#gr-p-km'), dias.filter(r => !camF || r.caminhaoId === camF), $('#t-grafico'), $('#grafico-titulo'));
+  graficoGastoPorCaminhao($('#gr-p-gasto'), linhasCam);
+}
+function porMotorista(base, camId) {
+  const porMot = new Map();
+  const pegar = id => { if (!porMot.has(id)) porMot.set(id, { id, datas: new Set(), km: 0, litros: 0, comb: 0, cams: new Set() }); return porMot.get(id); };
+  base.dias.filter(r => !camId || r.caminhaoId === camId).forEach(r => { const x = pegar(r.motoristaId || ''); x.datas.add(r.data); x.km += kmDia(r); x.cams.add(r.caminhaoId); });
+  base.abs.filter(a => !camId || a.caminhaoId === camId).forEach(a => { const x = pegar(a.motoristaId || ''); x.comb += a.valor || 0; if (ehDiesel(a)) x.litros += a.litros || 0; });
+  const lista = Array.from(porMot.values()).sort((a, b) => b.km - a.km);
+  lista.forEach(x => { x.tanque = kmlDe(a => noPeriodo(a.data) && (a.motoristaId || '') === x.id && (!camId || a.caminhaoId === camId), camId, x.km, x.litros); x.kml = x.tanque ? x.tanque.kml : null; });
+  return lista;
+}
+
+/* ====================================================================
+   Gráficos (SVG desenhado aqui, sem biblioteca)
+   ==================================================================== */
+const S_KM = { nome: 'Km rodados', cor: 'var(--chart-bar)' };
+const S_COMB = { nome: 'Combustível', cor: 'var(--s-comb)' };
+const S_MANUT = { nome: 'Manutenção', cor: 'var(--s-manut)' };
+function passoBonito(bruto) {
+  if (!(bruto > 0)) return 1;
+  const pot = Math.pow(10, Math.floor(Math.log10(bruto)));
+  const f = bruto / pot;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * pot;
+}
+function barraCima(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+function barraDireita(x, y, w, h, r) {
+  r = Math.min(r, h / 2, w);
+  return `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h - r}Q${x + w},${y + h} ${x + w - r},${y + h}H${x}Z`;
+}
+function larguraDe(box) { return Math.max(280, Math.round((box.clientWidth || 680) - 22)); }
+const vazioGraf = (box, txt) => { box.innerHTML = `<p class="vazio-txt">${esc(txt)}</p>`; };
+const r2 = n => Math.round(n * 10) / 10;
+
+/* colunas na vertical, empilhadas quando há mais de uma série */
+function graficoColunas(box, o) {
+  if (!box) return;
+  const series = o.series;
+  const tot = b => b.valores.reduce((t, v) => t + (v || 0), 0);
+  if (!o.baldes.length || !o.baldes.some(b => tot(b) > 0)) return vazioGraf(box, o.vazio || 'Nada lançado neste período.');
+  const W = larguraDe(box), H = W < 520 ? 210 : 240;
+  const fe = o.fmtEixo || (v => nf0.format(v));
+  const max = Math.max(...o.baldes.map(tot), o.meta || 0);
+  const passo = passoBonito(max / 4), topo = Math.max(passo, Math.ceil(max / passo - 1e-9) * passo);
+  const mE = Math.max(40, fe(topo).length * 6.6 + 12), mD = 10, mT = 20, mB = 24;
+  const pw = W - mE - mD, ph = H - mT - mB;
+  const y = v => r2(mT + ph - (v / topo) * ph);
+  const n = o.baldes.length, col = pw / n;
+  const bw = Math.max(2, Math.min(o.larguraMax || 30, col - 3, col * 0.72));
+  const cada = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(pw / 50))));
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(o.titulo || '')}">`;
+  for (let v = 0; v <= topo + 1e-9; v += passo) s += `<line x1="${mE}" x2="${W - mD}" y1="${y(v)}" y2="${y(v)}" class="grade"/><text x="${mE - 6}" y="${y(v) + 4}" text-anchor="end">${esc(fe(v))}</text>`;
+  o.baldes.forEach((b, i) => {
+    const cx = mE + col * i + col / 2, x0 = r2(cx - bw / 2);
+    const ultimo = b.valores.reduce((u, v, k) => (v > 0 ? k : u), -1);
+    let base = 0;
+    s += '<g class="col">';
+    b.valores.forEach((v, k) => {
+      if (!(v > 0)) return;
+      const yT = y(base + v), yB = y(base);
+      const gT = k === ultimo ? 0 : 1, gB = base > 0 ? 1 : 0;
+      const h = Math.max(0.6, yB - yT - gT - gB);
+      s += k === ultimo
+        ? `<path class="marca" fill="${series[k].cor}" d="${barraCima(x0, yT + gT, r2(bw), h, 4)}"/>`
+        : `<rect class="marca" fill="${series[k].cor}" x="${x0}" y="${yT + gT}" width="${r2(bw)}" height="${r2(h)}"/>`;
+      base += v;
+    });
+    const linhas = [b.longo];
+    if (series.length > 1) { series.forEach((se, k) => linhas.push(se.nome + ': ' + o.fmt(b.valores[k] || 0))); linhas.push('Total: ' + o.fmt(tot(b))); }
+    else linhas.push(tot(b) > 0 || !o.textoZero ? o.fmt(tot(b)) : o.textoZero);
+    if (b.extra) linhas.push(b.extra);
+    s += `<rect class="alvo" x="${r2(mE + col * i)}" y="${mT}" width="${r2(col)}" height="${ph + mB}" data-dica="${esc(linhas.join('\n'))}"/></g>`;
+    if (i % cada === 0) s += `<text x="${r2(cx)}" y="${H - 6}" text-anchor="middle">${esc(b.curto)}</text>`;
+  });
+  s += `<line x1="${mE}" x2="${W - mD}" y1="${mT + ph}" y2="${mT + ph}" class="base"/>`;
+  for (const [v, cls, rot] of [[o.media, 'media', o.rotMedia], [o.meta, 'meta', o.rotMeta]]) {
+    if (!v) continue;
+    s += `<line x1="${mE}" x2="${W - mD}" y1="${y(v)}" y2="${y(v)}" class="ref ${cls}"/><text class="ref-rot ${cls}" x="${W - mD}" y="${Math.max(11, y(v) - 5)}" text-anchor="end">${esc(rot)}</text>`;
+  }
+  box.innerHTML = s + '</svg>';
+}
+
+/* barras na horizontal, uma por item, com o valor escrito na ponta */
+function graficoBarras(box, o) {
+  if (!box) return;
+  const series = o.series;
+  const tot = it => it.valores.reduce((t, v) => t + (v || 0), 0);
+  const itens = o.itens.filter(it => tot(it) > 0);
+  if (!itens.length) return vazioGraf(box, o.vazio || 'Nada lançado neste período.');
+  const W = larguraDe(box);
+  const corta = t => (t.length > 25 ? t.slice(0, 24) + '…' : t);
+  const mE = Math.min(176, Math.max(62, Math.max(...itens.map(it => corta(it.rot).length)) * 6.9 + 12));
+  const textos = itens.map(it => { const st = o.status ? o.status(tot(it)) : null; return { v: o.fmt(tot(it)), st }; });
+  const mD = Math.min(190, Math.max(...textos.map(t => t.v.length * 6.7 + (t.st ? t.st.txt.length * 6.2 + 8 : 0))) + 12);
+  const linha = 30, esp = 16, mT = o.meta ? 22 : 6, mB = 6;
+  const H = mT + itens.length * linha + mB;
+  const pw = Math.max(60, W - mE - mD);
+  const max = Math.max(...itens.map(tot), o.meta || 0);
+  const x = v => r2(mE + (v / max) * pw);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(o.titulo || '')}">`;
+  s += `<line x1="${mE}" x2="${mE}" y1="${mT - 2}" y2="${H - mB}" class="base"/>`;
+  if (o.meta) {
+    const xm = x(o.meta);
+    const anc = xm > W - 90 ? 'end' : xm < mE + 60 ? 'start' : 'middle';
+    s += `<line x1="${xm}" x2="${xm}" y1="${mT - 4}" y2="${H - mB}" class="ref meta"/><text class="ref-rot meta" x="${xm}" y="${mT - 8}" text-anchor="${anc}">${esc(o.rotMeta)}</text>`;
+  }
+  itens.forEach((it, i) => {
+    const yc = mT + i * linha + linha / 2, y0 = yc - esp / 2;
+    const ultimo = it.valores.reduce((u, v, k) => (v > 0 ? k : u), -1);
+    let base = 0;
+    s += '<g class="col">';
+    s += `<text class="rot-cat" x="${mE - 8}" y="${yc + 4}" text-anchor="end">${esc(corta(it.rot))}</text>`;
+    it.valores.forEach((v, k) => {
+      if (!(v > 0)) return;
+      const xa = x(base) + (base > 0 ? 1 : 0), xb = x(base + v) - (k === ultimo ? 0 : 1);
+      const w = Math.max(0.6, xb - xa);
+      s += k === ultimo
+        ? `<path class="marca" fill="${series[k].cor}" d="${barraDireita(xa, y0, r2(w), esp, 4)}"/>`
+        : `<rect class="marca" fill="${series[k].cor}" x="${xa}" y="${y0}" width="${r2(w)}" height="${esp}"/>`;
+      base += v;
+    });
+    const t = textos[i];
+    s += `<text class="val" x="${x(tot(it)) + 6}" y="${yc + 4}">${esc(t.v)}${t.st ? `<tspan class="st ${t.st.cls}" dx="8">${esc(t.st.txt)}</tspan>` : ''}</text>`;
+    const linhas = [it.longo || it.rot];
+    if (series.length > 1) series.forEach((se, k) => linhas.push(se.nome + ': ' + o.fmt(it.valores[k] || 0)));
+    linhas.push((series.length > 1 ? 'Total: ' : '') + t.v + (t.st ? ' · ' + t.st.txt.replace(/^[✓▼▲] /, '') : ''));
+    if (it.extra) linhas.push(it.extra);
+    s += `<rect class="alvo" data-eixo="h" x="0" y="${mT + i * linha}" width="${W}" height="${linha}" data-dica="${esc(linhas.join('\n'))}"/></g>`;
+  });
+  box.innerHTML = s + '</svg>';
+}
+
+/* linha no tempo (um ponto por lançamento) */
+function graficoLinha(box, o) {
+  if (!box) return;
+  const pts = o.pontos.slice().sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+  if (pts.length < 2) return vazioGraf(box, o.vazio);
+  const W = larguraDe(box), H = W < 520 ? 190 : 210;
+  const fe = o.fmtEixo || (v => nf2.format(v));
+  let lo = Math.min(...pts.map(p => p.v)), hi = Math.max(...pts.map(p => p.v));
+  const passo = passoBonito(Math.max(hi - lo, Math.abs(hi) * 0.02) / 4);
+  lo = Math.floor(lo / passo) * passo; hi = Math.ceil(hi / passo) * passo;
+  if (hi - lo < passo * 2) { lo -= passo; hi += passo; }
+  const mE = Math.max(40, fe(hi).length * 6.6 + 12), mD = 14, mT = 14, mB = 24;
+  const pw = W - mE - mD, ph = H - mT - mB;
+  const d0 = pts[0].data, dias = Math.max(1, difDias(d0, pts[pts.length - 1].data));
+  const x = p => r2(mE + 6 + (difDias(d0, p.data) / dias) * (pw - 12));
+  const y = v => r2(mT + ph - ((v - lo) / (hi - lo)) * ph);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(o.titulo || '')}">`;
+  for (let v = lo; v <= hi + 1e-9; v += passo) s += `<line x1="${mE}" x2="${W - mD}" y1="${y(v)}" y2="${y(v)}" class="grade"/><text x="${mE - 6}" y="${y(v) + 4}" text-anchor="end">${esc(fe(v))}</text>`;
+  const marcas = Math.min(6, Math.max(2, Math.floor(pw / 90)));
+  for (let k = 0; k < marcas; k++) {
+    const d = somaDias(d0, Math.round((dias * k) / (marcas - 1)));
+    s += `<text x="${x({ data: d })}" y="${H - 6}" text-anchor="${k === 0 ? 'start' : k === marcas - 1 ? 'end' : 'middle'}">${esc(fmtDataCurta(d))}</text>`;
+  }
+  s += `<path class="linha-serie" stroke="${o.cor}" d="${pts.map((p, i) => (i ? 'L' : 'M') + x(p) + ',' + y(p.v)).join('')}"/>`;
+  pts.forEach(p => {
+    s += `<g class="col"><circle class="marca ponto" fill="${o.cor}" cx="${x(p)}" cy="${y(p.v)}" r="4"/><circle class="alvo" cx="${x(p)}" cy="${y(p.v)}" r="12" data-dica="${esc(p.dica)}"/></g>`;
+  });
+  box.innerHTML = s + '</svg>';
+}
+
+function dicaGrafico(e) {
+  const alvo = e.target && e.target.closest ? e.target.closest('.grafico-box [data-dica]') : null;
+  $$('.grafico-box .col.ativa').forEach(g => { if (!alvo || !g.contains(alvo)) g.classList.remove('ativa'); });
+  $$('.grafico-box .dica-graf').forEach(d => { if (!alvo || !d.parentNode.contains(alvo)) d.hidden = true; });
+  if (!alvo) return;
+  const box = alvo.closest('.grafico-box');
+  let dica = box.querySelector('.dica-graf');
+  if (!dica) { dica = document.createElement('div'); dica.className = 'dica-graf'; box.appendChild(dica); }
+  const g = alvo.closest('.col');
+  if (g) g.classList.add('ativa');
+  const linhas = alvo.getAttribute('data-dica').split('\n');
+  dica.innerHTML = '<b>' + esc(linhas[0]) + '</b>' + linhas.slice(1).map(l => '<br>' + esc(l)).join('');
+  dica.hidden = false;
+  const rb = box.getBoundingClientRect();
+  const marca = g && g.querySelector('.marca');
+  const rm = (marca || alvo).getBoundingClientRect();
+  const cx = alvo.dataset.eixo === 'h' ? (e.clientX || rm.right) - rb.left : rm.left + rm.width / 2 - rb.left;
+  const larg = dica.offsetWidth;
+  dica.style.left = Math.min(Math.max(cx, larg / 2 + 4), rb.width - larg / 2 - 4) + 'px';
+  dica.style.top = Math.max(rm.top - rb.top, 8) + 'px';
+}
+
+/* ---------- gráficos usados no painel e no relatório ---------- */
+function graficoKmPorDia(box, dias, tabelaEl, tituloEl) {
+  const h = hojeISO();
+  const fim = P.fim < h ? P.fim : h;
+  const porMes = fim >= P.ini && difDias(P.ini, fim) > 62;
+  if (tituloEl) tituloEl.textContent = porMes ? 'Km rodados por mês' : 'Km rodados por dia';
+  if (fim < P.ini || difDias(P.ini, fim) < 1) {
+    if (tabelaEl) tabelaEl.innerHTML = '';
+    return vazioGraf(box, 'Escolha um período com mais de um dia para ver o gráfico.');
+  }
+  const baldes = [], idx = new Map();
+  if (porMes) {
+    let m = P.ini.slice(0, 7);
+    while (m <= fim.slice(0, 7)) {
+      idx.set(m, baldes.length);
+      baldes.push({ curto: MESES[Number(m.slice(5)) - 1].slice(0, 3), longo: nomeMes(m + '-01'), valores: [0], cams: new Set() });
+      const d = dataDe(m + '-01'); d.setMonth(d.getMonth() + 1); m = iso(d).slice(0, 7);
+    }
+  } else {
+    for (let d = P.ini; d <= fim; d = somaDias(d, 1)) { idx.set(d, baldes.length); baldes.push({ curto: fmtDataCurta(d), longo: fmtDiaSemana(d), valores: [0], cams: new Set() }); }
+  }
+  for (const r of dias) {
+    const k = porMes ? r.data.slice(0, 7) : r.data;
+    if (!idx.has(k)) continue;
+    const b = baldes[idx.get(k)];
+    b.valores[0] += kmDia(r);
+    b.cams.add(r.caminhaoId);
+  }
+  baldes.forEach(b => { b.extra = b.cams.size ? plural(b.cams.size, 'caminhão', 'caminhões') : ''; });
+  const comKm = baldes.filter(b => b.valores[0] > 0);
+  const media = comKm.length > 1 ? soma(comKm, b => b.valores[0]) / comKm.length : 0;
+  if (tabelaEl) tabelaEl.innerHTML = `<thead><tr><th>${porMes ? 'Mês' : 'Dia'}</th><th class="n">Km rodados</th><th class="n">Caminhões</th></tr></thead><tbody>`
+    + baldes.map(b => `<tr><td class="d">${esc(b.longo)}</td><td class="n">${fKm(b.valores[0])}</td><td class="n">${b.cams.size}</td></tr>`).join('') + '</tbody>';
+  graficoColunas(box, {
+    baldes, series: [S_KM], fmt: fKm, textoZero: 'Sem km lançado', media, rotMedia: `média ${nf0.format(media)} km${porMes ? '' : '/dia'}`,
+    titulo: (porMes ? 'Km rodados por mês' : 'Km rodados por dia') + (media ? ': média de ' + fKm(media) : ''), vazio: 'Nenhum km lançado neste período.',
+  });
+}
+function graficoGastoPorCaminhao(box, linhas) {
+  graficoBarras(box, {
+    itens: linhas.map(r => ({ rot: mostraPlaca(r.c.placa), longo: rotuloCam(r.c), valores: [r.comb, r.manut], extra: r.km ? 'Custo por km: ' + fRkm(r.custo) : '' }))
+      .sort((a, b) => (b.valores[0] + b.valores[1]) - (a.valores[0] + a.valores[1])),
+    series: [S_COMB, S_MANUT], fmt: v => brl.format(Math.round(v)).replace(/,00$/, ''), titulo: 'Gasto por caminhão', vazio: 'Nenhum gasto lançado neste período.',
+  });
+}
+function mesesAte(fimISO, n) {
+  const lista = [];
+  let m = fimISO.slice(0, 7);
+  for (let i = 0; i < n; i++) { lista.unshift(m); m = mesAnterior(m + '-01').slice(0, 7); }
+  return lista;
+}
+function evolucaoMensal(camId, n) {
+  const h = hojeISO();
+  const meses = mesesAte(P.fim < h ? P.fim : h, n);
+  return meses.map(m => {
+    const doMes = x => x.data && x.data.startsWith(m);
+    const dias = todos('dias').filter(r => doMes(r) && (!camId || r.caminhaoId === camId));
+    const abs = todos('abastecimentos').filter(a => doMes(a) && (!camId || a.caminhaoId === camId));
+    const mans = todos('manutencoes').filter(x => doMes(x) && (!camId || (x.veiculoTipo === 'caminhao' && x.veiculoId === camId)));
+    const km = soma(dias, kmDia), comb = soma(abs, a => a.valor), litros = soma(abs.filter(ehDiesel), a => a.litros), manut = soma(mans, x => x.valor);
+    const t = kmlDe(a => doMes(a) && (!camId || a.caminhaoId === camId), camId, km, litros);
+    const nome = MESES[Number(m.slice(5)) - 1];
+    return { m, curto: nome.slice(0, 3) + '/' + m.slice(2, 4), longo: nomeMes(m + '-01'), km, comb, litros, manut, kml: t ? t.kml : null, tanque: t, custo: km ? (comb + manut) / km : null };
+  });
+}
+
+/* ====================================================================
+   KM DO DIA
+   ==================================================================== */
+function filtroMes(sel, data) { const v = $(sel).value; return v === 'todos' || !v || (data || '').startsWith(v); }
+function renderListaDias() {
+  const fc = $('#fd-cam').value;
+  const lista = todos('dias').filter(r => (!fc || r.caminhaoId === fc) && filtroMes('#fd-mes', r.data))
+    .sort((a, b) => (b.data > a.data ? 1 : b.data < a.data ? -1 : (b.kmFinal || 0) - (a.kmFinal || 0)));
+  UI.listaDias = lista;
+  const total = soma(lista, kmDia);
+  $('#dias-resumo').textContent = lista.length ? `${plural(lista.length, 'lançamento', 'lançamentos')} · ${fKm(total)} rodados` : '';
+  // furos entre um dia e o anterior do mesmo caminhão
+  const furo = new Map();
+  for (const r of lista) {
+    const ant = ultimoDia(r.caminhaoId, r.data, r.id);
+    if (ant && ant.id !== r.id && ant.kmFinal && r.kmInicial && ant.kmFinal !== r.kmInicial && (ant.data < r.data || ant.kmFinal <= r.kmInicial)) furo.set(r.id, r.kmInicial - ant.kmFinal);
+  }
+  tabela('#t-dias',
+    [['Data'], ['Caminhão'], ['Motorista'], ['Semirreboque'], ['Hodômetro', 'n'], ['Rodou', 'n'], ['Trecho'], ['', 'n']],
+    lista.map(r => `<tr>
+      <td class="d">${esc(fmtDiaSemana(r.data))}</td>
+      <td>${celVeiculoCam(cam(r.caminhaoId), '')}</td>
+      <td>${esc(nomeMot(r.motoristaId)) || '<span class="sem">—</span>'}</td>
+      <td>${r.semirreboqueId ? placaHTML((semi(r.semirreboqueId) || {}).placa) : '<span class="sem">—</span>'}</td>
+      <td class="n">${nf0.format(r.kmInicial || 0)} → ${nf0.format(r.kmFinal || 0)}${furo.has(r.id) ? `<br><span class="pill warn" title="O km inicial não bate com o km final do lançamento anterior">${furo.get(r.id) > 0 ? nf0.format(furo.get(r.id)) + ' km sem lançamento' : 'km volta ' + nf0.format(-furo.get(r.id))}</span>` : ''}</td>
+      <td class="n forte">${fKm(kmDia(r))}</td>
+      <td>${esc([r.origem, r.destino].filter(Boolean).join(' → '))}${r.obs ? `<div class="fraco">${esc(r.obs)}</div>` : ''}</td>
+      <td class="acoes">${acoesHTML('dias', r.id)}</td></tr>`),
+    lista.length > 1 ? `<tr><td colspan="5">Total</td><td class="n">${fKm(total)}</td><td colspan="2"></td></tr>` : null,
+    'Nenhum km lançado com este filtro.');
+}
+function preencherDoCaminhao(prefixo) {
+  const f = $(prefixo === 'dia' ? '#f-dia' : '#f-ab');
+  if (f.dataset.editando) return;
+  const c = cam($('#' + prefixo + '-cam').value);
+  if (!c) return;
+  const selMot = $('#' + prefixo + '-mot');
+  if (c.motoristaId && mot(c.motoristaId)) { garantirOpcao(selMot, c.motoristaId); selMot.value = c.motoristaId; }
+  if (prefixo === 'dia') {
+    const selSemi = $('#dia-semi');
+    garantirOpcao(selSemi, c.semirreboqueId || '');
+    selSemi.value = c.semirreboqueId || '';
+    const u = ultimoDia(c.id, $('#dia-data').value || null);
+    const ki = u ? u.kmFinal : kmAtual(c.id);
+    $('#dia-ki').value = ki ? nf0.format(ki) : '';
+    $('#dia-kf').value = '';
+  }
+}
+function calcDia() {
+  const f = $('#f-dia');
+  const c = cam($('#dia-cam').value);
+  const ki = lerNumero($('#dia-ki').value, true), kf = lerNumero($('#dia-kf').value, true);
+  const partes = [];
+  if (ki != null && kf != null && !isNaN(ki) && !isNaN(kf)) {
+    const d = kf - ki;
+    if (d < 0) partes.push(`<span class="erro">O km final é menor que o inicial.</span>`);
+    else {
+      partes.push(`<span class="grande">${fKm(d)}</span><span class="info">rodados</span>`);
+      if (d > 1500) partes.push(`<span class="aviso">Mais de 1.500 km num dia. Confira os números.</span>`);
+    }
+  }
+  if (c && ki != null && !isNaN(ki)) {
+    const u = ultimoDia(c.id, $('#dia-data').value || null, f.dataset.editando);
+    if (u && u.kmFinal && u.kmFinal !== ki) {
+      const dif = ki - u.kmFinal;
+      partes.push(`<span class="aviso">O último km final deste caminhão foi ${nf0.format(u.kmFinal)} (${fmtData(u.data)}): ${dif > 0 ? nf0.format(dif) + ' km sem lançamento' : 'o km inicial está ' + nf0.format(-dif) + ' km abaixo'}.</span>`);
+    }
+  }
+  $('#dia-ki-dica').textContent = c ? 'Hodômetro atual do ' + mostraPlaca(c.placa) + ': ' + nf0.format(kmAtual(c.id)) : '';
+  $('#dia-calc').innerHTML = partes.join('');
+  // atualizar o conjunto do caminhão?
+  const box = $('#dia-conj-box');
+  if (c && !UI.somenteLeitura) {
+    const m = $('#dia-mot').value, s = $('#dia-semi').value;
+    const u = ultimoDia(c.id, null, f.dataset.editando);
+    const recente = !u || ($('#dia-data').value || '') >= u.data;
+    const muda = (m && m !== (c.motoristaId || '')) || s !== (c.semirreboqueId || '');
+    box.hidden = !(muda && recente);
+    if (!box.hidden) {
+      const txt = [];
+      if (m && m !== (c.motoristaId || '')) txt.push('motorista ' + nomeMot(m));
+      if (s !== (c.semirreboqueId || '')) txt.push(s ? 'semirreboque ' + mostraPlaca((semi(s) || {}).placa || '') : 'sem semirreboque');
+      $('#dia-conj-txt').textContent = `Daqui para frente o ${mostraPlaca(c.placa)} fica com ${txt.join(' e ')} (atualiza “Conjuntos agora”).`;
+    }
+  } else box.hidden = true;
+}
+
+/* ====================================================================
+   ABASTECER
+   ==================================================================== */
+function calcAb() {
+  const l = lerNumero($('#ab-litros').value), v = lerNumero($('#ab-valor').value);
+  const partes = [];
+  if (l && v && !isNaN(l) && !isNaN(v)) partes.push(`<span class="grande">${fR(v / l)}</span><span class="info">por litro</span>`);
+  const c = cam($('#ab-cam').value);
+  const km = lerNumero($('#ab-km').value, true);
+  const f = $('#f-ab');
+  if (c) {
+    $('#ab-km-dica').textContent = 'Hodômetro atual do ' + mostraPlaca(c.placa) + ': ' + nf0.format(kmAtual(c.id));
+    if (km && !isNaN(km)) {
+      const ant = todos('abastecimentos').filter(a => a.caminhaoId === c.id && a.id !== f.dataset.editando && a.km && a.data <= ($('#ab-data').value || '9999')).sort((a, b) => b.km - a.km)[0];
+      if (ant && km < ant.km) partes.push(`<span class="aviso">O km é menor que o do abastecimento de ${fmtData(ant.data)} (${nf0.format(ant.km)}).</span>`);
+      else if (ant && ehDiesel(ant) && $('#ab-comb').value !== 'Arla 32') partes.push(`<span class="info">${fKm(km - ant.km)} desde o último abastecimento (${fmtData(ant.data)}).</span>`);
+    }
+  } else $('#ab-km-dica').textContent = '';
+  $('#ab-calc').innerHTML = partes.join('');
+}
+function renderListaAb() {
+  const fc = $('#fa-cam').value;
+  const lista = todos('abastecimentos').filter(a => (!fc || a.caminhaoId === fc) && filtroMes('#fa-mes', a.data))
+    .sort((a, b) => (b.data > a.data ? 1 : b.data < a.data ? -1 : (b.km || 0) - (a.km || 0)));
+  UI.listaAb = lista;
+  const consumo = consumoPorAbastecimento();
+  const dsl = lista.filter(ehDiesel);
+  const litros = soma(dsl, a => a.litros), valor = soma(lista, a => a.valor);
+  $('#ab-resumo').textContent = lista.length ? `${plural(lista.length, 'abastecimento', 'abastecimentos')} · ${nf0.format(litros)} L de diesel · ${fR(valor)}` : '';
+  tabela('#t-ab',
+    [['Data'], ['Caminhão'], ['Motorista'], ['Combustível'], ['Litros', 'n'], ['R$/L', 'n'], ['Total', 'n'], ['Km', 'n'], ['Consumo', 'n'], ['Posto'], ['', 'n']],
+    lista.map(a => {
+      const k = consumo.get(a.id);
+      return `<tr>
+      <td class="d">${esc(fmtDiaSemana(a.data))}</td>
+      <td>${celVeiculoCam(cam(a.caminhaoId), '')}</td>
+      <td>${esc(nomeMot(a.motoristaId)) || '<span class="sem">—</span>'}</td>
+      <td>${esc(a.combustivel || 'Diesel S10')}${a.tanqueCheio ? '' : ' <span class="fraco">(não completou)</span>'}</td>
+      <td class="n">${fL(a.litros)}</td><td class="n">${a.litros ? nf2.format(a.valor / a.litros) : '—'}</td><td class="n forte">${fR(a.valor)}</td>
+      <td class="n">${a.km ? nf0.format(a.km) : '—'}</td>
+      <td class="n">${k ? fKml(k.kml) + (k.baixo ? `<br><span class="pill warn" title="Média deste caminhão: ${nf2.format(k.media)} km/l">abaixo da média</span>` : '') : '<span class="sem">—</span>'}</td>
+      <td>${esc(a.posto || '')}</td>
+      <td class="acoes">${acoesHTML('abastecimentos', a.id)}</td></tr>`;
+    }),
+    lista.length > 1 ? `<tr><td colspan="4">Total</td><td class="n">${fL(soma(lista, a => a.litros))}</td><td></td><td class="n">${fR(valor)}</td><td colspan="4"></td></tr>` : null,
+    'Nenhum abastecimento com este filtro.');
+}
+
+/* ====================================================================
+   MANUTENÇÃO
+   ==================================================================== */
+function ajustarCamposManut() {
+  const v = $('#man-veic').value;
+  const ehCam = !v || v.startsWith('caminhao:');
+  $$('#f-man [data-so-caminhao]').forEach(el => { el.hidden = !ehCam; });
+  const c = ehCam && v ? cam(v.split(':')[1]) : null;
+  $('#man-km-dica').textContent = c ? 'Hodômetro atual: ' + nf0.format(kmAtual(c.id)) : '';
+  if (c && !$('#f-man').dataset.editando && !$('#man-km').value && kmAtual(c.id)) $('#man-km').placeholder = nf0.format(kmAtual(c.id));
+}
+function nomeVeic(tipo, id) { const v = tipo === 'caminhao' ? cam(id) : semi(id); return v ? mostraPlaca(v.placa) : '(apagado)'; }
+function renderManut() {
+  ajustarCamposManut();
+  const prox = proximasManutencoes().sort((a, b) => {
+    const fa = Math.min(a.faltaKm != null ? a.faltaKm / 100 : 1e9, a.faltaDias != null ? a.faltaDias : 1e9);
+    const fb = Math.min(b.faltaKm != null ? b.faltaKm / 100 : 1e9, b.faltaDias != null ? b.faltaDias : 1e9);
+    return fa - fb;
+  });
+  $('#bloco-proximas').hidden = !prox.length;
+  tabela('#t-proximas', [['Veículo'], ['Serviço'], ['Feita em'], ['Próxima'], ['Situação']],
+    prox.map(p => {
+      const partes = [];
+      let nivel = 'ok', txt = 'Em dia';
+      if (p.proximaKm != null) { partes.push('aos ' + fKm(p.proximaKm)); if (p.faltaKm <= 0) { nivel = 'bad vencido'; txt = 'Passou ' + fKm(-p.faltaKm); } else { if (p.faltaKm <= 2000) { nivel = 'warn'; } txt = 'Faltam ' + fKm(p.faltaKm); } }
+      if (p.proximaData != null) {
+        partes.push('em ' + fmtData(p.proximaData));
+        const t2 = p.faltaDias < 0 ? 'Venceu há ' + plural(-p.faltaDias, 'dia', 'dias') : 'Faltam ' + plural(p.faltaDias, 'dia', 'dias');
+        if (p.faltaDias < 0) { nivel = 'bad vencido'; txt = p.proximaKm != null && p.faltaKm > 0 ? t2 : (p.proximaKm != null ? txt + ' · ' + t2 : t2); }
+        else if (p.proximaKm == null) { nivel = p.faltaDias <= 15 ? 'warn' : 'ok'; txt = t2; }
+        else { if (p.faltaDias <= 15 && nivel === 'ok') nivel = 'warn'; txt += ' · ' + t2; }
+      }
+      return `<tr><td>${p.veiculoTipo === 'caminhao' ? celVeiculoCam(p.veiculo, '') : celSemi(p.veiculo)}</td><td>${esc(p.tipo)}</td>
+        <td class="d">${esc(fmtData(p.m.data))}${p.m.km ? `<div class="fraco">${fKm(p.m.km)}</div>` : ''}</td><td>${esc(partes.join(' ou '))}</td><td><span class="pill ${nivel}">${esc(txt)}</span></td></tr>`;
+    }), null, '');
+
+  const fv = $('#fm-veic').value;
+  const lista = todos('manutencoes').filter(m => (!fv || m.veiculoTipo + ':' + m.veiculoId === fv) && filtroMes('#fm-mes', m.data))
+    .sort((a, b) => (b.data > a.data ? 1 : b.data < a.data ? -1 : 0));
+  UI.listaMan = lista;
+  const total = soma(lista, m => m.valor);
+  $('#man-resumo').textContent = lista.length ? `${plural(lista.length, 'serviço', 'serviços')} · ${fR(total)}` : '';
+  tabela('#t-man',
+    [['Data'], ['Veículo'], ['Serviço'], ['O que foi feito'], ['Oficina'], ['Km', 'n'], ['Valor', 'n'], ['', 'n']],
+    lista.map(m => `<tr>
+      <td class="d">${esc(fmtData(m.data))}</td>
+      <td>${m.veiculoTipo === 'caminhao' ? celVeiculoCam(cam(m.veiculoId), '') : celSemi(semi(m.veiculoId))}</td>
+      <td>${esc(m.tipo)}</td><td>${esc(m.descricao || '')}</td><td>${esc(m.oficina || '')}</td>
+      <td class="n">${m.km ? nf0.format(m.km) : '—'}</td><td class="n forte">${fR(m.valor)}</td>
+      <td class="acoes">${acoesHTML('manutencoes', m.id)}</td></tr>`),
+    lista.length > 1 ? `<tr><td colspan="6">Total</td><td class="n">${fR(total)}</td><td></td></tr>` : null,
+    'Nenhuma manutenção com este filtro.');
+}
+
+/* ====================================================================
+   RELATÓRIO e EXTRATO POR CAMINHÃO
+   ==================================================================== */
+function partesTroca(t) {
+  const o = [];
+  if ((t.motoristaAnt || '') !== (t.motoristaNovo || '')) o.push(t.motoristaNovo ? `Motorista: ${nomeMot(t.motoristaAnt) || 'ninguém'} → ${nomeMot(t.motoristaNovo)}` : `${nomeMot(t.motoristaAnt)} saiu do caminhão`);
+  if ((t.semiAnt || '') !== (t.semiNovo || '')) {
+    const pa = t.semiAnt ? mostraPlaca((semi(t.semiAnt) || {}).placa || '?') : '', pn = t.semiNovo ? mostraPlaca((semi(t.semiNovo) || {}).placa || '?') : '';
+    o.push(pn ? `Engatou o semirreboque ${pn}${pa ? ` (saiu o ${pa})` : ''}` : `Desengatou o semirreboque ${pa}`);
+  }
+  return o;
+}
+/* todos os lançamentos do caminhão no período, em ordem, com o gasto acumulado */
+function linhasExtrato(camId) {
+  const L = [];
+  const consumo = consumoPorAbastecimento();
+  for (const t of D.trocas.values()) if (t.caminhaoId === camId && noPeriodo(t.data)) {
+    const p = partesTroca(t);
+    if (p.length) L.push({ data: t.data, ordem: 0, km: 0, tipo: 'Troca', cls: 't-troca', det: p.join(' · '), hod: '', rodou: null, litros: null, valor: null });
+  }
+  for (const r of D.dias.values()) if (r.caminhaoId === camId && noPeriodo(r.data)) {
+    L.push({ data: r.data, ordem: 1, km: r.kmFinal || 0, tipo: 'Km do dia', cls: 't-km',
+      det: [nomeMot(r.motoristaId), r.semirreboqueId ? 'semirreboque ' + mostraPlaca((semi(r.semirreboqueId) || {}).placa || '') : 'sem semirreboque', [r.origem, r.destino].filter(Boolean).join(' → '), r.obs].filter(Boolean).join(' · '),
+      hod: nf0.format(r.kmInicial || 0) + ' → ' + nf0.format(r.kmFinal || 0), rodou: kmDia(r), litros: null, valor: null });
+  }
+  for (const a of D.abastecimentos.values()) if (a.caminhaoId === camId && noPeriodo(a.data)) {
+    const k = consumo.get(a.id);
+    L.push({ data: a.data, ordem: 2, km: a.km || 0, tipo: ehDiesel(a) ? 'Abastecimento' : 'Arla 32', cls: 't-comb',
+      det: [a.combustivel, a.litros ? fR(a.valor / a.litros) + '/L' : '', a.posto, nomeMot(a.motoristaId), a.tanqueCheio ? '' : 'não completou', k ? 'consumo do tanque ' + fKml(k.kml) + (k.baixo ? ' (abaixo da média)' : '') : ''].filter(Boolean).join(' · '),
+      hod: a.km ? nf0.format(a.km) : '', rodou: null, litros: a.litros, valor: a.valor });
+  }
+  for (const m of D.manutencoes.values()) if (m.veiculoTipo === 'caminhao' && m.veiculoId === camId && noPeriodo(m.data)) {
+    L.push({ data: m.data, ordem: 3, km: m.km || 0, tipo: 'Manutenção', cls: 't-manut', det: [m.tipo, m.descricao, m.oficina].filter(Boolean).join(' · '),
+      hod: m.km ? nf0.format(m.km) : '', rodou: null, litros: null, valor: m.valor });
+  }
+  L.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : a.ordem - b.ordem || a.km - b.km));
+  let acum = 0;
+  L.forEach(l => { if (l.valor) acum += l.valor; l.acum = acum; });
+  return L;
+}
+function tabelaExtratoHTML(L) {
+  if (!L.length) return '<tbody><tr><td class="vazio-txt">Nenhum lançamento deste caminhão no período.</td></tr></tbody>';
+  const rodou = soma(L, l => l.rodou), litros = soma(L, l => l.litros), valor = soma(L, l => l.valor);
+  return `<thead><tr><th>Data</th><th>Lançamento</th><th>Detalhe</th><th class="n">Hodômetro</th><th class="n">Rodou</th><th class="n">Litros</th><th class="n">Valor</th><th class="n">Gasto acumulado</th></tr></thead><tbody>`
+    + L.map(l => `<tr><td class="d">${esc(fmtDiaSemana(l.data))}</td><td><span class="pill ${l.cls}">${esc(l.tipo)}</span></td><td class="det">${esc(l.det)}</td>
+      <td class="n">${esc(l.hod)}</td><td class="n">${l.rodou != null ? fKm(l.rodou) : ''}</td><td class="n">${l.litros ? fL(l.litros) : ''}</td>
+      <td class="n${l.valor ? ' forte' : ''}">${l.valor != null ? fR(l.valor) : ''}</td><td class="n">${l.valor != null ? fR(l.acum) : ''}</td></tr>`).join('')
+    + `</tbody><tfoot><tr><td colspan="4">Total do período</td><td class="n">${fKm(rodou)}</td><td class="n">${fL(litros)}</td><td class="n">${fR(valor)}</td><td class="n">${rodou ? fRkm(valor / rodou) : ''}</td></tr></tfoot>`;
+}
+function figura(id, titulo, sub, legenda) {
+  return `<figure class="graf"><figcaption><strong>${esc(titulo)}</strong>${sub ? `<span>${esc(sub)}</span>` : ''}</figcaption>`
+    + (legenda ? `<div class="legenda">${legenda.map(s => `<span><i style="background:${s.cor}"></i>${esc(s.nome)}</span>`).join('')}</div>` : '')
+    + `<div class="grafico-box" id="${id}"></div></figure>`;
+}
+function emitido() { const d = new Date(); return 'Emitido em ' + fmtData(iso(d)) + ' às ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function tabelaMesesHTML(ev) {
+  return `<thead><tr><th>Mês</th><th class="n">Km rodados</th><th class="n">Combustível</th><th class="n">Manutenção</th><th class="n">Consumo</th><th class="n">Custo por km</th></tr></thead><tbody>`
+    + ev.map(m => `<tr><td class="d">${esc(m.longo)}</td><td class="n">${fKm(m.km)}</td><td class="n">${fR(m.comb)}</td><td class="n">${fR(m.manut)}</td><td class="n">${fKml(m.kml)}</td><td class="n">${fRkm(m.custo)}</td></tr>`).join('') + '</tbody>';
+}
+function textoMeta(v, fmt, nome) { return v ? `Linha tracejada: ${nome} de ${fmt(v)}.` : ''; }
+
+function renderRelatorio() {
+  const sel = $('#rel-cam');
+  if (UI.relCam && !cam(UI.relCam)) UI.relCam = '';
+  if (sel.value !== UI.relCam) { garantirOpcao(sel, UI.relCam); sel.value = UI.relCam; }
+  $('#btn-imprimir').hidden = !!window.claude;
+  preencherMetas();
+  const el = $('#relatorio');
+  if (Armazem.modo === 'carregando') { el.innerHTML = '<p class="carregando">Carregando os dados da frota…</p>'; return; }
+  if (!D.caminhoes.size) { el.innerHTML = '<div class="vazio-grande"><h2 class="h2">Ainda não há o que mostrar</h2><p class="hint">Cadastre os caminhões na aba Frota e lance o km, os abastecimentos e as manutenções. O relatório aparece aqui.</p></div>'; return; }
+  const c = UI.relCam ? cam(UI.relCam) : null;
+  if (c) relatorioCaminhao(el, c); else relatorioFrota(el);
+}
+
+function relatorioFrota(el) {
+  const mt = metas();
+  const base = resumoPeriodo();
+  const frota = resumo('', base);
+  const linhas = linhasPorCaminhao(base);
+  const ev = evolucaoMensal('', 6);
+  const comKml = linhas.filter(r => r.kml != null);
+  const comCusto = linhas.filter(r => r.custo != null);
+  el.innerHTML = `
+    <header class="rel-cab">
+      <div><span class="rel-eyebrow">Sistema Carlise · Relatório da frota</span><h2 class="rel-titulo">${esc(P.titulo)}</h2>
+      <span class="hint">${esc(fmtData(P.ini))} a ${esc(fmtData(P.fim))} · ${plural(camAtivos().length, 'caminhão ativo', 'caminhões ativos')} · ${esc(emitido())}</span></div>
+    </header>
+    <div class="kpis">${kpisHTML(frota)}</div>
+    <section class="rel-sec">
+      <h3>Indicadores por caminhão</h3>
+      <div class="graficos">
+        ${figura('gr-r-kml', 'Consumo (km/l)', 'Quanto mais, melhor. ' + (mt.kml ? textoMeta(mt.kml, fKml, 'meta') : 'Linha tracejada: média da frota.'))}
+        ${figura('gr-r-custo', 'Custo por km', 'Quanto menos, melhor. Combustível + manutenção ÷ km. ' + (mt.custoKm ? textoMeta(mt.custoKm, fRkm, 'meta') : 'Linha tracejada: média da frota.'))}
+        ${figura('gr-r-gasto', 'Gasto por caminhão', 'Combustível e manutenção no período.', [S_COMB, S_MANUT])}
+        ${figura('gr-r-km', 'Km rodados por caminhão', 'Soma dos lançamentos de km do dia.')}
+      </div>
+    </section>
+    <section class="rel-sec">
+      <h3>Evolução</h3>
+      <div class="graficos">
+        ${figura('gr-r-dia', 'Km rodados por dia', 'Toda a frota. Linha tracejada: média dos dias com lançamento.')}
+        ${figura('gr-r-mes', 'Gasto mês a mês', 'Últimos 6 meses até o fim do período.', [S_COMB, S_MANUT])}
+        ${figura('gr-r-kmlmes', 'Consumo mês a mês (km/l)', 'Últimos 6 meses. ' + textoMeta(mt.kml, fKml, 'meta'))}
+        ${figura('gr-r-customes', 'Custo por km mês a mês', 'Últimos 6 meses. ' + textoMeta(mt.custoKm, fRkm, 'meta'))}
+      </div>
+      <details class="tabela-dados" open><summary>Mês a mês em tabela</summary><div class="tabela-box"><table class="tabela">${tabelaMesesHTML(ev)}</table></div></details>
+    </section>
+    <section class="rel-sec">
+      <h3>Motoristas, manutenção e diesel</h3>
+      <div class="graficos">
+        ${figura('gr-r-mot', 'Km por motorista', 'Pelos lançamentos de km do dia.')}
+        ${figura('gr-r-serv', 'Manutenção por serviço', 'Caminhões e semirreboques.')}
+        ${figura('gr-r-preco', 'Preço do diesel por litro', 'Cada ponto é um abastecimento.')}
+        ${figura('gr-r-motkml', 'Consumo por motorista (km/l)', 'De tanque cheio a tanque cheio, nos abastecimentos feitos pelo motorista.')}
+      </div>
+    </section>
+    <section class="rel-sec">
+      <h3>Extrato por caminhão</h3>
+      <p class="hint nao-imprime">Clique em “Ver extrato” para ver todos os lançamentos de um caminhão, em ordem, com o gasto acumulado.</p>
+      <div class="tabela-box"><table class="tabela">
+        <thead><tr><th>Caminhão</th><th>Motorista agora</th><th class="n">Km</th><th class="n">Litros</th><th class="n">Combustível</th><th class="n">Manutenção</th><th class="n">Consumo</th><th class="n">Custo/km</th><th class="n nao-imprime"></th></tr></thead>
+        <tbody>${linhas.map(r => `<tr${r.c.situacao === 'fora' ? ' class="inativo"' : ''}><td>${celVeiculoCam(r.c)}</td><td>${r.c.motoristaId ? esc(nomeMot(r.c.motoristaId)) : '<span class="sem">—</span>'}</td>
+          <td class="n">${fKm(r.km)}</td><td class="n">${fL(r.litros)}</td><td class="n">${fR(r.comb)}</td><td class="n">${fR(r.manut)}</td><td class="n">${fKml(r.kml)}</td><td class="n">${fRkm(r.custo)}</td>
+          <td class="acoes nao-imprime"><button class="btn small ghost" type="button" data-acao="ver-extrato" data-cam="${esc(r.id)}">Ver extrato</button></td></tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="2">Frota${frota.manut !== soma(linhas, r => r.manut) ? ' <span class="fraco">(manutenção inclui os semirreboques)</span>' : ''}</td><td class="n">${fKm(frota.km)}</td><td class="n">${fL(frota.litros)}</td><td class="n">${fR(frota.comb)}</td><td class="n">${fR(frota.manut)}</td><td class="n">${fKml(frota.kml)}</td><td class="n">${fRkm(frota.custo)}</td><td class="nao-imprime"></td></tr></tfoot>
+      </table></div>
+    </section>
+    <p class="rodape-rel">Sistema Carlise · ${esc(emitido())}. Consumo = km de um tanque cheio até o outro ÷ litros de diesel colocados (Arla 32 fora). Custo por km = combustível (com Arla) + manutenção, ÷ km rodados.</p>`;
+
+  const kmlFrota = frota.kml, custoFrota = frota.custo;
+  graficoBarras($('#gr-r-kml'), {
+    itens: comKml.map(r => ({ rot: mostraPlaca(r.c.placa), longo: rotuloCam(r.c), valores: [r.kml], extra: fKm(r.tanque.km) + ' com ' + fL(r.tanque.litros) + (r.tanque.simples ? '' : ', tanque a tanque') })).sort((a, b) => b.valores[0] - a.valores[0]),
+    series: [S_KM], fmt: v => nf2.format(v) + ' km/l', meta: mt.kml || kmlFrota, rotMeta: mt.kml ? 'meta ' + nf2.format(mt.kml) : 'frota ' + nf2.format(kmlFrota || 0),
+    status: mt.kml ? v => seloMeta(v, mt.kml, true) : null, titulo: 'Consumo por caminhão', vazio: 'Precisa de km e de abastecimento de diesel no período.',
+  });
+  graficoBarras($('#gr-r-custo'), {
+    itens: comCusto.map(r => ({ rot: mostraPlaca(r.c.placa), longo: rotuloCam(r.c), valores: [r.custo], extra: fR(r.comb + r.manut) + ' em ' + fKm(r.km) })).sort((a, b) => b.valores[0] - a.valores[0]),
+    series: [S_MANUT], fmt: v => fR(v), meta: mt.custoKm || custoFrota, rotMeta: mt.custoKm ? 'meta ' + fR(mt.custoKm) : 'frota ' + fR(custoFrota || 0),
+    status: mt.custoKm ? v => seloMeta(v, mt.custoKm, false) : null, titulo: 'Custo por km por caminhão', vazio: 'Precisa de km lançado no período.',
+  });
+  graficoGastoPorCaminhao($('#gr-r-gasto'), linhas);
+  graficoBarras($('#gr-r-km'), {
+    itens: linhas.map(r => ({ rot: mostraPlaca(r.c.placa), longo: rotuloCam(r.c), valores: [r.km], extra: plural(r.datas, 'dia rodado', 'dias rodados') })).sort((a, b) => b.valores[0] - a.valores[0]),
+    series: [S_KM], fmt: fKm, titulo: 'Km rodados por caminhão', vazio: 'Nenhum km lançado no período.',
+  });
+  graficoKmPorDia($('#gr-r-dia'), base.dias, null, null);
+  graficosMensais(ev, mt);
+  const pm = porMotorista(base).filter(x => x.id);
+  graficoBarras($('#gr-r-mot'), { itens: pm.map(x => ({ rot: nomeMot(x.id), valores: [x.km], extra: plural(x.datas.size, 'dia', 'dias') })), series: [S_KM], fmt: fKm, titulo: 'Km por motorista', vazio: 'Ninguém rodou no período.' });
+  graficoBarras($('#gr-r-motkml'), {
+    itens: pm.filter(x => x.kml).map(x => ({ rot: nomeMot(x.id), valores: [x.kml], extra: fKm(x.tanque.km) + ' com ' + fL(x.tanque.litros) })).sort((a, b) => b.valores[0] - a.valores[0]),
+    series: [S_KM], fmt: v => nf2.format(v) + ' km/l', meta: mt.kml || null, rotMeta: mt.kml ? 'meta ' + nf2.format(mt.kml) : '', status: mt.kml ? v => seloMeta(v, mt.kml, true) : null,
+    titulo: 'Consumo por motorista', vazio: 'Precisa de km e de abastecimento lançados com o motorista.',
+  });
+  graficoServicos($('#gr-r-serv'), base.mans);
+  graficoPrecoDiesel($('#gr-r-preco'), base.abs);
+}
+
+function graficosMensais(ev, mt) {
+  graficoColunas($('#gr-r-mes'), { baldes: ev.map(m => ({ curto: m.curto, longo: m.longo, valores: [m.comb, m.manut], extra: m.km ? fKm(m.km) + ' rodados' : '' })), series: [S_COMB, S_MANUT], fmt: fR, fmtEixo: v => v >= 1000 ? nf0.format(v / 1000) + ' mil' : nf0.format(v), larguraMax: 44, titulo: 'Gasto mês a mês', vazio: 'Nenhum gasto nos últimos 6 meses.' });
+  graficoColunas($('#gr-r-kmlmes'), { baldes: ev.map(m => ({ curto: m.curto, longo: m.longo, valores: [m.kml || 0], extra: m.tanque ? fKm(m.tanque.km) + ' com ' + fL(m.tanque.litros) : '' })), series: [S_KM], fmt: fKml, textoZero: 'Nenhum tanque cheio fechado no mês', fmtEixo: v => nf1.format(v), larguraMax: 44, meta: mt.kml || null, rotMeta: mt.kml ? 'meta ' + nf2.format(mt.kml) : '', titulo: 'Consumo mês a mês', vazio: 'Precisa de km e de abastecimento de diesel.' });
+  graficoColunas($('#gr-r-customes'), { baldes: ev.map(m => ({ curto: m.curto, longo: m.longo, valores: [m.custo || 0], extra: m.km ? fR(m.comb + m.manut) + ' em ' + fKm(m.km) : '' })), series: [S_MANUT], fmt: fRkm, textoZero: 'Sem km lançado no mês', fmtEixo: v => nf2.format(v), larguraMax: 44, meta: mt.custoKm || null, rotMeta: mt.custoKm ? 'meta ' + fR(mt.custoKm) : '', titulo: 'Custo por km mês a mês', vazio: 'Precisa de km lançado.' });
+}
+function graficoServicos(box, mans) {
+  const porTipo = new Map();
+  mans.forEach(m => { const x = porTipo.get(m.tipo) || { v: 0, n: 0 }; x.v += m.valor || 0; x.n++; porTipo.set(m.tipo, x); });
+  graficoBarras(box, { itens: Array.from(porTipo.entries()).map(([t, x]) => ({ rot: t, valores: [x.v], extra: plural(x.n, 'serviço', 'serviços') })).sort((a, b) => b.valores[0] - a.valores[0]), series: [S_MANUT], fmt: v => brl.format(Math.round(v)).replace(/,00$/, ''), titulo: 'Manutenção por serviço', vazio: 'Nenhuma manutenção no período.' });
+}
+function graficoPrecoDiesel(box, abs) {
+  graficoLinha(box, {
+    pontos: abs.filter(a => ehDiesel(a) && a.litros > 0 && a.valor > 0).map(a => ({ data: a.data, v: a.valor / a.litros, dica: fmtDiaSemana(a.data) + '\n' + fR(a.valor / a.litros) + ' por litro\n' + [a.posto, cam(a.caminhaoId) ? mostraPlaca(cam(a.caminhaoId).placa) : ''].filter(Boolean).join(' · ') })),
+    cor: 'var(--s-comb)', fmtEixo: v => nf2.format(v), titulo: 'Preço do diesel por litro', vazio: 'Precisa de pelo menos 2 abastecimentos de diesel no período.',
+  });
+}
+
+function relatorioCaminhao(el, c) {
+  const mt = metas();
+  const base = resumoPeriodo();
+  const r = resumo(c.id, base);
+  const frota = resumo('', base);
+  const s = semi(c.semirreboqueId);
+  const L = linhasExtrato(c.id);
+  UI.extrato = L;
+  const ev = evolucaoMensal(c.id, 6);
+  el.innerHTML = `
+    <header class="rel-cab">
+      <div><span class="rel-eyebrow">Sistema Carlise · Extrato do caminhão</span>
+      <h2 class="rel-titulo">${placaHTML(c.placa, true)}<span class="veic-txt">${esc(descCam(c))}</span></h2>
+      <span class="hint">${esc(P.titulo)} · ${esc(fmtData(P.ini))} a ${esc(fmtData(P.fim))} · ${esc(emitido())}</span></div>
+      <button class="btn small ghost nao-imprime" type="button" data-acao="ver-extrato" data-cam="">Voltar para toda a frota</button>
+    </header>
+    <dl class="rel-ficha">
+      <div><dt>Tipo</dt><dd>${esc(c.tipo || '—')}</dd></div>
+      <div><dt>Marca e modelo</dt><dd>${esc(descCam(c) || '—')}</dd></div>
+      <div><dt>Ano</dt><dd>${esc(c.ano || '—')}</dd></div>
+      <div><dt>Hodômetro</dt><dd class="num">${fKm(kmAtual(c.id))}</dd></div>
+      <div><dt>Motorista agora</dt><dd>${esc(nomeMot(c.motoristaId) || 'Sem motorista')}</dd></div>
+      <div><dt>Semirreboque agora</dt><dd>${s ? esc(rotuloSemi(s)) : 'Sem semirreboque'}</dd></div>
+      <div><dt>Situação</dt><dd>${pillSit(SIT_CAM, c.situacao)}</dd></div>
+    </dl>
+    <div class="kpis">${kpisHTML(r, frota)}</div>
+    <section class="rel-sec">
+      <h3>Indicadores</h3>
+      <div class="graficos">
+        ${figura('gr-c-kml', 'Consumo (km/l)', 'Este caminhão ao lado da média da frota. ' + textoMeta(mt.kml, fKml, 'meta'))}
+        ${figura('gr-c-custo', 'Custo por km', 'Este caminhão ao lado da média da frota. ' + textoMeta(mt.custoKm, fRkm, 'meta'))}
+        ${figura('gr-c-dia', 'Km rodados por dia', 'Linha tracejada: média dos dias com lançamento.')}
+        ${figura('gr-r-mes', 'Gasto mês a mês', 'Últimos 6 meses até o fim do período.', [S_COMB, S_MANUT])}
+        ${figura('gr-r-kmlmes', 'Consumo mês a mês (km/l)', 'Últimos 6 meses. ' + textoMeta(mt.kml, fKml, 'meta'))}
+        ${figura('gr-r-customes', 'Custo por km mês a mês', 'Últimos 6 meses. ' + textoMeta(mt.custoKm, fRkm, 'meta'))}
+        ${figura('gr-c-mot', 'Quem dirigiu', 'Km por motorista neste caminhão.')}
+        ${figura('gr-c-serv', 'Manutenção por serviço', 'Só deste caminhão.')}
+      </div>
+      <details class="tabela-dados"><summary>Mês a mês em tabela</summary><div class="tabela-box"><table class="tabela">${tabelaMesesHTML(ev)}</table></div></details>
+    </section>
+    <section class="rel-sec">
+      <h3>Extrato</h3>
+      <p class="hint">Todos os lançamentos do ${esc(mostraPlaca(c.placa))} no período, em ordem de data: km do dia, abastecimentos, manutenções e trocas de motorista ou semirreboque.</p>
+      <div class="tabela-box"><table class="tabela">${tabelaExtratoHTML(L)}</table></div>
+    </section>
+    <p class="rodape-rel">Sistema Carlise · ${esc(emitido())}. A manutenção dos semirreboques não entra no extrato do caminhão, porque o semirreboque troca de caminhão.</p>`;
+
+  const comp = (v, vf, fmt) => [{ rot: mostraPlaca(c.placa), valores: [v || 0], longo: rotuloCam(c) }, { rot: 'Média da frota', valores: [vf || 0] }];
+  graficoBarras($('#gr-c-kml'), { itens: comp(r.kml, frota.kml), series: [S_KM], fmt: v => nf2.format(v) + ' km/l', meta: mt.kml || null, rotMeta: mt.kml ? 'meta ' + nf2.format(mt.kml) : '', status: mt.kml ? v => seloMeta(v, mt.kml, true) : null, titulo: 'Consumo', vazio: 'Precisa de km e de abastecimento de diesel no período.' });
+  graficoBarras($('#gr-c-custo'), { itens: comp(r.custo, frota.custo), series: [S_MANUT], fmt: v => fR(v), meta: mt.custoKm || null, rotMeta: mt.custoKm ? 'meta ' + fR(mt.custoKm) : '', status: mt.custoKm ? v => seloMeta(v, mt.custoKm, false) : null, titulo: 'Custo por km', vazio: 'Precisa de km lançado no período.' });
+  graficoKmPorDia($('#gr-c-dia'), r.dias, null, null);
+  graficosMensais(ev, mt);
+  graficoBarras($('#gr-c-mot'), { itens: porMotorista(base, c.id).filter(x => x.id).map(x => ({ rot: nomeMot(x.id), valores: [x.km], extra: plural(x.datas.size, 'dia', 'dias') })), series: [S_KM], fmt: fKm, titulo: 'Quem dirigiu', vazio: 'Nenhum km lançado no período.' });
+  graficoServicos($('#gr-c-serv'), r.mans);
+}
+
+/* metas de consumo e de custo */
+function preencherMetas() {
+  const mt = metas();
+  const f = $('#f-metas');
+  const sig = JSON.stringify([mt.kml, mt.custoKm]);
+  if (f.dataset.sig === sig || f.contains(document.activeElement)) return;
+  f.dataset.sig = sig;
+  $('#meta-kml').value = mt.kml ? nf2.format(mt.kml) : '';
+  $('#meta-custo').value = mt.custoKm ? nf2.format(mt.custoKm) : '';
+}
+async function salvarMetas() {
+  const kml = lerNumero($('#meta-kml').value), custo = lerNumero($('#meta-custo').value);
+  if (kml != null && (isNaN(kml) || kml <= 0 || kml > 20)) { toast('Escreva a meta de consumo em km/l, como 2,50.', true); $('#meta-kml').focus(); return; }
+  if (custo != null && (isNaN(custo) || custo <= 0 || custo > 100)) { toast('Escreva a meta de custo em reais por km, como 3,00.', true); $('#meta-custo').focus(); return; }
+  try {
+    await gravar('config', { id: 'metas', kml: kml || null, custoKm: custo || null });
+    $('#f-metas').dataset.sig = '';
+    document.activeElement && document.activeElement.blur && document.activeElement.blur();
+    toast(kml || custo ? 'Metas salvas.' : 'Metas apagadas.');
+  } catch (e) { toast(msgErro(e), true); }
+}
+
+/* imprimir e baixar */
+let temaAntes = null;
+function restaurarTema() {
+  if (temaAntes === null) return;
+  if (temaAntes) document.documentElement.setAttribute('data-theme', temaAntes); else document.documentElement.removeAttribute('data-theme');
+  temaAntes = null;
+}
+function imprimirRelatorio() {
+  temaAntes = document.documentElement.getAttribute('data-theme') || '';
+  document.documentElement.setAttribute('data-theme', 'light');
+  document.body.classList.add('imprimir-rel');
+  render();
+  setTimeout(() => {
+    try { window.print(); } catch (e) { /* sem impressão aqui */ }
+    setTimeout(() => { document.body.classList.remove('imprimir-rel'); restaurarTema(); }, 500);
+  }, 60);
+}
+async function baixarRelatorio() {
+  const copia = $('#relatorio').cloneNode(true);
+  copia.querySelectorAll('.nao-imprime, .dica-graf').forEach(x => x.remove());
+  copia.querySelectorAll('details').forEach(d => d.setAttribute('open', ''));
+  copia.querySelectorAll('[data-dica]').forEach(x => x.removeAttribute('data-dica'));
+  const css = $$('style').map(s => s.textContent).join('\n');
+  const fontes = $$('link[rel="stylesheet"]').map(l => `<link rel="stylesheet" href="${esc(l.href)}">\n`).join('');
+  const c = UI.relCam ? cam(UI.relCam) : null;
+  const titulo = (c ? 'Extrato do caminhão ' + mostraPlaca(c.placa) : 'Relatório da frota') + ' · ' + P.titulo;
+  const html = '<!doctype html>\n<html lang="pt-BR" data-theme="light">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+    + fontes + `<title>${esc(titulo)}</title>\n<style>${css}</style>\n</head>\n<body class="impresso">\n<article class="relatorio">${copia.innerHTML}</article>\n</body>\n</html>\n`;
+  const nome = (c ? 'extrato-' + c.placa.toLowerCase() : 'relatorio-frota') + '-' + P.ini + '-a-' + P.fim + '.html';
+  if (await baixar(nome, html, 'text/html')) toast('Relatório salvo. Abra o arquivo no navegador para ver ou imprimir.');
+}
+
+/* ====================================================================
+   FROTA
+   ==================================================================== */
+function renderFrota() {
+  // conjuntos
+  const cams = camAtivos();
+  const optsMot = sel => '<option value="">Sem motorista</option>' + motsAtivos().map(m => `<option value="${esc(m.id)}"${m.id === sel ? ' selected' : ''}>${esc(m.nome)}</option>`).join('');
+  const optsSemi = sel => '<option value="">Sem semirreboque</option>' + semisAtivos().map(s => `<option value="${esc(s.id)}"${s.id === sel ? ' selected' : ''}>${esc(rotuloSemi(s))}</option>`).join('');
+  const conj = $('#conjuntos');
+  if (!cams.length) conj.innerHTML = '<p class="vazio-txt">Cadastre um caminhão para montar os conjuntos.</p>';
+  else {
+    const ativo = document.activeElement && document.activeElement.closest && document.activeElement.closest('.conj') ? document.activeElement.id : null;
+    conj.innerHTML = cams.map(c => {
+      const pend = UI.pendTroca[c.id] || {};
+      const m = pend.mot !== undefined ? pend.mot : (c.motoristaId || '');
+      const s = pend.semi !== undefined ? pend.semi : (c.semirreboqueId || '');
+      const mudou = m !== (c.motoristaId || '') || s !== (c.semirreboqueId || '');
+      const sv = semi(s);
+      return `<div class="conj${mudou ? ' mudou' : ''}">
+        <div class="engate">${placaHTML(c.placa, true)}<span class="pino${sv ? ' ligado' : ''}" aria-hidden="true"></span>${sv ? placaHTML(sv.placa, true) : '<span class="solto">sem semirreboque</span>'}</div>
+        <div class="conj-info">${esc(descCam(c) || c.tipo || '')} · ${pillSit(SIT_CAM, c.situacao)} · ${fKm(kmAtual(c.id))}</div>
+        <div class="campo"><label for="cj-m-${esc(c.id)}">Motorista</label><select id="cj-m-${esc(c.id)}" data-conj="mot" data-cam="${esc(c.id)}">${optsMot(m)}</select></div>
+        <div class="campo"><label for="cj-s-${esc(c.id)}">Semirreboque engatado</label><select id="cj-s-${esc(c.id)}" data-conj="semi" data-cam="${esc(c.id)}">${optsSemi(s)}</select></div>
+        ${mudou ? `<div class="campo"><label for="cj-d-${esc(c.id)}">Data da troca</label><input type="date" id="cj-d-${esc(c.id)}" data-conj="data" data-cam="${esc(c.id)}" value="${esc(pend.data || hojeISO())}"></div>
+        <div class="conj-acoes"><button class="btn small" type="button" data-acao="salvar-troca" data-cam="${esc(c.id)}">Salvar a troca</button><button class="btn small ghost" type="button" data-acao="desfazer-troca" data-cam="${esc(c.id)}">Desfazer</button></div>` : ''}
+      </div>`;
+    }).join('');
+    if (ativo && document.getElementById(ativo)) document.getElementById(ativo).focus();
+  }
+
+  // caminhões
+  tabela('#t-cam', [['Placa'], ['Tipo'], ['Ano', 'n'], ['Hodômetro', 'n'], ['Motorista'], ['Semirreboque'], ['Situação'], ['', 'n']],
+    todos('caminhoes').sort((a, b) => (a.situacao === 'fora') - (b.situacao === 'fora') || porPlaca(a, b)).map(c => `<tr${c.situacao === 'fora' ? ' class="inativo"' : ''}>
+      <td>${celVeiculoCam(c)}</td><td>${esc(c.tipo || '')}</td><td class="n">${esc(c.ano || '')}</td><td class="n">${fKm(kmAtual(c.id))}</td>
+      <td>${c.motoristaId ? esc(nomeMot(c.motoristaId)) : '<span class="sem">—</span>'}</td>
+      <td>${c.semirreboqueId ? placaHTML((semi(c.semirreboqueId) || {}).placa) : '<span class="sem">—</span>'}</td>
+      <td>${pillSit(SIT_CAM, c.situacao)}</td><td class="acoes">${acoesHTML('caminhoes', c.id)}</td></tr>`),
+    null, 'Nenhum caminhão cadastrado.');
+
+  // semirreboques
+  tabela('#t-semi', [['Placa'], ['Tipo'], ['Eixos', 'n'], ['Fabricante'], ['Ano', 'n'], ['Engatado em'], ['Situação'], ['', 'n']],
+    todos('semirreboques').sort((a, b) => (a.situacao === 'fora') - (b.situacao === 'fora') || porPlaca(a, b)).map(s => {
+      const c = camDoSemi(s.id);
+      return `<tr${s.situacao === 'fora' ? ' class="inativo"' : ''}><td>${placaHTML(s.placa)}</td><td>${esc(s.tipo || '')}</td><td class="n">${esc(s.eixos || '')}</td><td>${esc(s.marca || '')}</td><td class="n">${esc(s.ano || '')}</td>
+        <td>${c ? placaHTML(c.placa) : '<span class="sem">Desengatado</span>'}</td><td>${pillSit(SIT_SEMI, s.situacao)}</td><td class="acoes">${acoesHTML('semirreboques', s.id)}</td></tr>`;
+    }), null, 'Nenhum semirreboque cadastrado.');
+
+  // motoristas
+  const h = hojeISO();
+  const validade = v => {
+    if (!v) return '<span class="sem">—</span>';
+    const d = difDias(h, v);
+    const cls = d < 0 ? 'bad vencido' : d <= 30 ? 'warn' : '';
+    return cls ? `<span class="pill ${cls}">${esc(fmtData(v))}</span>` : esc(fmtData(v));
+  };
+  tabela('#t-mot', [['Nome'], ['Telefone'], ['CNH'], ['Validade da CNH'], ['Toxicológico'], ['Dirigindo'], ['Situação'], ['', 'n']],
+    todos('motoristas').sort((a, b) => (a.situacao === 'desligado') - (b.situacao === 'desligado') || porNome(a, b)).map(m => {
+      const c = camDoMot(m.id);
+      return `<tr${m.situacao === 'desligado' ? ' class="inativo"' : ''}><td class="forte">${esc(m.nome)}</td><td class="d">${esc(m.telefone || '')}</td>
+        <td>${esc(m.categoria || '')}${m.cnh ? ` <span class="fraco">${esc(m.cnh)}</span>` : ''}</td><td class="d">${validade(m.validadeCnh)}</td><td class="d">${validade(m.validadeToxicologico)}</td>
+        <td>${c ? placaHTML(c.placa) : '<span class="sem">—</span>'}</td><td>${pillSit(SIT_MOT, m.situacao)}</td><td class="acoes">${acoesHTML('motoristas', m.id)}</td></tr>`;
+    }), null, 'Nenhum motorista cadastrado.');
+
+  // trocas
+  const trocas = todos('trocas').sort((a, b) => (b.data + (b.criadoEm || '') > a.data + (a.criadoEm || '') ? 1 : -1)).slice(0, 30);
+  tabela('#t-trocas', [['Data'], ['Caminhão'], ['O que mudou']],
+    trocas.map(t => `<tr><td class="d">${esc(fmtData(t.data))}</td><td>${placaHTML((cam(t.caminhaoId) || {}).placa)}</td><td>${partesTroca(t).map(esc).join('<br>') || '—'}</td></tr>`),
+    null, 'Nenhuma troca registrada ainda.');
+
+  // dados
+  $('#dados-onde').textContent = Armazem.modo === 'local'
+    ? 'Os dados ficam salvos neste computador, dentro do navegador. Salve uma cópia de vez em quando e guarde num pendrive ou no e-mail.'
+    : 'Os dados ficam salvos na sua conta do claude.ai e aparecem em qualquer aparelho em que você abrir este link.';
+  let ultima = null;
+  try { ultima = localStorage.getItem(CHAVE_COPIA); } catch (e) { /* sem armazenamento */ }
+  $('#dados-ultima').textContent = ultima ? 'Última cópia salva neste aparelho: ' + fmtData(ultima) + '.' : (Armazem.modo === 'local' ? 'Nenhuma cópia salva ainda neste aparelho.' : '');
+  const temExemplo = COLS.some(c => todos(c).some(x => x.exemplo));
+  $('#dados-exemplo').innerHTML = temExemplo
+    ? '<button class="btn ghost small" type="button" data-acao="pedir-apagar-exemplo">Apagar os dados de exemplo</button>'
+    : (D.caminhoes.size === 0 ? '<button class="btn ghost small" type="button" data-acao="carregar-exemplo">Ver com dados de exemplo</button>' : '');
+}
+
+/* ====================================================================
+   Formulários: ler, preencher, salvar
+   ==================================================================== */
+function lerForm(f) {
+  const o = {};
+  for (const el of f.elements) {
+    if (!el.name) continue;
+    const t = el.dataset.tipo;
+    if (el.type === 'checkbox') o[el.name] = el.checked;
+    else if (t === 'int') o[el.name] = lerNumero(el.value, true);
+    else if (t === 'dec') o[el.name] = lerNumero(el.value, false);
+    else if (t === 'ano') o[el.name] = el.value.replace(/\D/g, '');
+    else o[el.name] = el.value.trim();
+  }
+  return o;
+}
+function preencherForm(f, o) {
+  for (const el of f.elements) {
+    if (!el.name) continue;
+    const v = o[el.name];
+    const t = el.dataset.tipo;
+    el.removeAttribute('aria-invalid');
+    if (el.type === 'checkbox') el.checked = !!v;
+    else if (t === 'int') el.value = v == null || v === '' ? '' : nf0.format(v);
+    else if (t === 'dec') el.value = v == null || v === '' ? '' : String(v).replace('.', ',');
+    else if (el.tagName === 'SELECT') { if (el.dataset.lista) garantirOpcao(el, v || ''); el.value = v == null ? '' : String(v); }
+    else el.value = v == null ? '' : v;
+  }
+}
+function modoForm(f, editandoId) {
+  if (editandoId) f.dataset.editando = editandoId; else delete f.dataset.editando;
+  f.classList.toggle('editando', !!editandoId);
+  $$('[data-novo]', f).forEach(el => { el.textContent = editandoId ? el.dataset.editar : el.dataset.novo; });
+  const cancelar = $('[data-acao="cancelar-edicao"]', f);
+  if (cancelar) cancelar.hidden = !editandoId;
+}
+const PADROES = {
+  'f-dia': () => ({ data: hojeISO() }),
+  'f-ab': () => ({ data: hojeISO(), combustivel: 'Diesel S10', tanqueCheio: true }),
+  'f-man': () => ({ data: hojeISO(), tipo: TIPOS_MANUT[0] }),
+  'f-cam': () => ({ tipo: TIPOS_CAM[1], situacao: 'rodando' }),
+  'f-semi': () => ({ tipo: TIPOS_SEMI[0], eixos: '3', situacao: 'rodando' }),
+  'f-mot': () => ({ categoria: 'E', situacao: 'ativo' }),
+};
+function limparForm(f, manter) {
+  const base = PADROES[f.id]();
+  if (manter) manter.forEach(k => { const el = f.elements[k]; if (el) base[k] = el.type === 'checkbox' ? el.checked : el.value; });
+  preencherForm(f, base);
+  modoForm(f, null);
+  const msg = $('.f-msg', f);
+  if (msg) { msg.textContent = ''; msg.className = 'f-msg'; }
+  if (f.id === 'f-dia') { $('#dia-calc').innerHTML = ''; $('#dia-conj-box').hidden = true; $('#dia-conj').checked = true; }
+  if (f.id === 'f-ab') $('#ab-calc').innerHTML = '';
+  if (f.id === 'f-man') { $('#man-km').placeholder = ''; ajustarCamposManut(); }
+}
+function msgForm(f, txt, tipo) { const m = $('.f-msg', f); m.textContent = txt; m.className = 'f-msg ' + (tipo || ''); }
+function marcarErro(f, nome, txt) {
+  const el = f.elements[nome];
+  if (el) { el.setAttribute('aria-invalid', 'true'); el.focus(); }
+  msgForm(f, txt, 'erro');
+  return false;
+}
+
+/* plano de troca de conjunto: tira o motorista/semirreboque de outro caminhão e registra */
+function planoConjunto(camNovo, antMot, antSemi, data) {
+  const ops = [];
+  const agora = new Date().toISOString();
+  const novoMot = camNovo.motoristaId || '', novoSemi = camNovo.semirreboqueId || '';
+  if (novoMot === (antMot || '') && novoSemi === (antSemi || '')) return ops;
+  for (const o of D.caminhoes.values()) {
+    if (o.id === camNovo.id) continue;
+    const muda = {};
+    if (novoMot && o.motoristaId === novoMot && novoMot !== (antMot || '')) muda.motoristaId = '';
+    if (novoSemi && o.semirreboqueId === novoSemi && novoSemi !== (antSemi || '')) muda.semirreboqueId = '';
+    if (Object.keys(muda).length) {
+      ops.push(['set', 'caminhoes', Object.assign({}, o, muda)]);
+      ops.push(['set', 'trocas', { id: novoId('tr'), data, criadoEm: agora, caminhaoId: o.id,
+        motoristaAnt: o.motoristaId || '', motoristaNovo: 'motoristaId' in muda ? '' : (o.motoristaId || ''),
+        semiAnt: o.semirreboqueId || '', semiNovo: 'semirreboqueId' in muda ? '' : (o.semirreboqueId || '') }]);
+    }
+  }
+  ops.push(['set', 'trocas', { id: novoId('tr'), data, criadoEm: agora, caminhaoId: camNovo.id, motoristaAnt: antMot || '', motoristaNovo: novoMot, semiAnt: antSemi || '', semiNovo: novoSemi }]);
+  return ops;
+}
+
+async function salvarForm(f) {
+  if (UI.somenteLeitura) { msgForm(f, msgErro({ code: 'invalid_argument' }), 'erro'); return; }
+  $$('[aria-invalid]', f).forEach(el => el.removeAttribute('aria-invalid'));
+  const col = f.dataset.col;
+  const editando = f.dataset.editando;
+  const antigo = editando ? D[col].get(editando) : null;
+  const o = lerForm(f);
+  const ops = [];
+  let aviso = '';
+  let manter = [];
+
+  if (col === 'dias') {
+    if (!o.data) return marcarErro(f, 'data', 'Escolha a data.');
+    if (!o.caminhaoId) return marcarErro(f, 'caminhaoId', 'Escolha o caminhão.');
+    if (!o.motoristaId) return marcarErro(f, 'motoristaId', 'Escolha o motorista.');
+    if (o.kmInicial == null || isNaN(o.kmInicial)) return marcarErro(f, 'kmInicial', 'Escreva o km inicial (só números).');
+    if (o.kmFinal == null || isNaN(o.kmFinal)) return marcarErro(f, 'kmFinal', 'Escreva o km final (só números).');
+    if (o.kmFinal < o.kmInicial) return marcarErro(f, 'kmFinal', 'O km final não pode ser menor que o inicial.');
+    const c = cam(o.caminhaoId);
+    if (c && !$('#dia-conj-box').hidden && $('#dia-conj').checked) {
+      const novo = Object.assign({}, c, { motoristaId: o.motoristaId, semirreboqueId: o.semirreboqueId });
+      ops.push(['set', 'caminhoes', novo], ...planoConjunto(novo, c.motoristaId, c.semirreboqueId, o.data));
+    }
+    aviso = `Dia salvo: ${mostraPlaca(c ? c.placa : '')}, ${fKm(o.kmFinal - o.kmInicial)}.`;
+    manter = ['data'];
+  } else if (col === 'abastecimentos') {
+    if (!o.data) return marcarErro(f, 'data', 'Escolha a data.');
+    if (!o.caminhaoId) return marcarErro(f, 'caminhaoId', 'Escolha o caminhão.');
+    if (o.km != null && isNaN(o.km)) return marcarErro(f, 'km', 'O km tem que ser só números.');
+    if (!o.litros || isNaN(o.litros) || o.litros <= 0) return marcarErro(f, 'litros', 'Escreva quantos litros (ex.: 350,5).');
+    if (o.valor == null || isNaN(o.valor) || o.valor <= 0) return marcarErro(f, 'valor', 'Escreva o valor pago (ex.: 2.150,80).');
+    aviso = `Abastecimento salvo: ${fL(o.litros)}, ${fR(o.valor)}.`;
+    manter = ['data'];
+  } else if (col === 'manutencoes') {
+    if (!o.data) return marcarErro(f, 'data', 'Escolha a data.');
+    if (!o.veiculo) return marcarErro(f, 'veiculo', 'Escolha o caminhão ou o semirreboque.');
+    const [vt, vid] = o.veiculo.split(':');
+    o.veiculoTipo = vt; o.veiculoId = vid; delete o.veiculo;
+    if (vt !== 'caminhao') { o.km = null; o.proximaKm = null; }
+    if (o.km != null && isNaN(o.km)) return marcarErro(f, 'km', 'O km tem que ser só números.');
+    if (o.proximaKm != null && isNaN(o.proximaKm)) return marcarErro(f, 'proximaKm', 'O km da próxima tem que ser só números.');
+    if (o.valor == null || isNaN(o.valor) || o.valor < 0) return marcarErro(f, 'valor', 'Escreva o valor (0 se foi na garantia).');
+    if (o.proximaKm && o.km && o.proximaKm <= o.km) return marcarErro(f, 'proximaKm', 'A próxima precisa ser com mais km do que agora.');
+    aviso = `Manutenção salva: ${o.tipo}, ${fR(o.valor)}.`;
+    manter = ['data'];
+  } else if (col === 'caminhoes' || col === 'semirreboques') {
+    o.placa = normPlaca(o.placa);
+    if (!/^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(o.placa)) return marcarErro(f, 'placa', 'A placa tem 3 letras e 4 números ou letras, como ABC1D23 ou ABC1234.');
+    const repetida = [...todos('caminhoes'), ...todos('semirreboques')].find(x => x.placa === o.placa && x.id !== editando);
+    if (repetida) return marcarErro(f, 'placa', 'Já existe um veículo com a placa ' + mostraPlaca(o.placa) + '.');
+    if (o.ano && (o.ano.length !== 4 || o.ano < '1970' || o.ano > String(new Date().getFullYear() + 1))) return marcarErro(f, 'ano', 'Escreva o ano com 4 números.');
+    if (col === 'caminhoes') {
+      if (o.kmInicial != null && isNaN(o.kmInicial)) return marcarErro(f, 'kmInicial', 'O km tem que ser só números.');
+      if (o.situacao === 'fora') { o.motoristaId = ''; o.semirreboqueId = ''; }
+      const novo = Object.assign({}, antigo || {}, o);
+      ops.push(...planoConjunto(Object.assign({ id: editando || '?' }, novo), antigo ? antigo.motoristaId : '', antigo ? antigo.semirreboqueId : '', hojeISO()));
+      aviso = `Caminhão ${mostraPlaca(o.placa)} salvo.`;
+    } else {
+      if (o.situacao === 'fora') { const c = camDoSemi(editando); if (c) ops.push(['set', 'caminhoes', Object.assign({}, c, { semirreboqueId: '' })]); }
+      aviso = `Semirreboque ${mostraPlaca(o.placa)} salvo.`;
+    }
+  } else if (col === 'motoristas') {
+    if (!o.nome) return marcarErro(f, 'nome', 'Escreva o nome do motorista.');
+    if (o.situacao === 'desligado') { const c = camDoMot(editando); if (c) ops.push(['set', 'caminhoes', Object.assign({}, c, { motoristaId: '' })]); }
+    aviso = `Motorista ${o.nome} salvo.`;
+  }
+
+  const id = editando || novoId({ dias: 'dia', abastecimentos: 'ab', manutencoes: 'man', caminhoes: 'cam', semirreboques: 'semi', motoristas: 'mot' }[col]);
+  const reg = Object.assign({}, antigo || {}, o, { id });
+  if (!antigo) reg.criadoEm = new Date().toISOString();
+  delete reg.exemplo;
+  if (antigo && antigo.exemplo) reg.exemplo = true;
+  // o caminhão e seus trocas: corrigir o id de quem ainda não tinha
+  for (const op of ops) if (op[2] && op[2].caminhaoId === '?') op[2].caminhaoId = id;
+  const principal = ['set', col, reg];
+  const outras = ops.filter(op => !(op[1] === col && op[2].id === id));
+  const botao = $('button[type="submit"]', f);
+  botao.disabled = true;
+  try {
+    await gravarVarios([principal, ...outras]);
+    limparForm(f, manter);
+    if (f.id === 'f-cam' || f.id === 'f-semi' || f.id === 'f-mot') f.hidden = true;
+    toast(aviso);
+    if (col === 'dias' || col === 'abastecimentos') { const sel = f.elements.caminhaoId; if (sel) sel.focus(); }
+  } catch (e) {
+    msgForm(f, msgErro(e), 'erro');
+  } finally {
+    botao.disabled = UI.somenteLeitura;
+  }
+}
+
+function editar(col, id) {
+  const reg = D[col].get(id);
+  const f = document.getElementById(FORM_DA_COL[col]);
+  if (!reg || !f) return;
+  const vista = VISTA_DO_FORM[f.id];
+  if (UI.aba !== vista) { location.hash = vista; mostrarAba(vista); }
+  f.hidden = false;
+  const dados = Object.assign({}, reg);
+  if (col === 'manutencoes') dados.veiculo = reg.veiculoTipo + ':' + reg.veiculoId;
+  limparForm(f);
+  preencherForm(f, dados);
+  modoForm(f, id);
+  if (col === 'dias') calcDia();
+  if (col === 'abastecimentos') calcAb();
+  if (col === 'manutencoes') ajustarCamposManut();
+  f.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  const primeiro = $('input, select', f);
+  if (primeiro) primeiro.focus({ preventScroll: true });
+}
+
+async function apagarRegistro(col, id) {
+  const reg = D[col].get(id);
+  UI.confirmar = null;
+  if (!reg) { agendarRender(); return; }
+  const ops = [['del', col, id]];
+  if (col === 'caminhoes') {
+    const n = todos('dias').filter(r => r.caminhaoId === id).length + todos('abastecimentos').filter(a => a.caminhaoId === id).length + todos('manutencoes').filter(m => m.veiculoTipo === 'caminhao' && m.veiculoId === id).length;
+    if (n) { toast(`O ${mostraPlaca(reg.placa)} tem ${plural(n, 'lançamento', 'lançamentos')}. Para tirar da lista, edite e mude a situação para Fora da frota.`, true); agendarRender(); return; }
+  }
+  if (col === 'semirreboques') {
+    const n = todos('dias').filter(r => r.semirreboqueId === id).length + todos('manutencoes').filter(m => m.veiculoTipo === 'semirreboque' && m.veiculoId === id).length;
+    if (n) { toast(`O ${mostraPlaca(reg.placa)} aparece em ${plural(n, 'lançamento', 'lançamentos')}. Para tirar da lista, edite e mude a situação para Fora da frota.`, true); agendarRender(); return; }
+    const c = camDoSemi(id); if (c) ops.push(['set', 'caminhoes', Object.assign({}, c, { semirreboqueId: '' })]);
+  }
+  if (col === 'motoristas') {
+    const n = todos('dias').filter(r => r.motoristaId === id).length + todos('abastecimentos').filter(a => a.motoristaId === id).length;
+    if (n) { toast(`${reg.nome} aparece em ${plural(n, 'lançamento', 'lançamentos')}. Para tirar da lista, edite e mude a situação para Desligado.`, true); agendarRender(); return; }
+    const c = camDoMot(id); if (c) ops.push(['set', 'caminhoes', Object.assign({}, c, { motoristaId: '' })]);
+  }
+  try {
+    await gravarVarios(ops);
+    const f = document.getElementById(FORM_DA_COL[col]);
+    if (f && f.dataset.editando === id) limparForm(f, ['data']);
+    toast('Apagado.');
+  } catch (e) { toast(msgErro(e), true); }
+}
+
+async function salvarTroca(camId) {
+  const c = cam(camId);
+  const pend = UI.pendTroca[camId];
+  if (!c || !pend) return;
+  const novo = Object.assign({}, c, {
+    motoristaId: pend.mot !== undefined ? pend.mot : (c.motoristaId || ''),
+    semirreboqueId: pend.semi !== undefined ? pend.semi : (c.semirreboqueId || ''),
+  });
+  const data = pend.data || hojeISO();
+  const ops = [['set', 'caminhoes', novo], ...planoConjunto(novo, c.motoristaId, c.semirreboqueId, data)];
+  try {
+    await gravarVarios(ops);
+    delete UI.pendTroca[camId];
+    toast(`Troca salva no ${mostraPlaca(c.placa)}.`);
+  } catch (e) { toast(msgErro(e), true); }
+  agendarRender();
+}
+
+/* ====================================================================
+   Planilhas, cópia de segurança e exemplo
+   ==================================================================== */
+function csv(linhas) {
+  return '﻿' + linhas.map(l => l.map(c => {
+    const s = c == null ? '' : String(c);
+    return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }).join(';')).join('\r\n');
+}
+const dec = (n, casas) => n == null || !isFinite(n) ? '' : Number(n).toFixed(casas).replace('.', ',');
+async function baixar(nome, conteudo, tipo) {
+  if (window.claude && typeof window.claude.use === 'function') {
+    let dl = null;
+    try { dl = await window.claude.use('downloads'); } catch (e) { dl = null; }
+    if (dl) {
+      try { await dl.save({ filename: nome, data: conteudo }); return true; }
+      catch (e) {
+        if (e && e.code === 'declined') return false;
+        toast(e && e.code === 'rate_limited' ? 'Já tem um arquivo esperando sua confirmação.' : 'Não consegui salvar o arquivo aqui.', true);
+        return false;
+      }
+    }
+  }
+  try {
+    const url = URL.createObjectURL(new Blob([conteudo], { type: tipo }));
+    const a = document.createElement('a');
+    a.href = url; a.download = nome; a.rel = 'noopener';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+    return true;
+  } catch (e) { toast('Não consegui salvar o arquivo aqui.', true); return false; }
+}
+function planilha(tipo) {
+  const h = hojeISO();
+  const placaC = id => { const c = cam(id); return c ? mostraPlaca(c.placa) : ''; };
+  const placaS = id => { const s = semi(id); return s ? mostraPlaca(s.placa) : ''; };
+  if (tipo === 'dias') {
+    const linhas = [['Data', 'Caminhão', 'Motorista', 'Semirreboque', 'Km inicial', 'Km final', 'Km rodados', 'Saiu de', 'Chegou em', 'Observação']];
+    (UI.listaDias || []).slice().reverse().forEach(r => linhas.push([fmtData(r.data), placaC(r.caminhaoId), nomeMot(r.motoristaId), placaS(r.semirreboqueId), r.kmInicial, r.kmFinal, kmDia(r), r.origem, r.destino, r.obs]));
+    return ['km-por-dia-' + h + '.csv', csv(linhas)];
+  }
+  if (tipo === 'abastecimentos') {
+    const linhas = [['Data', 'Caminhão', 'Motorista', 'Combustível', 'Litros', 'Valor (R$)', 'R$ por litro', 'Km no hodômetro', 'Completou o tanque', 'Posto']];
+    (UI.listaAb || []).slice().reverse().forEach(a => linhas.push([fmtData(a.data), placaC(a.caminhaoId), nomeMot(a.motoristaId), a.combustivel, dec(a.litros, 2), dec(a.valor, 2), a.litros ? dec(a.valor / a.litros, 3) : '', a.km || '', a.tanqueCheio ? 'sim' : 'não', a.posto]));
+    return ['abastecimentos-' + h + '.csv', csv(linhas)];
+  }
+  if (tipo === 'manutencoes') {
+    const linhas = [['Data', 'Veículo', 'Placa', 'Serviço', 'O que foi feito', 'Oficina', 'Km', 'Valor (R$)', 'Próxima (km)', 'Próxima (data)']];
+    (UI.listaMan || []).slice().reverse().forEach(m => linhas.push([fmtData(m.data), m.veiculoTipo === 'caminhao' ? 'Caminhão' : 'Semirreboque', nomeVeic(m.veiculoTipo, m.veiculoId), m.tipo, m.descricao, m.oficina, m.km || '', dec(m.valor, 2), m.proximaKm || '', fmtData(m.proximaData)]));
+    return ['manutencoes-' + h + '.csv', csv(linhas)];
+  }
+  if (tipo === 'extrato') {
+    const linhas = [['Período', P.nome], [], ['Caminhão', 'Data', 'Lançamento', 'Detalhe', 'Hodômetro', 'Km rodados', 'Litros', 'Valor (R$)', 'Gasto acumulado do caminhão (R$)']];
+    const ids = UI.relCam && cam(UI.relCam) ? [UI.relCam] : todos('caminhoes').sort(porPlaca).map(c => c.id);
+    ids.forEach(id => linhasExtrato(id).forEach(l => linhas.push([placaC(id), fmtData(l.data), l.tipo, l.det, l.hod, l.rodou == null ? '' : l.rodou, l.litros ? dec(l.litros, 2) : '', l.valor == null ? '' : dec(l.valor, 2), l.valor == null ? '' : dec(l.acum, 2)])));
+    const c = UI.relCam ? cam(UI.relCam) : null;
+    return [(c ? 'extrato-' + c.placa.toLowerCase() : 'extrato-por-caminhao') + '-' + P.ini + '-a-' + P.fim + '.csv', csv(linhas)];
+  }
+  const linhas = [['Período', P.nome], [], ['Caminhão', 'Tipo', 'Motorista agora', 'Semirreboque agora', 'Km rodados', 'Combustível (R$)', 'Litros de diesel', 'Consumo (km/l)', 'Manutenção (R$)', 'Custo por km (R$)']];
+  (UI.linhasPainel || []).forEach(r => linhas.push([r.c ? mostraPlaca(r.c.placa) : '', r.c ? r.c.tipo : '', r.c ? nomeMot(r.c.motoristaId) : '', r.c ? placaS(r.c.semirreboqueId) : '', r.km, dec(r.comb, 2), dec(r.litros, 1), dec(r.kml, 2), dec(r.manut, 2), dec(r.custo, 2)]));
+  return ['resumo-frota-' + P.ini + '-a-' + P.fim + '.csv', csv(linhas)];
+}
+async function salvarCopia() {
+  const dados = {};
+  COLS.forEach(c => { dados[c] = todos(c); });
+  const json = JSON.stringify({ app: 'sistema-carlise', versao: 1, salvoEm: new Date().toISOString(), dados }, null, 1);
+  const ok = await baixar('sistema-carlise-copia-' + hojeISO() + '.json', json, 'application/json');
+  if (ok) { try { localStorage.setItem(CHAVE_COPIA, hojeISO()); } catch (e) { /* sem armazenamento */ } toast('Cópia salva.'); agendarRender(); }
+}
+async function carregarCopia(arquivo) {
+  let obj;
+  try { obj = JSON.parse(await arquivo.text()); } catch (e) { toast('Este arquivo não é uma cópia do Sistema Carlise.', true); return; }
+  if (!obj || obj.app !== 'sistema-carlise' || typeof obj.dados !== 'object') { toast('Este arquivo não é uma cópia do Sistema Carlise.', true); return; }
+  const ops = [];
+  const cont = {};
+  for (const c of COLS) {
+    const lista = Array.isArray(obj.dados[c]) ? obj.dados[c] : [];
+    cont[c] = 0;
+    for (const x of lista) if (x && typeof x === 'object' && typeof x.id === 'string' && /^[A-Za-z0-9_.~:@+-]{1,120}$/.test(x.id)) { ops.push(['set', c, x]); cont[c]++; }
+  }
+  if (!ops.length) { toast('A cópia está vazia.', true); return; }
+  try {
+    await gravarVarios(ops, (f, t) => { if (t > 20 && f % 10 === 0) toast(`Carregando a cópia: ${f} de ${t}…`); });
+    toast(`Cópia carregada: ${plural(cont.caminhoes, 'caminhão', 'caminhões')}, ${plural(cont.motoristas, 'motorista', 'motoristas')}, ${plural(cont.dias + cont.abastecimentos + cont.manutencoes, 'lançamento', 'lançamentos')}.`);
+  } catch (e) { toast(msgErro(e), true); }
+}
+
+/* EXEMPLO:INICIO (usado também para semear a base publicada) */
+function gerarExemplo(hoje) {
+  let semente = 20261123;
+  const rnd = () => { semente = (semente * 16807) % 2147483647; return semente / 2147483647; };
+  const ex = o => Object.assign(o, { exemplo: true, criadoEm: hoje + 'T08:00:00.000Z' });
+  const motoristas = [
+    ex({ id: 'ex-mot-1', nome: 'Antônio Ribeiro', telefone: '(49) 98800-1101', cnh: '04512378900', categoria: 'E', validadeCnh: somaDias(hoje, 410), validadeToxicologico: somaDias(hoje, 19), situacao: 'ativo' }),
+    ex({ id: 'ex-mot-2', nome: 'Marcos Vieira', telefone: '(49) 98800-2202', cnh: '06633214577', categoria: 'E', validadeCnh: somaDias(hoje, -4), validadeToxicologico: somaDias(hoje, 280), situacao: 'ativo' }),
+    ex({ id: 'ex-mot-3', nome: 'Edson Lima', telefone: '(49) 98800-3303', cnh: '01298745633', categoria: 'E', validadeCnh: somaDias(hoje, 760), validadeToxicologico: somaDias(hoje, 515), situacao: 'ativo' }),
+    ex({ id: 'ex-mot-4', nome: 'Paulo Henrique Souza', telefone: '(49) 98800-4404', cnh: '07741258966', categoria: 'E', validadeCnh: somaDias(hoje, 1200), validadeToxicologico: somaDias(hoje, 640), situacao: 'ativo', obs: 'Folguista' }),
+  ];
+  const semirreboques = [
+    ex({ id: 'ex-semi-1', placa: 'BRA2E19', tipo: 'Graneleiro', eixos: '3', marca: 'Randon', ano: '2019', situacao: 'rodando' }),
+    ex({ id: 'ex-semi-2', placa: 'QJB7C41', tipo: 'Sider', eixos: '3', marca: 'Librelato', ano: '2021', situacao: 'rodando' }),
+    ex({ id: 'ex-semi-3', placa: 'MKT3H08', tipo: 'Baú frigorífico', eixos: '3', marca: 'Facchini', ano: '2018', situacao: 'rodando' }),
+    ex({ id: 'ex-semi-4', placa: 'RFA5D62', tipo: 'Basculante', eixos: '2', marca: 'Guerra', ano: '2016', situacao: 'parado' }),
+  ];
+  const caminhoes = [
+    ex({ id: 'ex-cam-1', placa: 'RKT4F21', tipo: 'Cavalo mecânico 6x2', marca: 'Volvo', modelo: 'FH 460', ano: '2020', kmInicial: 412300, situacao: 'rodando', motoristaId: 'ex-mot-1', semirreboqueId: 'ex-semi-1' }),
+    ex({ id: 'ex-cam-2', placa: 'QJA7B05', tipo: 'Cavalo mecânico 6x4', marca: 'Scania', modelo: 'R 450', ano: '2022', kmInicial: 238900, situacao: 'rodando', motoristaId: 'ex-mot-2', semirreboqueId: 'ex-semi-2' }),
+    ex({ id: 'ex-cam-3', placa: 'MLP2A96', tipo: 'Cavalo mecânico 4x2', marca: 'Mercedes-Benz', modelo: 'Actros 2546', ano: '2019', kmInicial: 501750, situacao: 'oficina', motoristaId: 'ex-mot-3', semirreboqueId: 'ex-semi-3' }),
+  ];
+  const rotas = [['Chapecó', 'Itajaí'], ['Itajaí', 'Chapecó'], ['Concórdia', 'Curitiba'], ['Curitiba', 'Concórdia'], ['Xanxerê', 'Paranaguá'], ['Paranaguá', 'Xanxerê'], ['Chapecó', 'Porto Alegre'], ['Porto Alegre', 'Chapecó'], ['Joaçaba', 'São Paulo'], ['São Paulo', 'Joaçaba']];
+  const postos = ['Posto Trevo, Chapecó', 'Graal, Itajaí', 'Posto Rota 282, Joaçaba', 'Posto Buffon, Concórdia', 'Posto Rodo, Curitiba'];
+  const dias = [], abastecimentos = [], manutencoes = [], trocas = [];
+  const odo = { 'ex-cam-1': 412300, 'ex-cam-2': 238900, 'ex-cam-3': 501750 };
+  const kml = { 'ex-cam-1': 2.55, 'ex-cam-2': 2.3, 'ex-cam-3': 2.45 };
+  const desdeAbast = { 'ex-cam-1': 0, 'ex-cam-2': 0, 'ex-cam-3': 0 };
+  let n = 0;
+  for (let d = -24; d <= -1; d++) {
+    const data = somaDias(hoje, d);
+    const domingo = dataDe(data).getDay() === 0;
+    for (const c of caminhoes) {
+      if (domingo) continue;
+      if (c.id === 'ex-cam-3' && d >= -3) continue;           // na oficina desde 3 dias atrás
+      if (rnd() < 0.08) continue;                              // dia parado
+      const rodou = Math.round(380 + rnd() * 390);
+      const ini = odo[c.id];
+      odo[c.id] += rodou;
+      desdeAbast[c.id] += rodou;
+      let motoristaId = c.motoristaId, semirreboqueId = c.semirreboqueId;
+      if (c.id === 'ex-cam-1' && (d === -12 || d === -11)) motoristaId = 'ex-mot-4';
+      if (c.id === 'ex-cam-2' && d < -6) semirreboqueId = 'ex-semi-4';
+      const rota = rotas[Math.floor(rnd() * rotas.length)];
+      dias.push(ex({ id: 'ex-dia-' + (++n), data, caminhaoId: c.id, motoristaId, semirreboqueId, kmInicial: ini, kmFinal: odo[c.id], origem: rota[0], destino: rota[1], obs: '' }));
+      if (desdeAbast[c.id] > 850 || d === -24) {
+        const litros = Math.round((desdeAbast[c.id] / (kml[c.id] * (0.94 + rnd() * 0.12))) * 10) / 10;
+        const preco = Math.round((6.05 + rnd() * 0.3) * 100) / 100;
+        abastecimentos.push(ex({ id: 'ex-ab-' + (++n), data, caminhaoId: c.id, motoristaId, km: odo[c.id], combustivel: 'Diesel S10', litros, valor: Math.round(litros * preco * 100) / 100, posto: postos[Math.floor(rnd() * postos.length)], tanqueCheio: true }));
+        if (rnd() < 0.3) abastecimentos.push(ex({ id: 'ex-ab-' + (++n), data, caminhaoId: c.id, motoristaId, km: odo[c.id], combustivel: 'Arla 32', litros: 40, valor: 155.6, posto: postos[0], tanqueCheio: false }));
+        desdeAbast[c.id] = 0;
+      }
+    }
+  }
+  // um tanque com consumo ruim, para mostrar o aviso
+  const ruim = abastecimentos.filter(a => a.caminhaoId === 'ex-cam-2' && a.combustivel !== 'Arla 32').slice(-2)[0];
+  if (ruim) { ruim.litros = Math.round(ruim.litros * 1.3 * 10) / 10; ruim.valor = Math.round(ruim.litros * 6.19 * 100) / 100; }
+  const kmEm = (camId, data) => dias.filter(r => r.caminhaoId === camId && r.data <= data).reduce((m, r) => Math.max(m, r.kmFinal), caminhoes.find(c => c.id === camId).kmInicial);
+  manutencoes.push(
+    ex({ id: 'ex-man-1', data: somaDias(hoje, -20), veiculoTipo: 'caminhao', veiculoId: 'ex-cam-1', tipo: 'Troca de óleo e filtros', descricao: 'Óleo 15W40 (38 L), filtros de óleo, diesel e ar', oficina: 'Volvo Chapecó', km: kmEm('ex-cam-1', somaDias(hoje, -20)), valor: 2380, proximaKm: odo['ex-cam-1'] + 1400, proximaData: '' }),
+    ex({ id: 'ex-man-2', data: somaDias(hoje, -9), veiculoTipo: 'caminhao', veiculoId: 'ex-cam-2', tipo: 'Pneus', descricao: '4 pneus de tração 295/80 R22.5', oficina: 'Borracharia Oeste', km: kmEm('ex-cam-2', somaDias(hoje, -9)), valor: 9840, proximaKm: null, proximaData: '' }),
+    ex({ id: 'ex-man-3', data: somaDias(hoje, -2), veiculoTipo: 'caminhao', veiculoId: 'ex-cam-3', tipo: 'Câmbio e embreagem', descricao: 'Kit de embreagem e atuador', oficina: 'Diesel Center Xanxerê', km: kmEm('ex-cam-3', somaDias(hoje, -2)), valor: 7350, proximaKm: null, proximaData: '' }),
+    ex({ id: 'ex-man-4', data: somaDias(hoje, -14), veiculoTipo: 'semirreboque', veiculoId: 'ex-semi-1', tipo: 'Freios', descricao: 'Lonas e tambores do 2º e 3º eixo', oficina: 'Randon Service', km: null, valor: 3120, proximaKm: null, proximaData: somaDias(hoje, 9) }),
+    ex({ id: 'ex-man-5', data: somaDias(hoje, -60), veiculoTipo: 'caminhao', veiculoId: 'ex-cam-2', tipo: 'Revisão preventiva', descricao: 'Revisão dos 240 mil', oficina: 'Scania Concórdia', km: 238900, valor: 4210, proximaKm: 238900 + 40000, proximaData: '' }),
+  );
+  trocas.push(
+    ex({ id: 'ex-tr-1', data: somaDias(hoje, -6), caminhaoId: 'ex-cam-2', motoristaAnt: 'ex-mot-2', motoristaNovo: 'ex-mot-2', semiAnt: 'ex-semi-4', semiNovo: 'ex-semi-2' }),
+    ex({ id: 'ex-tr-2', data: somaDias(hoje, -12), caminhaoId: 'ex-cam-1', motoristaAnt: 'ex-mot-1', motoristaNovo: 'ex-mot-4', semiAnt: 'ex-semi-1', semiNovo: 'ex-semi-1' }),
+    ex({ id: 'ex-tr-3', data: somaDias(hoje, -10), caminhaoId: 'ex-cam-1', motoristaAnt: 'ex-mot-4', motoristaNovo: 'ex-mot-1', semiAnt: 'ex-semi-1', semiNovo: 'ex-semi-1' }),
+  );
+  const config = [ex({ id: 'metas', kml: 2.5, custoKm: 3.2 })];
+  return { caminhoes, semirreboques, motoristas, dias, abastecimentos, manutencoes, trocas, config };
+}
+/* EXEMPLO:FIM */
+async function carregarExemplo() {
+  const ex = gerarExemplo(hojeISO());
+  const ops = [];
+  COLS.forEach(c => (ex[c] || []).forEach(x => { if (c !== 'config' || !D.config.has(x.id)) ops.push(['set', c, x]); }));
+  try {
+    toast('Carregando os exemplos…');
+    await gravarVarios(ops, (f, t) => { if (f % 10 === 0) toast(`Carregando os exemplos: ${f} de ${t}…`); });
+    location.hash = 'painel';
+    toast('Exemplos carregados. Apague quando quiser começar.');
+  } catch (e) { toast(msgErro(e), true); }
+}
+async function apagarExemplo() {
+  UI.pedirApagarExemplo = false;
+  const ops = [];
+  COLS.forEach(c => todos(c).filter(x => x.exemplo).forEach(x => ops.push(['del', c, x.id])));
+  // tira dos caminhões de verdade os motoristas e semirreboques de exemplo
+  const vaoSair = new Set(ops.map(o => o[2]));
+  todos('caminhoes').filter(c => !c.exemplo && (vaoSair.has(c.motoristaId) || vaoSair.has(c.semirreboqueId))).forEach(c => {
+    ops.push(['set', 'caminhoes', Object.assign({}, c, { motoristaId: vaoSair.has(c.motoristaId) ? '' : c.motoristaId, semirreboqueId: vaoSair.has(c.semirreboqueId) ? '' : c.semirreboqueId })]);
+  });
+  try {
+    toast('Apagando os exemplos…');
+    await gravarVarios(ops, (f, t) => { if (f % 10 === 0) toast(`Apagando os exemplos: ${f} de ${t}…`); });
+    UI.pendTroca = {};
+    toast('Exemplos apagados. Agora é a sua frota.');
+  } catch (e) { toast(msgErro(e), true); }
+  agendarRender();
+}
+
+/* ====================================================================
+   Eventos
+   ==================================================================== */
+let toastTimer = null;
+function toast(txt, erro) {
+  const t = $('#toast');
+  t.textContent = txt;
+  t.className = 'toast' + (erro ? ' erro' : '');
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, erro ? 7000 : 3500);
+}
+function mostrarAba(aba) {
+  UI.aba = aba;
+  const slot = $(`#v-${aba} .slot-periodo`);
+  if (slot && !slot.contains($('#periodo-box'))) slot.appendChild($('#periodo-box'));
+  $$('.aba').forEach(a => a.setAttribute('aria-selected', String(a.dataset.aba === aba)));
+  $$('.vista[data-vista]').forEach(v => { v.hidden = v.dataset.vista !== aba; });
+  render();
+}
+function rotear() {
+  const h = (location.hash || '').replace('#', '');
+  mostrarAba(['painel', 'dia', 'abastecer', 'manutencao', 'relatorio', 'frota'].includes(h) ? h : 'painel');
+}
+
+function ligarEventos() {
+  window.addEventListener('hashchange', () => { rotear(); window.scrollTo(0, 0); });
+
+  document.addEventListener('click', e => {
+    const per = e.target.closest('[data-periodo]');
+    if (per) { UI.periodo = per.dataset.periodo; if (UI.periodo === 'datas') { $('#p-ini').value = P.ini; $('#p-fim').value = P.fim > hojeISO() ? hojeISO() : P.fim; UI.pIni = $('#p-ini').value; UI.pFim = $('#p-fim').value; } render(); return; }
+    const csvB = e.target.closest('[data-csv]');
+    if (csvB) { const [nome, conteudo] = planilha(csvB.dataset.csv); baixar(nome, conteudo, 'text/csv'); return; }
+    const b = e.target.closest('[data-acao]');
+    if (!b) return;
+    const acao = b.dataset.acao;
+    const alvo = b.dataset.alvo ? b.dataset.alvo.split(':') : null;
+    switch (acao) {
+      case 'editar': UI.confirmar = null; editar(alvo[0], alvo[1]); break;
+      case 'apagar': UI.confirmar = b.dataset.alvo; render(); { const s = document.querySelector('[data-acao="apagar-nao"]'); if (s) s.focus(); } break;
+      case 'apagar-nao': UI.confirmar = null; render(); break;
+      case 'apagar-sim': apagarRegistro(alvo[0], alvo[1]); break;
+      case 'cancelar-edicao': limparForm(b.closest('form'), ['data']); render(); break;
+      case 'abrir-form': {
+        e.preventDefault();
+        const f = document.getElementById(b.dataset.form);
+        if (UI.aba !== VISTA_DO_FORM[f.id]) { location.hash = VISTA_DO_FORM[f.id]; mostrarAba(VISTA_DO_FORM[f.id]); }
+        limparForm(f);
+        f.hidden = false;
+        f.scrollIntoView({ block: 'start' });
+        $('input, select', f).focus({ preventScroll: true });
+        break;
+      }
+      case 'fechar-form': { const f = b.closest('form'); limparForm(f); f.hidden = true; break; }
+      case 'salvar-troca': salvarTroca(b.dataset.cam); break;
+      case 'desfazer-troca': delete UI.pendTroca[b.dataset.cam]; render(); break;
+      case 'backup': salvarCopia(); break;
+      case 'restaurar': $('#arquivo-copia').click(); break;
+      case 'carregar-exemplo': carregarExemplo(); break;
+      case 'pedir-apagar-exemplo': UI.pedirApagarExemplo = true; window.scrollTo(0, 0); render(); break;
+      case 'nao-apagar-exemplo': UI.pedirApagarExemplo = false; render(); break;
+      case 'apagar-exemplo': apagarExemplo(); break;
+      case 'ver-extrato':
+        e.preventDefault();
+        UI.relCam = b.dataset.cam || '';
+        if (UI.aba !== 'relatorio') { location.hash = 'relatorio'; mostrarAba('relatorio'); } else render();
+        window.scrollTo(0, 0);
+        break;
+      case 'imprimir': imprimirRelatorio(); break;
+      case 'baixar-relatorio': baixarRelatorio(); break;
+    }
+  });
+
+  document.addEventListener('change', e => {
+    const el = e.target;
+    if (el.id === 'dia-cam') { preencherDoCaminhao('dia'); calcDia(); }
+    else if (el.id === 'ab-cam') { preencherDoCaminhao('ab'); calcAb(); }
+    else if (el.id === 'dia-data' || el.id === 'dia-mot' || el.id === 'dia-semi') calcDia();
+    else if (el.id === 'ab-comb' || el.id === 'ab-data') calcAb();
+    else if (el.id === 'man-veic') { $('#man-km').placeholder = ''; ajustarCamposManut(); }
+    else if (el.id === 'g-cam') { UI.grafCam = el.value; render(); }
+    else if (el.id === 'rel-cam') { UI.relCam = el.value; render(); }
+    else if (['fd-cam', 'fd-mes', 'fa-cam', 'fa-mes', 'fm-veic', 'fm-mes'].includes(el.id)) { UI.confirmar = null; render(); }
+    else if (el.id === 'p-ini' || el.id === 'p-fim') { UI.pIni = $('#p-ini').value; UI.pFim = $('#p-fim').value; render(); }
+    else if (el.id === 'arquivo-copia') { const a = el.files && el.files[0]; el.value = ''; if (a) carregarCopia(a); }
+    else if (el.dataset.conj) {
+      const id = el.dataset.cam;
+      const p = UI.pendTroca[id] = UI.pendTroca[id] || {};
+      if (el.dataset.conj === 'mot') p.mot = el.value;
+      else if (el.dataset.conj === 'semi') p.semi = el.value;
+      else p.data = el.value;
+      const c = cam(id);
+      if (c && (p.mot === undefined || p.mot === (c.motoristaId || '')) && (p.semi === undefined || p.semi === (c.semirreboqueId || ''))) delete UI.pendTroca[id];
+      render();
+    }
+  });
+
+  document.addEventListener('input', e => {
+    const f = e.target.form;
+    if (!f) return;
+    e.target.removeAttribute('aria-invalid');
+    if (f.id === 'f-dia') calcDia();
+    else if (f.id === 'f-ab') calcAb();
+  });
+  document.addEventListener('focusout', e => {
+    const el = e.target;
+    if (el.dataset && el.dataset.tipo === 'int' && el.value) { const n = lerNumero(el.value, true); if (n != null && !isNaN(n)) el.value = nf0.format(n); }
+    if (el.name === 'placa' && el.value) el.value = mostraPlaca(normPlaca(el.value));
+  });
+  document.addEventListener('submit', e => {
+    e.preventDefault();
+    if (e.target.id === 'f-metas') salvarMetas();
+    else if (e.target.matches('form.ficha')) salvarForm(e.target);
+  });
+
+  document.addEventListener('pointermove', dicaGrafico);
+  document.addEventListener('pointerdown', dicaGrafico);
+  document.addEventListener('pointerleave', () => dicaGrafico({ target: null }));
+  const main = $('main.wrap');
+  let largura = main.clientWidth;
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(() => { const w = main.clientWidth; if (Math.abs(w - largura) > 4) { largura = w; if (UI.aba === 'painel' || UI.aba === 'relatorio') agendarRender(); } }).observe(main);
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && UI.confirmar) { UI.confirmar = null; render(); } });
+  window.addEventListener('afterprint', () => { document.body.classList.remove('imprimir-rel'); restaurarTema(); });
+}
+
+function montarListasFixas() {
+  const preencher = (sel, itens) => { $(sel).innerHTML = itens.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join(''); };
+  preencher('#cam-tipo', TIPOS_CAM.map(t => [t, t]));
+  preencher('#semi-tipo', TIPOS_SEMI.map(t => [t, t]));
+  preencher('#man-tipo', TIPOS_MANUT.map(t => [t, t]));
+  preencher('#cam-sit', Object.entries(SIT_CAM));
+  preencher('#semi-sit', Object.entries(SIT_SEMI));
+  preencher('#mot-sit', Object.entries(SIT_MOT));
+  ['f-dia', 'f-ab', 'f-man', 'f-cam', 'f-semi', 'f-mot'].forEach(id => limparForm(document.getElementById(id)));
+}
+
+async function iniciar() {
+  montarListasFixas();
+  ligarEventos();
+  rotear();
+  if (window.claude && typeof window.claude.use === 'function') {
+    let db = null;
+    try { db = await window.claude.use('db'); } catch (e) { db = null; }
+    if (db) { iniciarNuvem(db); return; }
+  }
+  iniciarLocal();
+}
+iniciar();
+</script>

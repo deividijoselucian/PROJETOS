@@ -1,0 +1,40 @@
+name: Sistema Carlise (programa para Windows)
+
+on:
+  push:
+    paths:
+      - "sistema-carlise/**"
+      - ".github/workflows/sistema-carlise.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar NSIS
+        run: sudo apt-get update && sudo apt-get install -y nsis
+
+      - name: Gerar SistemaCarlise.exe
+        run: bash sistema-carlise/exe/build.sh
+
+      - name: Guardar o arquivo
+        uses: actions/upload-artifact@v4
+        with:
+          name: SistemaCarlise
+          path: sistema-carlise/exe/dist/SistemaCarlise.exe
+
+      - name: Publicar para download (pré-lançamento "sistema-carlise")
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=sistema-carlise
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Sistema Carlise (programa para Windows)" \
+            --notes "Baixe SistemaCarlise.exe e abra. Ele cria o atalho Sistema Carlise na Área de Trabalho."
+          gh release upload "$TAG" --clobber sistema-carlise/exe/dist/SistemaCarlise.exe
