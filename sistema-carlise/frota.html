@@ -693,6 +693,7 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
         </div>
         <div class="campos">
           <div class="campo"><label for="cam-placa">Placa</label><input type="text" id="cam-placa" name="placa" autocomplete="off" autocapitalize="characters" placeholder="ABC1D23" maxlength="8"></div>
+          <div class="campo"><label for="cam-apelido">Apelido</label><input type="text" id="cam-apelido" name="apelido" autocomplete="off" placeholder="Caçamba 01, Grande 4…"></div>
           <div class="campo"><label for="cam-cat">Categoria</label><select id="cam-cat" name="categoria" data-categorias></select></div>
           <div class="campo"><label for="cam-tipo">Tipo</label><select id="cam-tipo" name="tipo"></select></div>
           <div class="campo"><label for="cam-marca">Marca</label><input type="text" id="cam-marca" name="marca" list="lista-marcas" autocomplete="off"></div>
@@ -723,6 +724,7 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
         </div>
         <div class="campos">
           <div class="campo"><label for="semi-placa">Placa</label><input type="text" id="semi-placa" name="placa" autocomplete="off" autocapitalize="characters" placeholder="ABC1D23" maxlength="8"></div>
+          <div class="campo"><label for="semi-apelido">Apelido</label><input type="text" id="semi-apelido" name="apelido" autocomplete="off" placeholder="Carreta branca…"></div>
           <div class="campo"><label for="semi-cat">Categoria</label><select id="semi-cat" name="categoria" data-categorias></select><span class="dica">Em branco, segue a do caminhão em que está engatado.</span></div>
           <div class="campo"><label for="semi-tipo">Tipo</label><select id="semi-tipo" name="tipo"></select></div>
           <div class="campo"><label for="semi-eixos">Eixos</label><select id="semi-eixos" name="eixos"><option value="2">2 eixos</option><option value="3" selected>3 eixos</option><option value="4">4 eixos</option><option value="5">5 ou mais</option></select></div>
@@ -807,8 +809,8 @@ const COLS = ['caminhoes', 'semirreboques', 'motoristas', 'dias', 'abastecimento
 const D = {};
 COLS.forEach(c => { D[c] = new Map(); });
 
-const TIPOS_CAM = ['Cavalo mecânico 4x2', 'Cavalo mecânico 6x2', 'Cavalo mecânico 6x4', 'Toco', 'Truck', 'Bitruck', '3/4', 'VUC', 'Outro'];
-const TIPOS_SEMI = ['Graneleiro', 'Baú', 'Baú frigorífico', 'Sider', 'Grade baixa', 'Basculante', 'Tanque', 'Porta-contêiner', 'Prancha', 'Cegonha', 'Outro'];
+const TIPOS_CAM = ['Cavalo mecânico 4x2', 'Cavalo mecânico 6x2', 'Cavalo mecânico 6x4', 'Toco', 'Truck', 'Bitruck', '3/4', 'VUC', 'Caminhonete', 'Automóvel', 'Outro'];
+const TIPOS_SEMI = ['Carga seca', 'Graneleiro', 'Baú', 'Baú frigorífico', 'Sider', 'Grade baixa', 'Basculante', 'Tanque', 'Porta-contêiner', 'Prancha', 'Cegonha', 'Outro'];
 const TIPOS_MANUT = ['Troca de óleo e filtros', 'Revisão preventiva', 'Pneus', 'Freios', 'Suspensão', 'Elétrica', 'Motor', 'Câmbio e embreagem', 'Funilaria e pintura', 'Lubrificação e graxa', 'Corretiva (quebra)', 'Outro'];
 const CATEGORIAS = ['Transporte', 'Rede', 'Rede Viva', 'Particular'];
 const SEM_CAT = '(sem)';
@@ -902,9 +904,9 @@ const semisAtivos = () => todos('semirreboques').filter(s => s.situacao !== 'for
 const motsAtivos = () => todos('motoristas').filter(m => m.situacao !== 'desligado').sort(porNome);
 const kmDia = r => Math.max(0, (r.kmFinal || 0) - (r.kmInicial || 0));
 const ehDiesel = a => a.combustivel !== 'Arla 32';
-function descCam(c) { return c ? [c.marca, c.modelo].filter(Boolean).join(' ') || c.tipo || '' : ''; }
+function descCam(c) { if (!c) return ''; const mm = [c.marca, c.modelo].filter(Boolean).join(' ') || c.tipo || ''; return [c.apelido, mm].filter(Boolean).join(' · '); }
 function rotuloCam(c) { return c ? mostraPlaca(c.placa) + (descCam(c) ? ' · ' + descCam(c) : '') : '(apagado)'; }
-function rotuloSemi(s) { return s ? mostraPlaca(s.placa) + (s.tipo ? ' · ' + s.tipo : '') : '(apagado)'; }
+function rotuloSemi(s) { return s ? mostraPlaca(s.placa) + [s.apelido, s.tipo].filter(Boolean).map(x => ' · ' + x).join('') : '(apagado)'; }
 function nomeMot(id) { const m = mot(id); return m ? m.nome : (id ? '(apagado)' : ''); }
 function camDoSemi(semiId) { return todos('caminhoes').find(c => c.semirreboqueId === semiId && c.situacao !== 'fora'); }
 function camDoMot(motId) { return todos('caminhoes').find(c => c.motoristaId === motId && c.situacao !== 'fora'); }
@@ -1283,7 +1285,7 @@ function celVeiculoCam(c, sub) {
 }
 function celSemi(s) {
   if (!s) return '<span class="sem">Sem semirreboque</span>';
-  return `<div class="veic">${placaHTML(s.placa)}<span class="veic-txt">${esc(s.tipo || '')}</span></div>`;
+  return `<div class="veic">${placaHTML(s.placa)}<span class="veic-txt">${esc([s.apelido, s.tipo].filter(Boolean).join(' · '))}</span></div>`;
 }
 function pillSit(mapa, sit) { return `<span class="pill ${PILL_SIT[sit] || ''}">${esc(mapa[sit] || mapa[Object.keys(mapa)[0]])}</span>`; }
 function acoesHTML(col, id) {
@@ -2184,7 +2186,7 @@ function renderDocumentos() {
     catAnterior = cat;
     return titulo + `<article class="doc-grupo">
       <div class="doc-grupo-cab">
-        <div>${placaHTML(v.placa, true)}<span class="veic-txt">${esc(tipo === 'caminhao' ? descCam(v) || v.tipo || 'Caminhão' : 'Semirreboque ' + (v.tipo || ''))}${engatado ? ' · engatado: ' + esc(mostraPlaca(engatado.placa)) : ''}${v.situacao === 'fora' ? ' · fora da frota' : ''}</span>${pillDocs(r)}</div>
+        <div>${placaHTML(v.placa, true)}<span class="veic-txt">${esc(tipo === 'caminhao' ? descCam(v) || v.tipo || 'Caminhão' : [v.apelido, 'Semirreboque ' + (v.tipo || '')].filter(Boolean).join(' · '))}${engatado ? ' · engatado: ' + esc(mostraPlaca(engatado.placa)) : ''}${v.situacao === 'fora' ? ' · fora da frota' : ''}</span>${pillDocs(r)}</div>
         <button class="btn small ghost" type="button" data-acao="novo-doc" data-veic="${tipo}:${esc(v.id)}">Cadastrar documento</button>
       </div>
       ${linhas.length ? `<div class="tabela-box"><table class="tabela"><thead><tr><th>Documento</th><th>Número</th><th>Emissão</th><th>Vencimento</th><th>Situação</th><th class="n">Valor</th><th>Arquivo</th><th class="n"></th></tr></thead><tbody>${linhas.join('')}</tbody></table></div>` : '<p class="vazio-txt">Nenhum documento cadastrado.</p>'}
@@ -2447,7 +2449,7 @@ function planilhaDocumentos() {
   const CAB_DOC = ['Documento', 'Empresa', 'Número ou apólice', 'Emissão ou início', 'Vencimento', 'Situação', 'Dias para vencer', 'Valor total', 'Pagamento', 'Parcelas', 'Valor da parcela', 'Arquivo', 'Observação'];
   const LARG_DOC = [26, 18, 22, 14, 13, 20, 10, 14, 12, 9, 14, 22, 36];
   const cab = lista => lista.map(t => ({ v: t, s: XS.cab }));
-  const descVeic = (tipo, v) => (tipo === 'caminhao' ? descCam(v) || v.tipo || 'Caminhão' : 'Semirreboque ' + (v.tipo || ''));
+  const descVeic = (tipo, v) => (tipo === 'caminhao' ? descCam(v) || v.tipo || 'Caminhão' : [v.apelido, 'Semirreboque ' + (v.tipo || '')].filter(Boolean).join(' · '));
 
   // Resumo
   const resumoLinhas = [[{ v: 'Documentos da frota' + (UI.categoria ? ' · ' + nomeCat(UI.categoria === SEM_CAT ? '' : UI.categoria) : ''), s: XS.titulo }], [{ v: emitida, s: XS.fraco }], [],
@@ -2458,7 +2460,7 @@ function planilhaDocumentos() {
     const emDia = todos('documentos').filter(d => d.veiculoTipo === tipo && d.veiculoId === v.id && atuais.has(d.id) && ['ok', 'sem'].includes(situacaoDoc(d, atuais).nivel)).length;
     resumoLinhas.push([
       { v: nomeCat(catVeic(tipo, v)), s: XS.txt }, { v: tipo === 'caminhao' ? 'Caminhão' : 'Semirreboque', s: XS.txt }, { v: mostraPlaca(v.placa), s: XS.forte }, { v: v.tipo || '', s: XS.txt },
-      { v: tipo === 'caminhao' ? descCam(v) : v.marca || '', s: XS.txt }, { v: v.ano || '', s: XS.txt }, { v: v.renavam || '', s: XS.txt }, { v: v.chassi || '', s: XS.txt },
+      { v: tipo === 'caminhao' ? descCam(v) : [v.apelido, v.marca].filter(Boolean).join(' · '), s: XS.txt }, { v: v.ano || '', s: XS.txt }, { v: v.renavam || '', s: XS.txt }, { v: v.chassi || '', s: XS.txt },
       { v: r.venc, s: r.venc ? XS.vencido : XS.inteiro }, { v: r.breve, s: r.breve ? XS.breve : XS.inteiro }, { v: emDia, s: XS.inteiro },
       { d: prox ? prox.vencimento : '', s: XS.data }, { v: prox ? nomeDoc(prox) : '', s: XS.txt }, { v: r.faltam.join(', '), s: XS.txt },
     ]);

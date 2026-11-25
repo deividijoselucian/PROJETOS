@@ -37,8 +37,9 @@ com gráficos e o extrato de cada caminhão.
    semirreboque engatado, e todos os lançamentos em ordem de data, com o gasto
    acumulado. Dá para imprimir (no programa do Windows), baixar o relatório (.html) e
    baixar o extrato (.csv).
-7. **Frota**: caminhões e semirreboques (placa, tipo, marca, modelo, ano de fabricação e
-   modelo, Renavam, chassi, situação dos documentos), motoristas (CNH e exame
+7. **Frota**: caminhões e semirreboques (placa, apelido como "Caçamba 01" ou "Carreta
+   branca", tipo, marca, modelo, ano de fabricação e modelo, Renavam, chassi, situação dos
+   documentos; os tipos incluem caminhonete e automóvel para os carros de apoio), motoristas (CNH e exame
    toxicológico com validade), "Conjuntos agora" para trocar motorista e semirreboque de
    cada caminhão (a troca fica registrada), cópia de segurança e dados de exemplo.
 
