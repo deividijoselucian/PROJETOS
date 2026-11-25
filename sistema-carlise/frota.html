@@ -110,6 +110,8 @@ p { margin: 0; }
 .faixa-aviso p { min-width: 0; flex: 1 1 280px; }
 .faixa-aviso.exemplo { background: var(--warn-soft); border-color: transparent; }
 .faixa-aviso.leitura { background: var(--bad-soft); border-color: transparent; }
+.faixa-aviso.atencao { background: var(--warn-soft); border-color: transparent; }
+.faixa-aviso.atencao.grave { background: var(--bad-soft); }
 
 /* Período */
 .periodos { display: flex; flex-wrap: wrap; gap: 4px; background: var(--sunk); border-radius: 10px; padding: 4px; }
@@ -389,6 +391,10 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
     <p><strong>Estes são dados de exemplo.</strong> <span id="aviso-exemplo-txt"></span> Quando quiser começar com a sua frota, apague os exemplos.</p>
     <span id="aviso-exemplo-acao"><button class="btn small" type="button" data-acao="pedir-apagar-exemplo">Apagar os exemplos</button></span>
   </div>
+  <div class="faixa-aviso atencao" id="aviso-alertas" hidden>
+    <p id="aviso-alertas-txt"></p>
+    <a class="btn small" href="#painel" data-acao="ver-alertas">Ver o que precisa de atenção</a>
+  </div>
   <div class="faixa-aviso leitura" id="aviso-leitura" hidden>
     <p><strong>Você pode ver, mas não salvar.</strong> Peça para quem compartilhou este link dar acesso de edição.</p>
   </div>
@@ -601,6 +607,13 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
   <section class="vista" id="v-documentos" data-vista="documentos" hidden>
     <div class="cab"><div class="bloco" style="gap:4px"><h1 class="h1">Documentos</h1><p class="hint">Os documentos de cada caminhão e de cada semirreboque, com o vencimento e a foto ou o PDF guardados junto.</p></div></div>
     <div class="docs-resumo" id="docs-resumo"></div>
+    <form class="metas barra-rel" id="f-avisos" novalidate>
+      <span class="rot">Avisar antes de vencer:</span>
+      <label for="av-seguro">seguro</label><input type="text" id="av-seguro" inputmode="numeric" autocomplete="off" maxlength="3" placeholder="45"><span>dias</span>
+      <label for="av-docs">outros documentos, CNH e exame</label><input type="text" id="av-docs" inputmode="numeric" autocomplete="off" maxlength="3" placeholder="30"><span>dias</span>
+      <button class="btn small ghost" type="submit">Salvar</button>
+      <button class="btn small" type="button" id="btn-notif" hidden>Avisar também no Windows</button>
+    </form>
 
     <form class="ficha" id="f-doc" novalidate data-col="documentos">
       <div class="ficha-cab">
@@ -637,8 +650,9 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
         <div><h2 class="h2">Documentos por veículo</h2><p class="hint">Conta o mais novo de cada documento. Os anteriores ficam como histórico.</p></div>
         <div class="filtros">
           <label class="sr" for="fdoc-veic">Veículo</label><select id="fdoc-veic" data-lista="filtro-veiculos" data-vazio="Todos os veículos"></select>
-          <label class="sr" for="fdoc-sit">Situação</label><select id="fdoc-sit"><option value="">Todas as situações</option><option value="vencido">Vencidos</option><option value="breve">Vencem em 30 dias</option><option value="ok">Em dia</option></select>
+          <label class="sr" for="fdoc-sit">Situação</label><select id="fdoc-sit"><option value="">Todas as situações</option><option value="vencido">Vencidos</option><option value="breve">Vencem em breve</option><option value="ok">Em dia</option></select>
           <button class="btn small" type="button" data-acao="docs-excel">Baixar no Excel (.xlsx)</button>
+          <button class="btn small" type="button" data-acao="docs-pdf">Relatório em PDF</button>
           <button class="btn ghost small" type="button" data-csv="documentos">Planilha simples (.csv)</button>
         </div>
       </div>
@@ -816,7 +830,22 @@ const CATEGORIAS = ['Transporte', 'Rede', 'Rede Viva', 'Particular'];
 const SEM_CAT = '(sem)';
 const CHAVE_CAT = 'sistema-carlise:categoria';
 const TIPOS_DOC = ['CRLV (licenciamento)', 'IPVA', 'Seguro do veículo', 'RNTRC (ANTT)', 'Aferição do tacógrafo', 'AET (autorização especial)', 'CIV (inspeção veicular)', 'CIPP (produtos perigosos)', 'Licença ambiental', 'Rastreador', 'Extintor', 'Laudo de opacidade', 'Outro'];
-const DOCS_ESSENCIAIS = { caminhao: ['CRLV (licenciamento)', 'Seguro do veículo', 'RNTRC (ANTT)', 'Aferição do tacógrafo'], semirreboque: ['CRLV (licenciamento)'] };
+/* documentos que cada veículo deve ter: carro e caminhonete não precisam de tacógrafo nem de RNTRC;
+   RNTRC só para cavalo mecânico e para quem é da categoria Transporte */
+function docsEssenciais(tipo, v) {
+  if (tipo === 'semirreboque') return ['CRLV (licenciamento)'];
+  const t = (v && v.tipo) || '';
+  if (t === 'Caminhonete' || t === 'Automóvel') return ['CRLV (licenciamento)', 'Seguro do veículo'];
+  const lista = ['CRLV (licenciamento)', 'Seguro do veículo', 'Aferição do tacógrafo'];
+  if (t.startsWith('Cavalo') || (v && v.categoria === 'Transporte')) lista.splice(2, 0, 'RNTRC (ANTT)');
+  return lista;
+}
+/* nome da classe do veículo nas planilhas: caminhão, caminhonete, automóvel ou semirreboque */
+function classeVeic(tipo, v) {
+  if (tipo === 'semirreboque') return 'Semirreboque';
+  if (v && (v.tipo === 'Caminhonete' || v.tipo === 'Automóvel')) return v.tipo;
+  return 'Caminhão';
+}
 const SIT_CAM = { rodando: 'Rodando', parado: 'Parado', oficina: 'Na oficina', fora: 'Fora da frota' };
 const SIT_SEMI = { rodando: 'Em uso', parado: 'Parado', oficina: 'Na oficina', fora: 'Fora da frota' };
 const SIT_MOT = { ativo: 'Ativo', afastado: 'De férias ou afastado', desligado: 'Desligado' };
@@ -1011,6 +1040,12 @@ function calcPeriodo() {
   }
 }
 const metas = () => D.config.get('metas') || {};
+/* antecedência dos avisos: seguro (para dar tempo de cotar) e os outros documentos, CNH e exame */
+function avisosCfg() {
+  const a = D.config.get('avisos') || {};
+  return { dias: a.dias > 0 ? a.dias : 30, diasSeguro: a.diasSeguro > 0 ? a.diasSeguro : 45 };
+}
+const limiteDoc = d => (d.tipo === 'Seguro do veículo' ? avisosCfg().diasSeguro : avisosCfg().dias);
 const noPeriodo = d => d && d >= P.ini && d <= P.fim;
 
 /* ====================================================================
@@ -1161,6 +1196,16 @@ function render() {
   atualizarSelects();
   atualizarDatalists();
   const alertas = calcAlertas();
+  // faixa no alto das outras telas e aviso do Windows do dia
+  const urg = alertas.filter(a => a.nivel === 'vencido' || a.nivel === 'breve');
+  const faixa = $('#aviso-alertas');
+  faixa.hidden = !urg.length || UI.aba === 'painel' || Armazem.modo === 'carregando';
+  if (!faixa.hidden) {
+    const nV = urg.filter(a => a.nivel === 'vencido').length, nB = urg.length - nV;
+    faixa.classList.toggle('grave', nV > 0);
+    $('#aviso-alertas-txt').innerHTML = `<strong>Atenção: ${[nV ? plural(nV, 'vencido', 'vencidos') : '', nB ? (nB === 1 ? '1 vence em breve' : nB + ' vencem em breve') : ''].filter(Boolean).join(' e ')}.</strong> ${esc(urg.slice(0, 2).map(a => a.txt).join(' '))}${urg.length > 2 ? ` E mais ${urg.length - 2}.` : ''}`;
+  }
+  if (!UI.notifFeita && Armazem.modo !== 'carregando') { UI.notifFeita = true; setTimeout(() => notificarDoDia(false), 800); }
   const cont = $('#cont-alertas');
   const urgentes = alertas.filter(a => a.nivel === 'vencido').length;
   cont.hidden = !urgentes;
@@ -1312,7 +1357,7 @@ function calcAlertas() {
       if (!m[campo]) continue;
       const d = difDias(h, m[campo]);
       if (d < 0) out.push({ nivel: 'vencido', ordem: d, txt: `${nome} de ${m.nome} venceu em ${fmtData(m[campo])}.` });
-      else if (d <= 30) out.push({ nivel: 'breve', ordem: d, txt: `${nome} de ${m.nome} vence ${d === 0 ? 'hoje' : d === 1 ? 'amanhã' : 'em ' + d + ' dias'} (${fmtData(m[campo])}).` });
+      else if (d <= avisosCfg().dias) out.push({ nivel: 'breve', ordem: d, txt: `${nome} de ${m.nome} vence ${d === 0 ? 'hoje' : d === 1 ? 'amanhã' : 'em ' + d + ' dias'} (${fmtData(m[campo])}).` });
     }
   }
   for (const p of proximasManutencoes()) {
@@ -1333,7 +1378,7 @@ function calcAlertas() {
     const dd = difDias(h, d.vencimento);
     const nome = nomeDoc(d) + ' do ' + mostraPlaca(v.placa);
     if (dd < 0) out.push({ nivel: 'vencido', ordem: dd, txt: `${nome} venceu em ${fmtData(d.vencimento)}.` });
-    else if (dd <= 30) out.push({ nivel: 'breve', ordem: dd, txt: `${nome} vence ${dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : 'em ' + dd + ' dias'} (${fmtData(d.vencimento)}).` });
+    else if (dd <= limiteDoc(d)) out.push({ nivel: 'breve', ordem: dd, txt: `${nome} vence ${dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : 'em ' + dd + ' dias'} (${fmtData(d.vencimento)}).${d.tipo === 'Seguro do veículo' ? ' Hora de cotar a renovação.' : ''}` });
   }
   for (const c of camAtivos()) {
     if (c.situacao !== 'rodando') continue;
@@ -1967,7 +2012,7 @@ function situacaoDoc(d, atuais) {
   if (!d.vencimento) return { nivel: 'sem', cls: 'info', txt: 'Não vence', peso: 3 };
   const dd = difDias(hojeISO(), d.vencimento);
   if (dd < 0) return { nivel: 'vencido', cls: 'bad vencido', txt: 'Venceu há ' + plural(-dd, 'dia', 'dias'), peso: 0, dias: dd };
-  if (dd <= 30) return { nivel: 'breve', cls: 'warn', txt: dd === 0 ? 'Vence hoje' : dd === 1 ? 'Vence amanhã' : 'Vence em ' + dd + ' dias', peso: 1, dias: dd };
+  if (dd <= limiteDoc(d)) return { nivel: 'breve', cls: 'warn', txt: dd === 0 ? 'Vence hoje' : dd === 1 ? 'Vence amanhã' : 'Vence em ' + dd + ' dias', peso: 1, dias: dd };
   return { nivel: 'ok', cls: 'ok', txt: 'Em dia', peso: 2, dias: dd };
 }
 function resumoDocs(tipo, id, atuais) {
@@ -1975,11 +2020,11 @@ function resumoDocs(tipo, id, atuais) {
   let venc = 0, breve = 0;
   docs.forEach(d => { const s = situacaoDoc(d, atuais); if (s.nivel === 'vencido') venc++; else if (s.nivel === 'breve') breve++; });
   const tem = new Set(docs.map(nomeDoc));
-  return { n: docs.length, venc, breve, faltam: (DOCS_ESSENCIAIS[tipo] || []).filter(t => !tem.has(t)) };
+  return { n: docs.length, venc, breve, faltam: docsEssenciais(tipo, tipo === 'caminhao' ? cam(id) : semi(id)).filter(t => !tem.has(t)) };
 }
 function pillDocs(r) {
   if (r.venc) return `<span class="pill bad vencido">${plural(r.venc, 'vencido', 'vencidos')}</span>`;
-  if (r.breve) return `<span class="pill warn">${r.breve === 1 ? '1 vence' : r.breve + ' vencem'} em 30 dias</span>`;
+  if (r.breve) return `<span class="pill warn">${r.breve === 1 ? '1 vence' : r.breve + ' vencem'} em breve</span>`;
   if (r.n) return `<span class="pill ok">Em dia</span>`;
   return '<span class="pill">Sem documentos</span>';
 }
@@ -2142,6 +2187,7 @@ function novoDocPara(veiculo, base) {
 
 function renderDocumentos() {
   ajustarDoc();
+  preencherAvisos();
   const semAnexo = Armazem.modo === 'nuvem' && Arquivos.assets === null;
   $('#doc-arquivo-campo').hidden = semAnexo;
   $('#doc-sem-anexo').hidden = !semAnexo;
@@ -2157,7 +2203,7 @@ function renderDocumentos() {
     if (s.nivel === 'vencido') venc++; else if (s.nivel === 'breve') breve++; else ok++;
   });
   $('#docs-resumo').innerHTML = docs.length
-    ? `<span class="pill ${venc ? 'bad vencido' : ''}">${plural(venc, 'vencido', 'vencidos')}</span><span class="pill ${breve ? 'warn' : ''}">${breve === 1 ? '1 vence' : breve + ' vencem'} em 30 dias</span><span class="pill ok">${nf0.format(ok)} em dia</span>`
+    ? `<span class="pill ${venc ? 'bad vencido' : ''}">${plural(venc, 'vencido', 'vencidos')}</span><span class="pill ${breve ? 'warn' : ''}">${breve === 1 ? '1 vence' : breve + ' vencem'} em breve</span><span class="pill ok">${nf0.format(ok)} em dia</span>`
     : '';
   const veics = [
     ...todos('caminhoes').sort(porPlaca).map(v => ({ tipo: 'caminhao', v })),
@@ -2220,7 +2266,7 @@ function tabelaDocsAtencao() {
   const linhas = todos('documentos').map(d => ({ d, v: veiculoDoDoc(d), st: situacaoDoc(d, atuais) }))
     .filter(x => x.v && x.v.situacao !== 'fora' && naCat(x.d.veiculoTipo, x.v) && (x.st.nivel === 'vencido' || x.st.nivel === 'breve'))
     .sort((a, b) => (a.d.vencimento || '').localeCompare(b.d.vencimento || ''));
-  if (!linhas.length) return '<p class="hint">Nenhum documento vencido ou vencendo nos próximos 30 dias.</p>';
+  if (!linhas.length) return '<p class="hint">Nenhum documento vencido ou perto de vencer.</p>';
   return `<div class="tabela-box"><table class="tabela"><thead><tr><th>Veículo</th><th>Documento</th><th>Número</th><th>Vencimento</th><th>Situação</th></tr></thead><tbody>`
     + linhas.map(({ d, v, st }) => `<tr><td>${placaHTML(v.placa)}</td><td class="forte">${esc(nomeDoc(d))}</td><td>${esc(d.numero || '')}</td><td class="d">${esc(fmtData(d.vencimento))}</td><td><span class="pill ${st.cls}">${esc(st.txt)}</span></td></tr>`).join('')
     + '</tbody></table></div>';
@@ -2453,13 +2499,13 @@ function planilhaDocumentos() {
 
   // Resumo
   const resumoLinhas = [[{ v: 'Documentos da frota' + (UI.categoria ? ' · ' + nomeCat(UI.categoria === SEM_CAT ? '' : UI.categoria) : ''), s: XS.titulo }], [{ v: emitida, s: XS.fraco }], [],
-    cab(['Categoria', 'Veículo', 'Placa', 'Tipo', 'Marca e modelo', 'Ano', 'Renavam', 'Chassi', 'Vencidos', 'Vencem em 30 dias', 'Em dia', 'Próximo vencimento', 'Documento que vence primeiro', 'Ainda não cadastrado'])];
+    cab(['Categoria', 'Veículo', 'Placa', 'Tipo', 'Marca e modelo', 'Ano', 'Renavam', 'Chassi', 'Vencidos', 'Vencem em breve', 'Em dia', 'Próximo vencimento', 'Documento que vence primeiro', 'Ainda não cadastrado'])];
   for (const { tipo, v } of veics) {
     const r = resumoDocs(tipo, v.id, atuais);
     const prox = todos('documentos').filter(d => d.veiculoTipo === tipo && d.veiculoId === v.id && atuais.has(d.id) && d.vencimento).sort((a, b) => a.vencimento.localeCompare(b.vencimento))[0];
     const emDia = todos('documentos').filter(d => d.veiculoTipo === tipo && d.veiculoId === v.id && atuais.has(d.id) && ['ok', 'sem'].includes(situacaoDoc(d, atuais).nivel)).length;
     resumoLinhas.push([
-      { v: nomeCat(catVeic(tipo, v)), s: XS.txt }, { v: tipo === 'caminhao' ? 'Caminhão' : 'Semirreboque', s: XS.txt }, { v: mostraPlaca(v.placa), s: XS.forte }, { v: v.tipo || '', s: XS.txt },
+      { v: nomeCat(catVeic(tipo, v)), s: XS.txt }, { v: classeVeic(tipo, v), s: XS.txt }, { v: mostraPlaca(v.placa), s: XS.forte }, { v: v.tipo || '', s: XS.txt },
       { v: tipo === 'caminhao' ? descCam(v) : [v.apelido, v.marca].filter(Boolean).join(' · '), s: XS.txt }, { v: v.ano || '', s: XS.txt }, { v: v.renavam || '', s: XS.txt }, { v: v.chassi || '', s: XS.txt },
       { v: r.venc, s: r.venc ? XS.vencido : XS.inteiro }, { v: r.breve, s: r.breve ? XS.breve : XS.inteiro }, { v: emDia, s: XS.inteiro },
       { d: prox ? prox.vencimento : '', s: XS.data }, { v: prox ? nomeDoc(prox) : '', s: XS.txt }, { v: r.faltam.join(', '), s: XS.txt },
@@ -2470,7 +2516,7 @@ function planilhaDocumentos() {
   // Todos os documentos
   const todasLinhas = [[{ v: 'Todos os documentos', s: XS.titulo }], [{ v: emitida + ' · os renovados aparecem em cinza', s: XS.fraco }], [],
     cab(['Categoria', 'Veículo', 'Placa', 'Renavam', ...CAB_DOC])];
-  for (const { tipo, v } of veics) for (const x of docsDe(tipo, v.id)) todasLinhas.push([{ v: nomeCat(catVeic(tipo, v)), s: XS.txt }, { v: tipo === 'caminhao' ? 'Caminhão' : 'Semirreboque', s: XS.txt }, { v: mostraPlaca(v.placa), s: XS.forte }, { v: v.renavam || '', s: XS.txt }, ...linhaDoc(x)]);
+  for (const { tipo, v } of veics) for (const x of docsDe(tipo, v.id)) todasLinhas.push([{ v: nomeCat(catVeic(tipo, v)), s: XS.txt }, { v: classeVeic(tipo, v), s: XS.txt }, { v: mostraPlaca(v.placa), s: XS.forte }, { v: v.renavam || '', s: XS.txt }, ...linhaDoc(x)]);
   const todas = { nome: 'Todos os documentos', cabecalho: 3, ultimaLinhaFiltro: todasLinhas.length, linhas: todasLinhas, larguras: [13, 13, 11, 14, ...LARG_DOC] };
 
   // uma aba por veículo
@@ -2495,6 +2541,208 @@ async function baixarDocumentosExcel() {
   let arq;
   try { arq = planilhaDocumentos(); } catch (e) { toast('Não consegui montar a planilha.', true); return; }
   if (await baixar('documentos-frota-' + hojeISO() + '.xlsx', arq, XLSX_TIPO)) toast('Planilha do Excel salva.');
+}
+
+/* ====================================================================
+   PDF montado aqui mesmo, sem biblioteca e sem internet: texto em Helvetica
+   (com acentos, codificação WinAnsi), retângulos coloridos e páginas A4 deitadas.
+   ==================================================================== */
+const PDF_CP1252 = { '€': 128, '‚': 130, 'ƒ': 131, '„': 132, '…': 133, '†': 134, '‡': 135, 'ˆ': 136, '‰': 137, 'Š': 138, '‹': 139, 'Œ': 140, 'Ž': 142, '‘': 145, '’': 146, '“': 147, '”': 148, '•': 149, '–': 150, '—': 151, '˜': 152, '™': 153, 'š': 154, '›': 155, 'œ': 156, 'ž': 158, 'Ÿ': 159 };
+function pdfTexto(s) {
+  let out = '';
+  for (const ch of String(s).replace(/[  ]/g, ' ').replace(/[✓]/g, '').replace(/[▼▲]/g, '').replace(/→/g, '>')) {
+    let c = ch.charCodeAt(0);
+    if (PDF_CP1252[ch]) c = PDF_CP1252[ch];
+    else if (c > 255) c = 63;
+    if (ch === '(' || ch === ')' || ch === '\\') out += '\\' + ch;
+    else if (c < 32 || c > 126) out += '\\' + c.toString(8).padStart(3, '0');
+    else out += ch;
+  }
+  return out;
+}
+/* largura aproximada do texto em pontos (média da Helvetica) */
+const pdfLargura = (s, tam, negrito) => String(s).length * tam * (negrito ? 0.56 : 0.52);
+/* divide o texto em até "max" linhas que cabem na largura; a última leva reticências se sobrar */
+function pdfLinhas(s, larg, tam, max) {
+  const palavras = String(s == null ? '' : s).split(/\s+/).filter(Boolean);
+  const linhas = [];
+  let atual = '';
+  for (const p of palavras) {
+    const t = atual ? atual + ' ' + p : p;
+    if (pdfLargura(t, tam) <= larg || !atual) atual = t;
+    else { linhas.push(atual); atual = p; if (linhas.length === max) break; }
+  }
+  if (linhas.length < max && atual) linhas.push(atual);
+  const usadas = linhas.join(' ').length;
+  if (usadas < palavras.join(' ').length) linhas[linhas.length - 1] = pdfCorta(linhas[linhas.length - 1] + ' …', larg, tam);
+  return linhas.map(l => pdfCorta(l, larg, tam));
+}
+function pdfCorta(s, larg, tam, negrito) {
+  s = String(s == null ? '' : s);
+  if (pdfLargura(s, tam, negrito) <= larg) return s;
+  const n = Math.max(1, Math.floor(larg / (tam * (negrito ? 0.56 : 0.52))) - 1);
+  return s.slice(0, n) + '…';
+}
+const pdfCor = hex => [1, 3, 5].map(i => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(3)).join(' ');
+function novoPdf() {
+  const W = 842, H = 595, M = 36;
+  const paginas = [];
+  let ops = null, y = 0;
+  const pdf = {
+    W, H, M,
+    get y() { return y; }, set y(v) { y = v; },
+    pagina() { ops = []; paginas.push(ops); y = H - M; },
+    ret(x, yy, w, h, cor) { ops.push(`${pdfCor(cor)} rg ${x.toFixed(1)} ${yy.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)} re f`); },
+    linha(x1, y1, x2, y2, cor) { ops.push(`${pdfCor(cor)} RG 0.6 w ${x1.toFixed(1)} ${y1.toFixed(1)} m ${x2.toFixed(1)} ${y2.toFixed(1)} l S`); },
+    txt(x, yy, texto, tam, negrito, cor) { ops.push(`BT /${negrito ? 'F2' : 'F1'} ${tam} Tf ${pdfCor(cor || '#151A23')} rg ${x.toFixed(1)} ${yy.toFixed(1)} Td (${pdfTexto(texto)}) Tj ET`); },
+    txtDir(xDir, yy, texto, tam, negrito, cor) { this.txt(xDir - pdfLargura(texto, tam, negrito), yy, texto, tam, negrito, cor); },
+    /* tabela com cabeçalho repetido a cada página; colunas: [{ t, w, dir }]; linhas: [[{ v, cor, fundo, negrito }]] */
+    tabela(cols, linhas, cabecalhoPagina) {
+      const tam = 7.6, alt = 15;
+      const cab = () => {
+        let x = M;
+        this.ret(M, y - alt, W - 2 * M, alt, '#171C24');
+        cols.forEach(c => { const t = pdfCorta(c.t, c.w - 6, tam, true); c.dir ? this.txtDir(x + c.w - 4, y - alt + 4.5, t, tam, true, '#FFFFFF') : this.txt(x + 4, y - alt + 4.5, t, tam, true, '#FFFFFF'); x += c.w; });
+        y -= alt;
+      };
+      cab();
+      linhas.forEach((l, i) => {
+        const quebras = cols.map((c, k) => (c.quebra ? pdfLinhas((l[k] || {}).v, c.w - 8, tam, 2) : null));
+        const nLin = Math.max(1, ...quebras.map(q => (q ? q.length : 1)));
+        const altL = alt + (nLin - 1) * 9;
+        if (y - altL < M + 18) { this.pagina(); if (cabecalhoPagina) cabecalhoPagina(); cab(); }
+        if (l.grupo) {
+          this.ret(M, y - alt, W - 2 * M, alt, '#E2E8FA');
+          this.txt(M + 4, y - alt + 4.5, pdfCorta(l.grupo, W - 2 * M - 8, tam + 0.4, true), tam + 0.4, true);
+          y -= alt;
+          return;
+        }
+        if (i % 2) this.ret(M, y - altL, W - 2 * M, altL, '#F4F6FA');
+        let x = M;
+        const topo = y - 10.5;
+        cols.forEach((c, k) => {
+          const cel = l[k] || {};
+          const v = cel.v == null ? '' : String(cel.v);
+          if (quebras[k]) { quebras[k].forEach((t, j) => this.txt(x + 4, topo - j * 9, t, tam, !!cel.negrito, cel.cor)); x += c.w; return; }
+          if (cel.fundo && v) this.ret(x + 2, topo - 4, Math.min(c.w - 4, pdfLargura(v, tam, true) + 8), alt - 5, cel.fundo);
+          const t = pdfCorta(v, c.w - 8, tam, !!cel.negrito || !!cel.fundo);
+          if (c.dir) this.txtDir(x + c.w - 4, topo, t, tam, !!cel.negrito, cel.cor);
+          else this.txt(x + (cel.fundo ? 6 : 4), topo, t, tam, !!cel.negrito || !!cel.fundo, cel.cor);
+          x += c.w;
+        });
+        this.linha(M, y - altL, W - M, y - altL, '#D3D9E3');
+        y -= altL;
+      });
+    },
+    fechar(rodape) {
+      const n = paginas.length;
+      paginas.forEach((p, i) => {
+        ops = p;
+        this.txt(M, 18, pdfCorta(rodape, 600, 7.5), 7.5, false, '#535E72');
+        this.txtDir(W - M, 18, `Página ${i + 1} de ${n}`, 7.5, false, '#535E72');
+      });
+      const objs = [];
+      objs[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+      objs[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+      objs[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+      const kids = [];
+      paginas.forEach((p, i) => {
+        const pg = 5 + i * 2, ct = pg + 1;
+        const conteudo = p.join('\n');
+        objs[pg] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${ct} 0 R >>`;
+        objs[ct] = `<< /Length ${conteudo.length} >>\nstream\n${conteudo}\nendstream`;
+        kids.push(`${pg} 0 R`);
+      });
+      objs[2] = `<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${n} >>`;
+      let s = '%PDF-1.4\n%âãÏÓ\n';
+      const pos = [];
+      for (let i = 1; i < objs.length; i++) { pos[i] = s.length; s += `${i} 0 obj\n${objs[i]}\nendobj\n`; }
+      const xref = s.length;
+      s += `xref\n0 ${objs.length}\n0000000000 65535 f \n` + pos.slice(1).map(p => String(p).padStart(10, '0') + ' 00000 n \n').join('');
+      s += `trailer\n<< /Size ${objs.length} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+      const bytes = new Uint8Array(s.length);
+      for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i) & 255;
+      return new Blob([bytes], { type: 'application/pdf' });
+    },
+  };
+  return pdf;
+}
+
+const CURTO_DOC = { 'CRLV (licenciamento)': 'CRLV', 'Seguro do veículo': 'Seguro', 'RNTRC (ANTT)': 'RNTRC', 'Aferição do tacógrafo': 'Tacógrafo', 'AET (autorização especial)': 'AET', 'CIV (inspeção veicular)': 'CIV', 'CIPP (produtos perigosos)': 'CIPP' };
+const curtoDoc = nome => CURTO_DOC[nome] || nome;
+/* relatório de documentos em PDF: números, resumo por veículo e todos os documentos */
+function pdfDocumentos() {
+  const atuais = docsAtuais();
+  const cores = { vencido: ['#BA2E29', '#FBE2E0'], breve: ['#8A5300', '#FBEDD3'], ok: ['#0B7550', '#DBF2E7'], sem: ['#1C47B5', '#E2E8FA'], antigo: ['#7A8496', '#E4E8EF'] };
+  const veics = [
+    ...todos('caminhoes').map(v => ({ tipo: 'caminhao', v })),
+    ...todos('semirreboques').map(v => ({ tipo: 'semirreboque', v })),
+  ].filter(({ tipo, v }) => naCat(tipo, v) && (v.situacao !== 'fora' || todos('documentos').some(d => d.veiculoTipo === tipo && d.veiculoId === v.id)))
+    .sort((a, b) => ordemCat(catVeic(a.tipo, a.v)) - ordemCat(catVeic(b.tipo, b.v)) || (a.tipo === b.tipo ? 0 : a.tipo === 'caminhao' ? -1 : 1) || porPlaca(a.v, b.v));
+  const docsDe = (tipo, id) => todos('documentos').filter(d => d.veiculoTipo === tipo && d.veiculoId === id)
+    .map(d => ({ d, s: situacaoDoc(d, atuais) }))
+    .sort((a, b) => a.s.peso - b.s.peso || (a.d.vencimento || '9999').localeCompare(b.d.vencimento || '9999'));
+  let venc = 0, breve = 0, ok = 0;
+  veics.forEach(({ tipo, v }) => docsDe(tipo, v.id).forEach(({ s }) => { if (v.situacao === 'fora') return; if (s.nivel === 'vencido') venc++; else if (s.nivel === 'breve') breve++; else if (s.nivel !== 'antigo') ok++; }));
+  const catTxt = UI.categoria ? ' · categoria ' + nomeCat(UI.categoria === SEM_CAT ? '' : UI.categoria) : '';
+  const pdf = novoPdf();
+  const { M, W } = pdf;
+  const cabecalho = () => {
+    pdf.txt(M, pdf.y - 14, 'Documentos da frota', 16, true);
+    pdf.txtDir(W - M, pdf.y - 12, 'Sistema Carlise', 9, true, '#1C47B5');
+    pdf.txt(M, pdf.y - 27, `${emitido()} · ${plural(veics.length, 'veículo', 'veículos')}${catTxt}`, 8.5, false, '#535E72');
+    pdf.linha(M, pdf.y - 33, W - M, pdf.y - 33, '#151A23');
+    pdf.y -= 44;
+  };
+  pdf.pagina();
+  cabecalho();
+  // números
+  let x = M;
+  [[plural(venc, 'documento vencido', 'documentos vencidos'), cores.vencido], [(breve === 1 ? '1 vence' : breve + ' vencem') + ' em breve', cores.breve], [plural(ok, 'em dia', 'em dia'), cores.ok]].forEach(([t, [cor, fundo]]) => {
+    const w = pdfLargura(t, 10, true) + 20;
+    pdf.ret(x, pdf.y - 20, w, 20, fundo);
+    pdf.txt(x + 10, pdf.y - 13.5, t, 10, true, cor);
+    x += w + 8;
+  });
+  pdf.y -= 34;
+  // resumo por veículo
+  pdf.txt(M, pdf.y - 10, 'Resumo por veículo', 11, true);
+  pdf.y -= 16;
+  const linhasResumo = veics.map(({ tipo, v }) => {
+    const r = resumoDocs(tipo, v.id, atuais);
+    const prox = docsDe(tipo, v.id).filter(x => x.s.nivel !== 'antigo' && x.d.vencimento)[0];
+    const sit = r.venc ? ['vencido', plural(r.venc, 'vencido', 'vencidos')] : r.breve ? ['breve', (r.breve === 1 ? '1 vence' : r.breve + ' vencem') + ' em breve'] : r.n ? ['ok', 'Em dia'] : ['antigo', 'Sem documentos'];
+    return [
+      { v: mostraPlaca(v.placa), negrito: true }, { v: v.apelido || '' }, { v: tipo === 'semirreboque' ? 'Semirreboque ' + (v.tipo || '').toLowerCase() : v.tipo || '' },
+      { v: tipo === 'caminhao' ? [v.marca, v.modelo].filter(Boolean).join(' ') : [v.marca, v.tipo].filter(Boolean).join(' ') }, { v: nomeCat(catVeic(tipo, v)) },
+      { v: v.renavam || '' }, { v: sit[1], cor: cores[sit[0]][0], fundo: cores[sit[0]][1] },
+      { v: prox ? fmtData(prox.d.vencimento) + ' · ' + curtoDoc(nomeDoc(prox.d)) : '' }, { v: r.faltam.map(curtoDoc).join(', '), cor: r.faltam.length ? '#8A5300' : '' },
+    ];
+  });
+  pdf.tabela([{ t: 'Placa', w: 50 }, { t: 'Apelido', w: 74 }, { t: 'Tipo', w: 110 }, { t: 'Marca e modelo', w: 128 }, { t: 'Categoria', w: 60 }, { t: 'Renavam', w: 58 }, { t: 'Situação', w: 76 }, { t: 'Próximo vencimento', w: 96 }, { t: 'Ainda não cadastrado', w: 118 }], linhasResumo, cabecalho);
+  // todos os documentos, separados por veículo
+  pdf.pagina();
+  cabecalho();
+  pdf.txt(M, pdf.y - 10, 'Documentos de cada veículo', 11, true);
+  pdf.y -= 16;
+  const linhasDocs = [];
+  veics.forEach(({ tipo, v }) => {
+    const lista = docsDe(tipo, v.id);
+    linhasDocs.push({ grupo: [mostraPlaca(v.placa), v.apelido, tipo === 'caminhao' ? [v.marca, v.modelo].filter(Boolean).join(' ') : 'Semirreboque ' + (v.tipo || ''), v.renavam ? 'Renavam ' + v.renavam : '', v.chassi ? 'chassi ' + v.chassi : ''].filter(Boolean).join('  ·  ') });
+    if (!lista.length) linhasDocs.push([{ v: 'Nenhum documento cadastrado.', cor: '#535E72' }]);
+    lista.forEach(({ d, s }) => linhasDocs.push([
+      { v: nomeDoc(d), negrito: true, cor: s.nivel === 'antigo' ? '#7A8496' : '' }, { v: d.numero || '' }, { v: fmtData(d.emissao) }, { v: d.vencimento ? fmtData(d.vencimento) : '—' },
+      { v: s.txt, cor: cores[s.nivel][0], fundo: cores[s.nivel][1] }, { v: d.valor ? fR(d.valor) : '' }, { v: detalheDoc(d) || d.obs || '' }, { v: d.arquivo && d.arquivo.id ? 'sim' : '' },
+    ]));
+  });
+  pdf.tabela([{ t: 'Documento', w: 112 }, { t: 'Número', w: 76 }, { t: 'Emissão', w: 52 }, { t: 'Vencimento', w: 56 }, { t: 'Situação', w: 88 }, { t: 'Valor', w: 60, dir: true }, { t: 'Detalhes', w: 286, quebra: true }, { t: 'Anexo', w: 40 }], linhasDocs, cabecalho);
+  return pdf.fechar(`Sistema Carlise · ${emitido()} · "Vence em breve": seguro ${avisosCfg().diasSeguro} dias antes, outros documentos ${avisosCfg().dias} dias antes.`);
+}
+async function baixarDocumentosPDF() {
+  if (!D.documentos.size && !D.caminhoes.size) { toast('Cadastre os veículos e os documentos primeiro.', true); return; }
+  let arq;
+  try { arq = pdfDocumentos(); } catch (e) { toast('Não consegui montar o PDF.', true); return; }
+  if (await baixar('documentos-frota-' + hojeISO() + '.pdf', arq, 'application/pdf')) toast('Relatório em PDF salvo.');
 }
 
 /* ====================================================================
@@ -2770,6 +3018,42 @@ function relatorioCaminhao(el, c) {
 }
 
 /* metas de consumo e de custo */
+function preencherAvisos() {
+  const a = avisosCfg();
+  const f = $('#f-avisos');
+  const sig = JSON.stringify(a);
+  const pode = 'Notification' in window && !window.claude;
+  $('#btn-notif').hidden = !pode || Notification.permission === 'granted';
+  if (f.dataset.sig === sig || f.contains(document.activeElement)) return;
+  f.dataset.sig = sig;
+  $('#av-seguro').value = a.diasSeguro;
+  $('#av-docs').value = a.dias;
+}
+async function salvarAvisos() {
+  const seg = lerNumero($('#av-seguro').value, true), docs = lerNumero($('#av-docs').value, true);
+  if (!(seg >= 1 && seg <= 365)) { toast('Escreva de 1 a 365 dias para o seguro.', true); $('#av-seguro').focus(); return; }
+  if (!(docs >= 1 && docs <= 365)) { toast('Escreva de 1 a 365 dias para os outros documentos.', true); $('#av-docs').focus(); return; }
+  try {
+    await gravar('config', { id: 'avisos', dias: docs, diasSeguro: seg });
+    $('#f-avisos').dataset.sig = '';
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    toast(`Avisos salvos: seguro ${seg} dias antes, os outros ${docs} dias antes.`);
+  } catch (e) { toast(msgErro(e), true); }
+}
+/* aviso do Windows ao abrir o programa, uma vez por dia */
+const CHAVE_NOTIF = 'sistema-carlise:aviso-do-dia';
+function notificarDoDia(forcar) {
+  if (!('Notification' in window) || window.claude || Notification.permission !== 'granted') return;
+  let ultimo = '';
+  try { ultimo = localStorage.getItem(CHAVE_NOTIF) || ''; } catch (e) { /* sem armazenamento */ }
+  if (!forcar && ultimo === hojeISO()) return;
+  const al = calcAlertas().filter(a => a.nivel === 'vencido' || a.nivel === 'breve');
+  if (!al.length) { if (forcar) toast('Nada vencendo agora. O Windows avisa quando tiver.'); return; }
+  try {
+    new Notification(`Sistema Carlise: ${plural(al.length, 'aviso', 'avisos')}`, { body: al.slice(0, 4).map(a => a.txt).join('\n') + (al.length > 4 ? `\ne mais ${al.length - 4}.` : '') });
+    localStorage.setItem(CHAVE_NOTIF, hojeISO());
+  } catch (e) { /* o Windows não deixou */ }
+}
 function preencherMetas() {
   const mt = metas();
   const f = $('#f-metas');
@@ -2877,7 +3161,7 @@ function renderFrota() {
   const validade = v => {
     if (!v) return '<span class="sem">—</span>';
     const d = difDias(h, v);
-    const cls = d < 0 ? 'bad vencido' : d <= 30 ? 'warn' : '';
+    const cls = d < 0 ? 'bad vencido' : d <= avisosCfg().dias ? 'warn' : '';
     return cls ? `<span class="pill ${cls}">${esc(fmtData(v))}</span>` : esc(fmtData(v));
   };
   tabela('#t-mot', [['Nome'], ['Telefone'], ['CNH'], ['Validade da CNH'], ['Toxicológico'], ['Dirigindo'], ['Situação'], ['', 'n']],
@@ -3258,7 +3542,7 @@ function planilha(tipo) {
   if (tipo === 'documentos') {
     const atuais = docsAtuais();
     const linhas = [['Categoria', 'Veículo', 'Placa', 'Renavam', 'Documento', 'Empresa', 'Número ou apólice', 'Emissão ou início', 'Vencimento', 'Situação', 'Valor total (R$)', 'Pagamento', 'Parcelas', 'Valor da parcela (R$)', 'Arquivo', 'Observação']];
-    (UI.listaDocs || []).forEach(d => { const v = veiculoDoDoc(d); linhas.push([nomeCat(catVeic(d.veiculoTipo, v)), d.veiculoTipo === 'caminhao' ? 'Caminhão' : 'Semirreboque', v ? mostraPlaca(v.placa) : '', v ? v.renavam || '' : '', nomeDoc(d), d.empresa || '', d.numero, fmtData(d.emissao), fmtData(d.vencimento), situacaoDoc(d, atuais).txt, d.valor ? dec(d.valor, 2) : '', d.pagamento === 'parcelado' ? 'parcelado' : d.pagamento === 'avista' ? 'à vista' : '', d.parcelas || '', d.valorParcela ? dec(d.valorParcela, 2) : '', d.arquivo ? d.arquivo.nome : '', d.obs]); });
+    (UI.listaDocs || []).forEach(d => { const v = veiculoDoDoc(d); linhas.push([nomeCat(catVeic(d.veiculoTipo, v)), classeVeic(d.veiculoTipo, v), v ? mostraPlaca(v.placa) : '', v ? v.renavam || '' : '', nomeDoc(d), d.empresa || '', d.numero, fmtData(d.emissao), fmtData(d.vencimento), situacaoDoc(d, atuais).txt, d.valor ? dec(d.valor, 2) : '', d.pagamento === 'parcelado' ? 'parcelado' : d.pagamento === 'avista' ? 'à vista' : '', d.parcelas || '', d.valorParcela ? dec(d.valorParcela, 2) : '', d.arquivo ? d.arquivo.nome : '', d.obs]); });
     return ['documentos-' + h + '.csv', csv(linhas)];
   }
   if (tipo === 'extrato') {
@@ -3515,6 +3799,8 @@ function ligarEventos() {
         break;
       case 'imprimir': imprimirRelatorio(); break;
       case 'docs-excel': baixarDocumentosExcel(); break;
+      case 'docs-pdf': baixarDocumentosPDF(); break;
+      case 'ver-alertas': e.preventDefault(); location.hash = 'painel'; mostrarAba('painel'); setTimeout(() => { const b = $('#bloco-alertas'); if (b && !b.hidden) b.scrollIntoView({ block: 'start' }); }, 50); break;
       case 'abrir-arquivo': abrirArquivo(alvo[1]); break;
       case 'novo-doc': { const f = novoDocPara(b.dataset.veic); $('#doc-tipo').focus({ preventScroll: true }); msgForm(f, '', ''); break; }
       case 'renovar-doc': {
@@ -3589,9 +3875,17 @@ function ligarEventos() {
   document.addEventListener('submit', e => {
     e.preventDefault();
     if (e.target.id === 'f-metas') salvarMetas();
+    else if (e.target.id === 'f-avisos') salvarAvisos();
     else if (e.target.matches('form.ficha')) salvarForm(e.target);
   });
 
+  $('#btn-notif').addEventListener('click', async () => {
+    let r = 'denied';
+    try { r = await Notification.requestPermission(); } catch (e) { /* sem avisos */ }
+    if (r === 'granted') { toast('Pronto: o Windows vai avisar ao abrir o sistema.'); notificarDoDia(true); }
+    else toast('O Windows não liberou os avisos. Libere as notificações nas configurações do Edge.', true);
+    agendarRender();
+  });
   $('#doc-arquivo-limpar').addEventListener('click', () => {
     $('#doc-arquivo').value = '';
     $('#doc-arquivo-limpar').hidden = true;

@@ -56,9 +56,20 @@ vencendo e em dia, o próximo vencimento e o que falta), Todos os documentos (co
 uma aba por caminhão e por semirreboque. A situação vem colorida, as datas e os valores
 já no formato do Excel. A planilha é montada no próprio sistema, sem internet.
 
-Avisos do painel: CNH, exame toxicológico ou documento de veículo vencendo (30 dias) ou
-vencido, manutenção perto (2.000 km ou 15 dias) ou passada, caminhão rodando sem km
-lançado há 3 dias.
+**Relatório de documentos em PDF**: o botão "Relatório em PDF" da aba Documentos gera um PDF
+(A4 deitado) com a situação de cada veículo, o próximo vencimento, o que falta cadastrar e
+todos os documentos separados por veículo. O PDF é montado no próprio sistema.
+
+**Avisos**: CNH, exame toxicológico ou documento de veículo vencendo ou vencido, manutenção
+perto (2.000 km ou 15 dias) ou passada, caminhão rodando sem km lançado há 3 dias. A
+antecedência é ajustável na aba Documentos: seguro (padrão 45 dias, para dar tempo de cotar
+a renovação) e os outros documentos, CNH e exame (padrão 30 dias). O que estiver vencendo
+aparece no Painel e numa faixa no alto das outras telas; no programa do Windows, com
+"Avisar também no Windows", aparece um aviso do Windows ao abrir o sistema (uma vez por dia).
+
+O que cada veículo deve ter cadastrado depende do tipo: caminhonete e automóvel, CRLV e
+seguro; caminhões, CRLV, seguro e tacógrafo; cavalo mecânico e veículos da categoria
+Transporte, também o RNTRC; semirreboque, CRLV.
 
 Contas:
 
