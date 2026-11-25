@@ -276,6 +276,13 @@ details.tabela-dados > summary { cursor: pointer; color: var(--accent); font-wei
 .doc-grupo-cab > div { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; min-width: 0; }
 .doc-grupo .tabela-box { border: 0; border-radius: 0; }
 .doc-grupo .vazio-txt { padding: 12px 14px; text-align: left; }
+.doc-grupo-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.doc-seguro { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 0.95rem; background: var(--accent-soft); }
+.doc-seguro .rot { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); min-width: 4.5em; }
+.doc-seguro.falta, .doc-seguro.breve { background: var(--warn-soft); }
+.doc-seguro.falta strong { color: var(--warn); }
+.doc-seguro.vencido { background: var(--bad-soft); }
+.doc-grupo td.doc-nome .fraco { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; max-width: 36ch; }
 .doc-falta { padding: 9px 14px; font-size: 0.88rem; color: var(--muted); border-top: 1px solid var(--line); background: var(--sunk); }
 .tabela tr.antigo td { color: var(--muted); }
 .tabela tr.antigo .pill { opacity: 0.8; }
@@ -2073,6 +2080,19 @@ function renderSeguros(atuais) {
         : `<button class="btn small" type="button" data-acao="novo-seguro" data-veic="${tipo}:${esc(v.id)}">Cadastrar seguro</button>`}</td></tr>`),
     null, 'Nenhum veículo precisa de seguro nesta categoria.');
 }
+/* linha SEGURO de cada veículo: o essencial numa linha só, na cor da situação */
+function linhaSeguro(tipo, v, atuais) {
+  const seg = docVigente(tipo, v.id, 'Seguro do veículo', atuais);
+  if (!seg && !PRECISA_SEGURO(tipo, v)) return '';
+  if (!seg) return '<div class="doc-seguro falta"><span class="rot">Seguro</span><strong>Não tem</strong></div>';
+  const st = situacaoDoc(seg, atuais);
+  return `<div class="doc-seguro ${st.nivel}"><span class="rot">Seguro</span><strong>Tem</strong><span>${seg.vencimento ? `vence <strong>${esc(fmtData(seg.vencimento))}</strong>` : 'sem data de vencimento'}</span>${st.nivel !== 'sem' ? `<span class="pill ${st.cls}">${esc(st.txt)}</span>` : ''}</div>`;
+}
+function botaoSeguro(tipo, v, atuais) {
+  const seg = docVigente(tipo, v.id, 'Seguro do veículo', atuais);
+  if (seg) return `<button class="btn small" type="button" data-acao="renovar-doc" data-alvo="documentos:${esc(seg.id)}">Renovar seguro</button>`;
+  return PRECISA_SEGURO(tipo, v) ? `<button class="btn small" type="button" data-acao="novo-seguro" data-veic="${tipo}:${esc(v.id)}">Cadastrar seguro</button>` : '';
+}
 function seloSeguro(tipo, v, atuais) {
   const seg = docVigente(tipo, v.id, 'Seguro do veículo', atuais);
   if (!seg) return PRECISA_SEGURO(tipo, v) ? `<button class="pill warn" type="button" data-acao="novo-seguro" data-veic="${tipo}:${esc(v.id)}" title="Cadastrar o seguro" style="border:0;cursor:pointer">Sem seguro · cadastrar</button>` : '';
@@ -2274,7 +2294,7 @@ function renderDocumentos() {
     const engatado = tipo === 'caminhao' && v.semirreboqueId && semi(v.semirreboqueId);
     const vazia = v => (v ? '' : ' vazia');
     const linhas = meus.map(({ d, s }) => `<tr${s.nivel === 'antigo' ? ' class="antigo"' : ''}>
-      <td class="forte doc-nome">${esc(nomeDoc(d))}${detalheDoc(d) ? `<div class="fraco">${esc(detalheDoc(d))}</div>` : ''}</td>
+      <td class="forte doc-nome">${esc(nomeDoc(d))}${detalheDoc(d) ? `<div class="fraco" title="${esc(detalheDoc(d))}">${esc(detalheDoc(d))}</div>` : ''}</td>
       <td data-rot="Número" class="${vazia(d.numero)}">${esc(d.numero || '')}</td><td class="d${vazia(d.emissao)}" data-rot="Emissão">${esc(fmtData(d.emissao))}</td><td class="d" data-rot="Vencimento">${d.vencimento ? esc(fmtData(d.vencimento)) : '<span class="sem">—</span>'}</td>
       <td data-rot="Situação"><span class="pill ${s.cls}">${esc(s.txt)}</span></td><td class="n${vazia(d.valor)}" data-rot="Valor">${d.valor ? fR(d.valor) : ''}</td><td data-rot="Arquivo" class="${vazia(d.arquivo && d.arquivo.id)}">${celArquivo(d)}</td>
       <td class="acoes">${s.nivel !== 'antigo' ? `<button class="lnk" type="button" data-acao="renovar-doc" data-alvo="documentos:${esc(d.id)}">Renovar</button>` : ''}${acoesHTML('documentos', d.id)}</td></tr>`);
@@ -2283,11 +2303,12 @@ function renderDocumentos() {
     catAnterior = cat;
     return titulo + `<article class="doc-grupo">
       <div class="doc-grupo-cab">
-        <div>${placaHTML(v.placa, true)}${seloSeguro(tipo, v, atuais)}<span class="veic-txt">${esc(tipo === 'caminhao' ? descCam(v) || v.tipo || 'Caminhão' : [v.apelido, 'Semirreboque ' + (v.tipo || '')].filter(Boolean).join(' · '))}${engatado ? ' · engatado: ' + esc(mostraPlaca(engatado.placa)) : ''}${v.situacao === 'fora' ? ' · fora da frota' : ''}</span>${pillDocs(r)}</div>
-        <button class="btn small ghost" type="button" data-acao="novo-doc" data-veic="${tipo}:${esc(v.id)}">Cadastrar documento</button>
+        <div>${placaHTML(v.placa, true)}<span class="veic-txt">${esc(tipo === 'caminhao' ? descCam(v) || v.tipo || 'Caminhão' : [v.apelido, 'Semirreboque ' + (v.tipo || '')].filter(Boolean).join(' · '))}${engatado ? ' · engatado: ' + esc(mostraPlaca(engatado.placa)) : ''}${v.situacao === 'fora' ? ' · fora da frota' : ''}</span>${pillDocs(r)}</div>
+        <div class="doc-grupo-botoes">${botaoSeguro(tipo, v, atuais)}<button class="btn small ghost" type="button" data-acao="novo-doc" data-veic="${tipo}:${esc(v.id)}">Cadastrar documento</button></div>
       </div>
+      ${linhaSeguro(tipo, v, atuais)}
       ${linhas.length ? `<div class="tabela-box"><table class="tabela"><thead><tr><th>Documento</th><th>Número</th><th>Emissão</th><th>Vencimento</th><th>Situação</th><th class="n">Valor</th><th>Arquivo</th><th class="n"></th></tr></thead><tbody>${linhas.join('')}</tbody></table></div>` : '<p class="vazio-txt">Nenhum documento cadastrado.</p>'}
-      ${!fs && r.faltam.length && v.situacao !== 'fora' ? `<p class="doc-falta">Ainda não cadastrado: ${esc(r.faltam.join(', '))}.</p>` : ''}
+      ${!fs && r.faltam.filter(t => t !== 'Seguro do veículo').length && v.situacao !== 'fora' ? `<p class="doc-falta">Ainda não cadastrado: ${esc(r.faltam.filter(t => t !== 'Seguro do veículo').join(', '))}.</p>` : ''}
     </article>`;
   }).filter(Boolean);
   UI.listaDocs = lista;
@@ -3879,8 +3900,8 @@ function ligarEventos() {
       case 'abrir-arquivo': abrirArquivo(alvo[1]); break;
       case 'novo-seguro': {
         const f = novoDocPara(b.dataset.veic, { tipo: 'Seguro do veículo', pagamento: 'avista' });
-        msgForm(f, 'Seguro: escreva a seguradora, a apólice, a vigência (o fim é o vencimento) e o valor. Se for parcelado, escolha Parcelado. Pode anexar o PDF da apólice.', '');
-        $('#doc-empresa').focus({ preventScroll: true });
+        msgForm(f, 'Seguro: coloque o vencimento (fim da vigência) e salve. Seguradora, apólice e valor são opcionais.', '');
+        $('#doc-venc').focus({ preventScroll: true });
         break;
       }
       case 'novo-doc': { const f = novoDocPara(b.dataset.veic); $('#doc-tipo').focus({ preventScroll: true }); msgForm(f, '', ''); break; }
