@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Monta a versão do Sistema Carlise que abre direto no Windows, sem internet.
+"""Monta a versão do DECONT que abre direto no Windows, sem internet.
 
 A página publicada (../frota.html) não tem <html>/<head> (a plataforma de artefatos
 coloca na hora de publicar) e busca as fontes no Google Fonts. Aqui o arquivo ganha o

@@ -1,4 +1,4 @@
-<title>Sistema Carlise</title>
+<title>DECONT</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -368,7 +368,7 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
         <rect x="4" y="22" width="25.5" height="1.6" fill="#FFFFFF"/>
         <circle cx="9" cy="25" r="2.6" fill="#F2C230"/><circle cx="15" cy="25" r="2.6" fill="#F2C230"/><circle cx="25.5" cy="25" r="2.6" fill="#F2C230"/>
       </svg>
-      <div><div class="marca-nome">Sistema Carlise</div><div class="marca-sub">Controle da frota de caminhões</div></div>
+      <div><div class="marca-nome">DECONT</div><div class="marca-sub">Controle da frota</div></div>
     </div>
     <div class="barra-dir">
       <label class="cat-global" for="cat-global"><span>Categoria</span><select id="cat-global"></select></label>
@@ -645,6 +645,13 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
       <div class="acoes-linha"><button class="btn" type="submit" data-novo="Salvar documento" data-editar="Salvar alterações">Salvar documento</button><p class="f-msg" role="status"></p></div>
     </form>
 
+    <section class="bloco" id="sec-seguros">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Seguros</h2><p class="hint" id="seguros-resumo">O vencimento do seguro de cada veículo. Os que vencem primeiro aparecem em cima.</p></div>
+      </div>
+      <div class="tabela-box"><table class="tabela" id="t-seguros"></table></div>
+    </section>
+
     <section class="bloco">
       <div class="bloco-cab">
         <div><h2 class="h2">Documentos por veículo</h2><p class="hint">Conta o mais novo de cada documento. Os anteriores ficam como histórico.</p></div>
@@ -812,7 +819,7 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
 <script>
 'use strict';
 /* ====================================================================
-   Sistema Carlise: controle da frota (caminhões, semirreboques, motoristas,
+   DECONT: controle da frota (caminhões, semirreboques, motoristas,
    km do dia, abastecimentos e manutenções).
    Onde os dados ficam: aberto pelo link do claude.ai, na conta (capability db),
    em qualquer aparelho. Aberto como arquivo ou pelo programa do Windows,
@@ -2015,6 +2022,15 @@ function situacaoDoc(d, atuais) {
   if (dd <= limiteDoc(d)) return { nivel: 'breve', cls: 'warn', txt: dd === 0 ? 'Vence hoje' : dd === 1 ? 'Vence amanhã' : 'Vence em ' + dd + ' dias', peso: 1, dias: dd };
   return { nivel: 'ok', cls: 'ok', txt: 'Em dia', peso: 2, dias: dd };
 }
+function docVigente(tipo, id, nome, atuais) {
+  return todos('documentos').find(d => d.veiculoTipo === tipo && d.veiculoId === id && atuais.has(d.id) && nomeDoc(d) === nome) || null;
+}
+const PRECISA_SEGURO = (tipo, v) => docsEssenciais(tipo, v).includes('Seguro do veículo');
+function pagamentoTxt(d) {
+  if (!d) return '';
+  if (d.pagamento === 'parcelado' && d.parcelas > 1) return `${d.parcelas}× de ${fR(d.valorParcela || (d.valor ? d.valor / d.parcelas : 0))}`;
+  return d.pagamento === 'avista' ? 'À vista' : '';
+}
 function resumoDocs(tipo, id, atuais) {
   const docs = todos('documentos').filter(d => d.veiculoTipo === tipo && d.veiculoId === id && atuais.has(d.id));
   let venc = 0, breve = 0;
@@ -2027,6 +2043,41 @@ function pillDocs(r) {
   if (r.breve) return `<span class="pill warn">${r.breve === 1 ? '1 vence' : r.breve + ' vencem'} em breve</span>`;
   if (r.n) return `<span class="pill ok">Em dia</span>`;
   return '<span class="pill">Sem documentos</span>';
+}
+/* tabela de seguros: um veículo por linha, com o vencimento do seguro e o botão para cadastrar ou renovar */
+function renderSeguros(atuais) {
+  const linhas = [
+    ...todos('caminhoes').map(v => ({ tipo: 'caminhao', v })),
+    ...todos('semirreboques').map(v => ({ tipo: 'semirreboque', v })),
+  ].filter(({ tipo, v }) => v.situacao !== 'fora' && naCat(tipo, v))
+    .map(({ tipo, v }) => ({ tipo, v, seg: docVigente(tipo, v.id, 'Seguro do veículo', atuais) }))
+    .filter(x => x.seg || PRECISA_SEGURO(x.tipo, x.v))
+    .map(x => Object.assign(x, { st: x.seg ? situacaoDoc(x.seg, atuais) : null }))
+    .sort((a, b) => (a.seg ? 1 : 0) - (b.seg ? 1 : 0) || (a.seg && b.seg ? (a.seg.vencimento || '9999').localeCompare(b.seg.vencimento || '9999') : porPlaca(a.v, b.v)));
+  const sem = linhas.filter(x => !x.seg).length;
+  const vencendo = linhas.filter(x => x.st && (x.st.nivel === 'vencido' || x.st.nivel === 'breve')).length;
+  $('#seguros-resumo').textContent = linhas.length
+    ? `${plural(linhas.length - sem, 'veículo com seguro', 'veículos com seguro')}${sem ? ' · ' + plural(sem, 'sem seguro cadastrado', 'sem seguro cadastrado') : ''}${vencendo ? ' · ' + plural(vencendo, 'vencendo ou vencido', 'vencendo ou vencidos') : ''}. Avisa ${avisosCfg().diasSeguro} dias antes de vencer.`
+    : 'Cadastre os veículos na aba Frota.';
+  tabela('#t-seguros', [['Veículo'], ['Seguradora'], ['Apólice'], ['Vigência'], ['Situação'], ['Valor', 'n'], ['Pagamento'], ['', 'n']],
+    linhas.map(({ tipo, v, seg, st }) => `<tr>
+      <td><div class="veic">${placaHTML(v.placa)}<span class="veic-txt">${esc(v.apelido || (tipo === 'caminhao' ? descCam(v) : 'Semirreboque'))}</span></div></td>
+      <td class="forte">${seg ? esc(seg.empresa || '—') : '<span class="pill warn">Sem seguro</span>'}</td>
+      <td>${seg ? esc(seg.numero || '') : ''}</td>
+      <td class="d">${seg ? (seg.emissao ? esc(fmtData(seg.emissao)) + ' a ' : 'até ') + (seg.vencimento ? '<strong>' + esc(fmtData(seg.vencimento)) + '</strong>' : '—') : ''}</td>
+      <td>${st ? `<span class="pill ${st.cls}">${esc(st.txt)}</span>` : ''}</td>
+      <td class="n">${seg && seg.valor ? fR(seg.valor) : ''}</td>
+      <td>${esc(pagamentoTxt(seg))}</td>
+      <td class="acoes">${seg
+        ? `${seg.arquivo && seg.arquivo.id ? celArquivo(seg) + ' ' : ''}<button class="lnk" type="button" data-acao="renovar-doc" data-alvo="documentos:${esc(seg.id)}">Renovar</button><button class="lnk" type="button" data-acao="editar" data-alvo="documentos:${esc(seg.id)}">Editar</button>`
+        : `<button class="btn small" type="button" data-acao="novo-seguro" data-veic="${tipo}:${esc(v.id)}">Cadastrar seguro</button>`}</td></tr>`),
+    null, 'Nenhum veículo precisa de seguro nesta categoria.');
+}
+function seloSeguro(tipo, v, atuais) {
+  const seg = docVigente(tipo, v.id, 'Seguro do veículo', atuais);
+  if (!seg) return PRECISA_SEGURO(tipo, v) ? `<button class="pill warn" type="button" data-acao="novo-seguro" data-veic="${tipo}:${esc(v.id)}" title="Cadastrar o seguro" style="border:0;cursor:pointer">Sem seguro · cadastrar</button>` : '';
+  const st = situacaoDoc(seg, atuais);
+  return `<span class="pill ${st.nivel === 'ok' ? 'info' : st.cls}">Seguro ${esc(seg.empresa || '')}${seg.vencimento ? ' até ' + esc(fmtData(seg.vencimento)) : ''}</span>`;
 }
 function rotuloArquivo(a) { return a ? (a.tipo === 'application/pdf' ? 'PDF' : 'foto') : ''; }
 function celArquivo(d) {
@@ -2232,7 +2283,7 @@ function renderDocumentos() {
     catAnterior = cat;
     return titulo + `<article class="doc-grupo">
       <div class="doc-grupo-cab">
-        <div>${placaHTML(v.placa, true)}<span class="veic-txt">${esc(tipo === 'caminhao' ? descCam(v) || v.tipo || 'Caminhão' : [v.apelido, 'Semirreboque ' + (v.tipo || '')].filter(Boolean).join(' · '))}${engatado ? ' · engatado: ' + esc(mostraPlaca(engatado.placa)) : ''}${v.situacao === 'fora' ? ' · fora da frota' : ''}</span>${pillDocs(r)}</div>
+        <div>${placaHTML(v.placa, true)}${seloSeguro(tipo, v, atuais)}<span class="veic-txt">${esc(tipo === 'caminhao' ? descCam(v) || v.tipo || 'Caminhão' : [v.apelido, 'Semirreboque ' + (v.tipo || '')].filter(Boolean).join(' · '))}${engatado ? ' · engatado: ' + esc(mostraPlaca(engatado.placa)) : ''}${v.situacao === 'fora' ? ' · fora da frota' : ''}</span>${pillDocs(r)}</div>
         <button class="btn small ghost" type="button" data-acao="novo-doc" data-veic="${tipo}:${esc(v.id)}">Cadastrar documento</button>
       </div>
       ${linhas.length ? `<div class="tabela-box"><table class="tabela"><thead><tr><th>Documento</th><th>Número</th><th>Emissão</th><th>Vencimento</th><th>Situação</th><th class="n">Valor</th><th>Arquivo</th><th class="n"></th></tr></thead><tbody>${linhas.join('')}</tbody></table></div>` : '<p class="vazio-txt">Nenhum documento cadastrado.</p>'}
@@ -2240,6 +2291,7 @@ function renderDocumentos() {
     </article>`;
   }).filter(Boolean);
   UI.listaDocs = lista;
+  renderSeguros(atuais);
   $('#docs-grupos').innerHTML = !veics.length
     ? '<p class="vazio-txt">Cadastre os caminhões e os semirreboques na aba Frota para guardar os documentos de cada um.</p>'
     : grupos.length ? grupos.join('') : '<p class="vazio-txt">Nenhum documento com este filtro.</p>';
@@ -2452,8 +2504,8 @@ function montarXlsx(abas) {
       + abas.map((a, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
       + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>' },
     { nome: '_rels/.rels', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>' },
-    { nome: 'docProps/core.xml', texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Documentos da frota</dc:title><dc:creator>Sistema Carlise</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0, 19)}Z</dcterms:created></cp:coreProperties>` },
-    { nome: 'docProps/app.xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Sistema Carlise</Application></Properties>' },
+    { nome: 'docProps/core.xml', texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Documentos da frota</dc:title><dc:creator>DECONT</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0, 19)}Z</dcterms:created></cp:coreProperties>` },
+    { nome: 'docProps/app.xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>DECONT</Application></Properties>' },
     { nome: 'xl/workbook.xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>'
       + abas.map((a, i) => `<sheet name="${xmlEsc(a.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets>'
       + (nomesFiltro ? `<definedNames>${nomesFiltro}</definedNames>` : '') + '</workbook>' },
@@ -2470,7 +2522,7 @@ function montarXlsx(abas) {
 function planilhaDocumentos() {
   const atuais = docsAtuais();
   const h = hojeISO();
-  const emitida = 'Sistema Carlise · ' + emitido().toLowerCase();
+  const emitida = 'DECONT · ' + emitido().toLowerCase();
   const estiloSit = s => ({ vencido: XS.vencido, breve: XS.breve, ok: XS.ok }[s.nivel] || XS.neutro);
   const pagamentoTxt = d => (d.pagamento === 'parcelado' ? 'Parcelado' : d.pagamento === 'avista' ? 'À vista' : '');
   const veics = [
@@ -2497,9 +2549,23 @@ function planilhaDocumentos() {
   const cab = lista => lista.map(t => ({ v: t, s: XS.cab }));
   const descVeic = (tipo, v) => (tipo === 'caminhao' ? descCam(v) || v.tipo || 'Caminhão' : [v.apelido, 'Semirreboque ' + (v.tipo || '')].filter(Boolean).join(' · '));
 
+  // CRLV e seguro: vencimento colorido pela situação; sem seguro aparece em amarelo
+  const colunasCrlvSeguro = (tipo, v) => {
+    const crlv = docVigente(tipo, v.id, 'CRLV (licenciamento)', atuais);
+    const seg = docVigente(tipo, v.id, 'Seguro do veículo', atuais);
+    const estDoc = d => (d ? estiloSit(situacaoDoc(d, atuais)) : XS.breve);
+    if (!seg) {
+      const txt = PRECISA_SEGURO(tipo, v) ? 'Sem seguro cadastrado' : '';
+      return [{ d: crlv ? crlv.vencimento : '', s: crlv ? estDoc(crlv) : XS.data }, { v: txt, s: txt ? XS.breve : XS.txt }, { v: '', s: XS.txt }, { d: '', s: XS.data }, { v: '', s: XS.moeda }, { v: '', s: XS.txt }];
+    }
+    return [
+      { d: crlv ? crlv.vencimento : '', s: crlv ? estDoc(crlv) : XS.data }, { v: seg.empresa || '', s: XS.forte }, { v: seg.numero || '', s: XS.txt },
+      { d: seg.vencimento || '', s: estDoc(seg) }, { v: seg.valor || '', s: XS.moeda }, { v: pagamentoTxt(seg), s: XS.txt },
+    ];
+  };
   // Resumo
   const resumoLinhas = [[{ v: 'Documentos da frota' + (UI.categoria ? ' · ' + nomeCat(UI.categoria === SEM_CAT ? '' : UI.categoria) : ''), s: XS.titulo }], [{ v: emitida, s: XS.fraco }], [],
-    cab(['Categoria', 'Veículo', 'Placa', 'Tipo', 'Marca e modelo', 'Ano', 'Renavam', 'Chassi', 'Vencidos', 'Vencem em breve', 'Em dia', 'Próximo vencimento', 'Documento que vence primeiro', 'Ainda não cadastrado'])];
+    cab(['Categoria', 'Veículo', 'Placa', 'Tipo', 'Marca e modelo', 'Ano', 'Renavam', 'Chassi', 'CRLV vence', 'Seguradora', 'Apólice', 'Seguro vence', 'Valor do seguro', 'Pagamento do seguro', 'Vencidos', 'Vencem em breve', 'Em dia', 'Ainda não cadastrado'])];
   for (const { tipo, v } of veics) {
     const r = resumoDocs(tipo, v.id, atuais);
     const prox = todos('documentos').filter(d => d.veiculoTipo === tipo && d.veiculoId === v.id && atuais.has(d.id) && d.vencimento).sort((a, b) => a.vencimento.localeCompare(b.vencimento))[0];
@@ -2507,11 +2573,12 @@ function planilhaDocumentos() {
     resumoLinhas.push([
       { v: nomeCat(catVeic(tipo, v)), s: XS.txt }, { v: classeVeic(tipo, v), s: XS.txt }, { v: mostraPlaca(v.placa), s: XS.forte }, { v: v.tipo || '', s: XS.txt },
       { v: tipo === 'caminhao' ? descCam(v) : [v.apelido, v.marca].filter(Boolean).join(' · '), s: XS.txt }, { v: v.ano || '', s: XS.txt }, { v: v.renavam || '', s: XS.txt }, { v: v.chassi || '', s: XS.txt },
+      ...colunasCrlvSeguro(tipo, v),
       { v: r.venc, s: r.venc ? XS.vencido : XS.inteiro }, { v: r.breve, s: r.breve ? XS.breve : XS.inteiro }, { v: emDia, s: XS.inteiro },
-      { d: prox ? prox.vencimento : '', s: XS.data }, { v: prox ? nomeDoc(prox) : '', s: XS.txt }, { v: r.faltam.join(', '), s: XS.txt },
+      { v: r.faltam.join(', '), s: XS.txt },
     ]);
   }
-  const resumo = { nome: 'Resumo', cabecalho: 3, ultimaLinhaFiltro: resumoLinhas.length, linhas: resumoLinhas, larguras: [13, 13, 11, 22, 24, 11, 14, 20, 10, 12, 8, 14, 26, 40] };
+  const resumo = { nome: 'Resumo', cabecalho: 3, ultimaLinhaFiltro: resumoLinhas.length, linhas: resumoLinhas, larguras: [13, 13, 11, 20, 30, 11, 14, 20, 12, 18, 18, 13, 14, 16, 9, 10, 8, 36] };
 
   // Todos os documentos
   const todasLinhas = [[{ v: 'Todos os documentos', s: XS.titulo }], [{ v: emitida + ' · os renovados aparecem em cinza', s: XS.fraco }], [],
@@ -2689,7 +2756,7 @@ function pdfDocumentos() {
   const { M, W } = pdf;
   const cabecalho = () => {
     pdf.txt(M, pdf.y - 14, 'Documentos da frota', 16, true);
-    pdf.txtDir(W - M, pdf.y - 12, 'Sistema Carlise', 9, true, '#1C47B5');
+    pdf.txtDir(W - M, pdf.y - 12, 'DECONT', 9, true, '#1C47B5');
     pdf.txt(M, pdf.y - 27, `${emitido()} · ${plural(veics.length, 'veículo', 'veículos')}${catTxt}`, 8.5, false, '#535E72');
     pdf.linha(M, pdf.y - 33, W - M, pdf.y - 33, '#151A23');
     pdf.y -= 44;
@@ -2712,14 +2779,22 @@ function pdfDocumentos() {
     const r = resumoDocs(tipo, v.id, atuais);
     const prox = docsDe(tipo, v.id).filter(x => x.s.nivel !== 'antigo' && x.d.vencimento)[0];
     const sit = r.venc ? ['vencido', plural(r.venc, 'vencido', 'vencidos')] : r.breve ? ['breve', (r.breve === 1 ? '1 vence' : r.breve + ' vencem') + ' em breve'] : r.n ? ['ok', 'Em dia'] : ['antigo', 'Sem documentos'];
+    const crlv = docVigente(tipo, v.id, 'CRLV (licenciamento)', atuais);
+    const seg = docVigente(tipo, v.id, 'Seguro do veículo', atuais);
+    const corDoc = d => { if (!d) return ''; const n = situacaoDoc(d, atuais).nivel; return n === 'vencido' ? cores.vencido[0] : n === 'breve' ? cores.breve[0] : ''; };
+    const semSeg = !seg && PRECISA_SEGURO(tipo, v);
     return [
       { v: mostraPlaca(v.placa), negrito: true }, { v: v.apelido || '' }, { v: tipo === 'semirreboque' ? 'Semirreboque ' + (v.tipo || '').toLowerCase() : v.tipo || '' },
-      { v: tipo === 'caminhao' ? [v.marca, v.modelo].filter(Boolean).join(' ') : [v.marca, v.tipo].filter(Boolean).join(' ') }, { v: nomeCat(catVeic(tipo, v)) },
-      { v: v.renavam || '' }, { v: sit[1], cor: cores[sit[0]][0], fundo: cores[sit[0]][1] },
-      { v: prox ? fmtData(prox.d.vencimento) + ' · ' + curtoDoc(nomeDoc(prox.d)) : '' }, { v: r.faltam.map(curtoDoc).join(', '), cor: r.faltam.length ? '#8A5300' : '' },
+      { v: v.renavam || '' }, { v: crlv && crlv.vencimento ? fmtData(crlv.vencimento) : '—', cor: corDoc(crlv), negrito: !!corDoc(crlv) },
+      semSeg ? { v: 'Sem seguro', cor: cores.breve[0], fundo: cores.breve[1] } : { v: seg ? seg.empresa || 'Seguro' : '—', negrito: !!seg },
+      { v: seg ? seg.numero || '' : '' }, { v: seg && seg.vencimento ? fmtData(seg.vencimento) : '', cor: corDoc(seg), negrito: !!corDoc(seg) },
+      { v: seg ? [seg.valor ? fR(seg.valor) : '', pagamentoTxt(seg)].filter(Boolean).join(' · ') : '' },
+      { v: sit[1], cor: cores[sit[0]][0], fundo: cores[sit[0]][1] },
     ];
   });
-  pdf.tabela([{ t: 'Placa', w: 50 }, { t: 'Apelido', w: 74 }, { t: 'Tipo', w: 110 }, { t: 'Marca e modelo', w: 128 }, { t: 'Categoria', w: 60 }, { t: 'Renavam', w: 58 }, { t: 'Situação', w: 76 }, { t: 'Próximo vencimento', w: 96 }, { t: 'Ainda não cadastrado', w: 118 }], linhasResumo, cabecalho);
+  pdf.tabela([{ t: 'Placa', w: 50 }, { t: 'Apelido', w: 74 }, { t: 'Tipo', w: 100 }, { t: 'Renavam', w: 58 }, { t: 'CRLV vence', w: 54 }, { t: 'Seguradora', w: 82 }, { t: 'Apólice', w: 80 }, { t: 'Seguro vence', w: 58 }, { t: 'Valor e pagamento', w: 124 }, { t: 'Situação', w: 90 }], linhasResumo, cabecalho);
+  const semSeguro = veics.filter(({ tipo, v }) => PRECISA_SEGURO(tipo, v) && !docVigente(tipo, v.id, 'Seguro do veículo', atuais)).length;
+  if (semSeguro) { pdf.y -= 12; pdf.txt(M, pdf.y - 8, `${plural(semSeguro, 'veículo está', 'veículos estão')} sem seguro cadastrado. Cadastre a apólice na aba Documentos para ter o aviso de vencimento.`, 8.5, true, cores.breve[0]); pdf.y -= 14; }
   // todos os documentos, separados por veículo
   pdf.pagina();
   cabecalho();
@@ -2736,7 +2811,7 @@ function pdfDocumentos() {
     ]));
   });
   pdf.tabela([{ t: 'Documento', w: 112 }, { t: 'Número', w: 76 }, { t: 'Emissão', w: 52 }, { t: 'Vencimento', w: 56 }, { t: 'Situação', w: 88 }, { t: 'Valor', w: 60, dir: true }, { t: 'Detalhes', w: 286, quebra: true }, { t: 'Anexo', w: 40 }], linhasDocs, cabecalho);
-  return pdf.fechar(`Sistema Carlise · ${emitido()} · "Vence em breve": seguro ${avisosCfg().diasSeguro} dias antes, outros documentos ${avisosCfg().dias} dias antes.`);
+  return pdf.fechar(`DECONT · ${emitido()} · "Vence em breve": seguro ${avisosCfg().diasSeguro} dias antes, outros documentos ${avisosCfg().dias} dias antes.`);
 }
 async function baixarDocumentosPDF() {
   if (!D.documentos.size && !D.caminhoes.size) { toast('Cadastre os veículos e os documentos primeiro.', true); return; }
@@ -2829,7 +2904,7 @@ function relatorioFrota(el) {
   const comCusto = linhas.filter(r => r.custo != null);
   el.innerHTML = `
     <header class="rel-cab">
-      <div><span class="rel-eyebrow">Sistema Carlise · Relatório da frota${UI.categoria ? ' · categoria ' + esc(nomeCat(UI.categoria === SEM_CAT ? '' : UI.categoria)) : ''}</span><h2 class="rel-titulo">${esc(P.titulo)}</h2>
+      <div><span class="rel-eyebrow">DECONT · Relatório da frota${UI.categoria ? ' · categoria ' + esc(nomeCat(UI.categoria === SEM_CAT ? '' : UI.categoria)) : ''}</span><h2 class="rel-titulo">${esc(P.titulo)}</h2>
       <span class="hint">${esc(fmtData(P.ini))} a ${esc(fmtData(P.fim))} · ${plural(camAtivos().length, 'caminhão ativo', 'caminhões ativos')} · ${esc(emitido())}</span></div>
     </header>
     <div class="kpis">${kpisHTML(frota)}</div>
@@ -2888,7 +2963,7 @@ function relatorioFrota(el) {
         <tfoot><tr><td colspan="2">Frota${frota.manut !== soma(linhas, r => r.manut) ? ' <span class="fraco">(manutenção inclui os semirreboques)</span>' : ''}</td><td class="n">${fKm(frota.km)}</td><td class="n">${fL(frota.litros)}</td><td class="n">${fR(frota.comb)}</td><td class="n">${fR(frota.manut)}</td><td class="n">${fKml(frota.kml)}</td><td class="n">${fRkm(frota.custo)}</td><td class="nao-imprime"></td></tr></tfoot>
       </table></div>
     </section>
-    <p class="rodape-rel">Sistema Carlise · ${esc(emitido())}. Consumo = km de um tanque cheio até o outro ÷ litros de diesel colocados (Arla 32 fora). Custo por km = combustível (com Arla) + manutenção, ÷ km rodados.</p>`;
+    <p class="rodape-rel">DECONT · ${esc(emitido())}. Consumo = km de um tanque cheio até o outro ÷ litros de diesel colocados (Arla 32 fora). Custo por km = combustível (com Arla) + manutenção, ÷ km rodados.</p>`;
 
   const kmlFrota = frota.kml, custoFrota = frota.custo;
   if (!UI.categoria) {
@@ -2962,7 +3037,7 @@ function relatorioCaminhao(el, c) {
   const ev = evolucaoMensal(c.id, 6);
   el.innerHTML = `
     <header class="rel-cab">
-      <div><span class="rel-eyebrow">Sistema Carlise · Extrato do caminhão</span>
+      <div><span class="rel-eyebrow">DECONT · Extrato do caminhão</span>
       <h2 class="rel-titulo">${placaHTML(c.placa, true)}<span class="veic-txt">${esc(descCam(c))}</span></h2>
       <span class="hint">${esc(P.titulo)} · ${esc(fmtData(P.ini))} a ${esc(fmtData(P.fim))} · ${esc(emitido())}</span></div>
       <button class="btn small ghost nao-imprime" type="button" data-acao="ver-extrato" data-cam="">Voltar para toda a frota</button>
@@ -3005,7 +3080,7 @@ function relatorioCaminhao(el, c) {
       <p class="hint">Todos os lançamentos do ${esc(mostraPlaca(c.placa))} no período, em ordem de data: km do dia, abastecimentos, manutenções e trocas de motorista ou semirreboque.</p>
       <div class="tabela-box"><table class="tabela">${tabelaExtratoHTML(L)}</table></div>
     </section>
-    <p class="rodape-rel">Sistema Carlise · ${esc(emitido())}. A manutenção dos semirreboques não entra no extrato do caminhão, porque o semirreboque troca de caminhão.</p>`;
+    <p class="rodape-rel">DECONT · ${esc(emitido())}. A manutenção dos semirreboques não entra no extrato do caminhão, porque o semirreboque troca de caminhão.</p>`;
 
   const comp = (v, vf, fmt) => [{ rot: mostraPlaca(c.placa), valores: [v || 0], longo: rotuloCam(c) }, { rot: 'Média da frota', valores: [vf || 0] }];
   graficoBarras($('#gr-c-kml'), { itens: comp(r.kml, frota.kml), series: [S_KM], fmt: v => nf2.format(v) + ' km/l', meta: mt.kml || null, rotMeta: mt.kml ? 'meta ' + nf2.format(mt.kml) : '', status: mt.kml ? v => seloMeta(v, mt.kml, true) : null, titulo: 'Consumo', vazio: 'Precisa de km e de abastecimento de diesel no período.' });
@@ -3050,7 +3125,7 @@ function notificarDoDia(forcar) {
   const al = calcAlertas().filter(a => a.nivel === 'vencido' || a.nivel === 'breve');
   if (!al.length) { if (forcar) toast('Nada vencendo agora. O Windows avisa quando tiver.'); return; }
   try {
-    new Notification(`Sistema Carlise: ${plural(al.length, 'aviso', 'avisos')}`, { body: al.slice(0, 4).map(a => a.txt).join('\n') + (al.length > 4 ? `\ne mais ${al.length - 4}.` : '') });
+    new Notification(`DECONT: ${plural(al.length, 'aviso', 'avisos')}`, { body: al.slice(0, 4).map(a => a.txt).join('\n') + (al.length > 4 ? `\ne mais ${al.length - 4}.` : '') });
     localStorage.setItem(CHAVE_NOTIF, hojeISO());
   } catch (e) { /* o Windows não deixou */ }
 }
@@ -3566,8 +3641,8 @@ async function salvarCopia() {
 }
 async function carregarCopia(arquivo) {
   let obj;
-  try { obj = JSON.parse(await arquivo.text()); } catch (e) { toast('Este arquivo não é uma cópia do Sistema Carlise.', true); return; }
-  if (!obj || obj.app !== 'sistema-carlise' || typeof obj.dados !== 'object') { toast('Este arquivo não é uma cópia do Sistema Carlise.', true); return; }
+  try { obj = JSON.parse(await arquivo.text()); } catch (e) { toast('Este arquivo não é uma cópia do DECONT.', true); return; }
+  if (!obj || obj.app !== 'sistema-carlise' || typeof obj.dados !== 'object') { toast('Este arquivo não é uma cópia do DECONT.', true); return; }
   const ops = [];
   const cont = {};
   for (const c of COLS) {
@@ -3802,6 +3877,12 @@ function ligarEventos() {
       case 'docs-pdf': baixarDocumentosPDF(); break;
       case 'ver-alertas': e.preventDefault(); location.hash = 'painel'; mostrarAba('painel'); setTimeout(() => { const b = $('#bloco-alertas'); if (b && !b.hidden) b.scrollIntoView({ block: 'start' }); }, 50); break;
       case 'abrir-arquivo': abrirArquivo(alvo[1]); break;
+      case 'novo-seguro': {
+        const f = novoDocPara(b.dataset.veic, { tipo: 'Seguro do veículo', pagamento: 'avista' });
+        msgForm(f, 'Seguro: escreva a seguradora, a apólice, a vigência (o fim é o vencimento) e o valor. Se for parcelado, escolha Parcelado. Pode anexar o PDF da apólice.', '');
+        $('#doc-empresa').focus({ preventScroll: true });
+        break;
+      }
       case 'novo-doc': { const f = novoDocPara(b.dataset.veic); $('#doc-tipo').focus({ preventScroll: true }); msgForm(f, '', ''); break; }
       case 'renovar-doc': {
         const d = D.documentos.get(alvo[1]);

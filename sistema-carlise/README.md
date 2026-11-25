@@ -1,4 +1,6 @@
-# Sistema Carlise
+# DECONT (controle da frota)
+
+O sistema era chamado de Sistema Carlise; a pasta do repositório continua `sistema-carlise`.
 
 Controle da frota de caminhões: quanto cada caminhão rodou por dia, quem dirigiu, qual
 semirreboque estava engatado, quanto gastou de combustível e de manutenção, e o relatório
@@ -101,13 +103,13 @@ que foi cadastrado de verdade.
 ## Arquivos
 
 - `frota.html`: o sistema inteiro numa página (a mesma publicada como Artifact no claude.ai).
-- `exe/`: gera `SistemaCarlise.exe`.
+- `exe/`: gera `DECONT.exe`.
   - `montar.py`: acrescenta o cabeçalho HTML e embute as fontes em base64.
   - `fontes/`: Barlow e Barlow Condensed (Google Fonts, licença SIL Open Font License 1.1),
     só os caracteres latinos.
   - `gerar_icone.py`: desenha o ícone (caminhão com semirreboque).
   - `frota.nsi`: o .exe copia o sistema para `%LOCALAPPDATA%\SistemaCarlise`, cria o atalho
-    "Sistema Carlise" na Área de Trabalho e abre numa janela própria do Microsoft Edge.
+    "DECONT" na Área de Trabalho (e apaga o atalho antigo "Sistema Carlise") e abre numa janela própria do Microsoft Edge.
     Sem Edge, abre no navegador padrão. Rodar um .exe mais novo atualiza o sistema e
     mantém os dados.
 

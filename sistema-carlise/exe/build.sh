@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Gera SistemaCarlise.exe: o sistema numa janela própria no Windows, sem internet.
+# Gera DECONT.exe: o sistema numa janela própria no Windows, sem internet.
 # Precisa de: python3 e makensis (pacote "nsis" no Linux).
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -11,4 +11,4 @@ python3 montar.py build/frota.html
 python3 gerar_icone.py build/icone.ico
 makensis -V2 -INPUTCHARSET UTF8 frota.nsi
 
-echo "Pronto: $(pwd)/dist/SistemaCarlise.exe"
+echo "Pronto: $(pwd)/dist/DECONT.exe"
