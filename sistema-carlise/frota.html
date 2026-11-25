@@ -652,13 +652,6 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
       <div class="acoes-linha"><button class="btn" type="submit" data-novo="Salvar documento" data-editar="Salvar alterações">Salvar documento</button><p class="f-msg" role="status"></p></div>
     </form>
 
-    <section class="bloco" id="sec-seguros">
-      <div class="bloco-cab">
-        <div><h2 class="h2">Seguros</h2><p class="hint" id="seguros-resumo">O vencimento do seguro de cada veículo. Os que vencem primeiro aparecem em cima.</p></div>
-      </div>
-      <div class="tabela-box"><table class="tabela" id="t-seguros"></table></div>
-    </section>
-
     <section class="bloco">
       <div class="bloco-cab">
         <div><h2 class="h2">Documentos por veículo</h2><p class="hint">Conta o mais novo de cada documento. Os anteriores ficam como histórico.</p></div>
@@ -702,7 +695,8 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
 
   <!-- FROTA -->
   <section class="vista" id="v-frota" data-vista="frota" hidden>
-    <div class="cab"><div class="bloco" style="gap:4px"><h1 class="h1">Frota</h1><p class="hint">Caminhões, semirreboques, motoristas e quem está com quem.</p></div></div>
+    <div class="cab"><div class="bloco" style="gap:4px"><h1 class="h1">Frota</h1><p class="hint">Caminhões, semirreboques, motoristas e quem está com quem.</p></div>
+      <button class="btn" type="button" data-acao="tudo-excel">Baixar tudo no Excel (.xlsx)</button></div>
 
     <section class="bloco">
       <div class="bloco-cab"><div><h2 class="h2">Conjuntos agora</h2><p class="hint">Escolha o motorista e o semirreboque de cada caminhão. A troca fica registrada com a data.</p></div></div>
@@ -803,7 +797,8 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
       <div class="bloco-cab"><div><h2 class="h2">Dados</h2><p class="hint" id="dados-onde"></p></div></div>
       <div class="ficha">
         <div class="acoes-linha">
-          <button class="btn" type="button" data-acao="backup">Salvar cópia de tudo (.json)</button>
+          <button class="btn" type="button" data-acao="tudo-excel">Baixar tudo no Excel (.xlsx)</button>
+          <button class="btn ghost" type="button" data-acao="backup">Salvar cópia de tudo (.json)</button>
           <button class="btn ghost" type="button" data-acao="restaurar">Carregar uma cópia</button>
           <input type="file" id="arquivo-copia" accept=".json,application/json" hidden>
         </div>
@@ -2051,36 +2046,7 @@ function pillDocs(r) {
   if (r.n) return `<span class="pill ok">Em dia</span>`;
   return '<span class="pill">Sem documentos</span>';
 }
-/* tabela de seguros: um veículo por linha, com o vencimento do seguro e o botão para cadastrar ou renovar */
-function renderSeguros(atuais) {
-  const linhas = [
-    ...todos('caminhoes').map(v => ({ tipo: 'caminhao', v })),
-    ...todos('semirreboques').map(v => ({ tipo: 'semirreboque', v })),
-  ].filter(({ tipo, v }) => v.situacao !== 'fora' && naCat(tipo, v))
-    .map(({ tipo, v }) => ({ tipo, v, seg: docVigente(tipo, v.id, 'Seguro do veículo', atuais) }))
-    .filter(x => x.seg || PRECISA_SEGURO(x.tipo, x.v))
-    .map(x => Object.assign(x, { st: x.seg ? situacaoDoc(x.seg, atuais) : null }))
-    .sort((a, b) => (a.seg ? 1 : 0) - (b.seg ? 1 : 0) || (a.seg && b.seg ? (a.seg.vencimento || '9999').localeCompare(b.seg.vencimento || '9999') : porPlaca(a.v, b.v)));
-  const sem = linhas.filter(x => !x.seg).length;
-  const vencendo = linhas.filter(x => x.st && (x.st.nivel === 'vencido' || x.st.nivel === 'breve')).length;
-  $('#seguros-resumo').textContent = linhas.length
-    ? `${plural(linhas.length - sem, 'veículo com seguro', 'veículos com seguro')}${sem ? ' · ' + plural(sem, 'sem seguro cadastrado', 'sem seguro cadastrado') : ''}${vencendo ? ' · ' + plural(vencendo, 'vencendo ou vencido', 'vencendo ou vencidos') : ''}. Avisa ${avisosCfg().diasSeguro} dias antes de vencer.`
-    : 'Cadastre os veículos na aba Frota.';
-  tabela('#t-seguros', [['Veículo'], ['Seguradora'], ['Apólice'], ['Vigência'], ['Situação'], ['Valor', 'n'], ['Pagamento'], ['', 'n']],
-    linhas.map(({ tipo, v, seg, st }) => `<tr>
-      <td><div class="veic">${placaHTML(v.placa)}<span class="veic-txt">${esc(v.apelido || (tipo === 'caminhao' ? descCam(v) : 'Semirreboque'))}</span></div></td>
-      <td class="forte">${seg ? esc(seg.empresa || '—') : '<span class="pill warn">Sem seguro</span>'}</td>
-      <td>${seg ? esc(seg.numero || '') : ''}</td>
-      <td class="d">${seg ? (seg.emissao ? esc(fmtData(seg.emissao)) + ' a ' : 'até ') + (seg.vencimento ? '<strong>' + esc(fmtData(seg.vencimento)) + '</strong>' : '—') : ''}</td>
-      <td>${st ? `<span class="pill ${st.cls}">${esc(st.txt)}</span>` : ''}</td>
-      <td class="n">${seg && seg.valor ? fR(seg.valor) : ''}</td>
-      <td>${esc(pagamentoTxt(seg))}</td>
-      <td class="acoes">${seg
-        ? `${seg.arquivo && seg.arquivo.id ? celArquivo(seg) + ' ' : ''}<button class="lnk" type="button" data-acao="renovar-doc" data-alvo="documentos:${esc(seg.id)}">Renovar</button><button class="lnk" type="button" data-acao="editar" data-alvo="documentos:${esc(seg.id)}">Editar</button>`
-        : `<button class="btn small" type="button" data-acao="novo-seguro" data-veic="${tipo}:${esc(v.id)}">Cadastrar seguro</button>`}</td></tr>`),
-    null, 'Nenhum veículo precisa de seguro nesta categoria.');
-}
-/* linha SEGURO de cada veículo: o essencial numa linha só, na cor da situação */
+/* linha SEGURO de cada veículo: só se tem ou não e quando vence */
 function linhaSeguro(tipo, v, atuais) {
   const seg = docVigente(tipo, v.id, 'Seguro do veículo', atuais);
   if (!seg && !PRECISA_SEGURO(tipo, v)) return '';
@@ -2092,12 +2058,6 @@ function botaoSeguro(tipo, v, atuais) {
   const seg = docVigente(tipo, v.id, 'Seguro do veículo', atuais);
   if (seg) return `<button class="btn small" type="button" data-acao="renovar-doc" data-alvo="documentos:${esc(seg.id)}">Renovar seguro</button>`;
   return PRECISA_SEGURO(tipo, v) ? `<button class="btn small" type="button" data-acao="novo-seguro" data-veic="${tipo}:${esc(v.id)}">Cadastrar seguro</button>` : '';
-}
-function seloSeguro(tipo, v, atuais) {
-  const seg = docVigente(tipo, v.id, 'Seguro do veículo', atuais);
-  if (!seg) return PRECISA_SEGURO(tipo, v) ? `<button class="pill warn" type="button" data-acao="novo-seguro" data-veic="${tipo}:${esc(v.id)}" title="Cadastrar o seguro" style="border:0;cursor:pointer">Sem seguro · cadastrar</button>` : '';
-  const st = situacaoDoc(seg, atuais);
-  return `<span class="pill ${st.nivel === 'ok' ? 'info' : st.cls}">Seguro ${esc(seg.empresa || '')}${seg.vencimento ? ' até ' + esc(fmtData(seg.vencimento)) : ''}</span>`;
 }
 function rotuloArquivo(a) { return a ? (a.tipo === 'application/pdf' ? 'PDF' : 'foto') : ''; }
 function celArquivo(d) {
@@ -2312,7 +2272,6 @@ function renderDocumentos() {
     </article>`;
   }).filter(Boolean);
   UI.listaDocs = lista;
-  renderSeguros(atuais);
   $('#docs-grupos').innerHTML = !veics.length
     ? '<p class="vazio-txt">Cadastre os caminhões e os semirreboques na aba Frota para guardar os documentos de cada um.</p>'
     : grupos.length ? grupos.join('') : '<p class="vazio-txt">Nenhum documento com este filtro.</p>';
@@ -2623,6 +2582,74 @@ function planilhaDocumentos() {
     return { nome: mostraPlaca(v.placa) + (tipo === 'semirreboque' ? ' semi' : ''), cabecalho: 3, ultimaLinhaFiltro: ultima, linhas, larguras: LARG_DOC };
   });
   return montarXlsx([resumo, todas, ...porVeiculo]);
+}
+/* planilha com tudo o que está cadastrado: uma aba para cada parte do sistema */
+function planilhaTudo() {
+  const atuais = docsAtuais();
+  const emitida = 'DECONT · ' + emitido().toLowerCase();
+  const cab = l => l.map(t => ({ v: t, s: XS.cab }));
+  const t = v => ({ v: v == null ? '' : v, s: XS.txt });
+  const f = v => ({ v: v == null ? '' : v, s: XS.forte });
+  const n = v => ({ v: v == null || v === '' ? '' : v, s: XS.inteiro });
+  const r = v => ({ v: v == null || v === '' ? '' : v, s: XS.moeda });
+  const dt = v => ({ d: v || '', s: XS.data });
+  const aba = (nome, titulo, colunas, larguras, linhas) => ({ nome, cabecalho: 3, ultimaLinhaFiltro: linhas.length + 4, larguras,
+    linhas: [[{ v: titulo, s: XS.titulo }], [{ v: emitida + ' · ' + plural(linhas.length, 'registro', 'registros'), s: XS.fraco }], [], cab(colunas), ...linhas] });
+  const placaC = id => { const c = cam(id); return c ? mostraPlaca(c.placa) : ''; };
+  const apelidoC = id => { const c = cam(id); return c ? c.apelido || '' : ''; };
+  const placaS = id => { const x = semi(id); return x ? mostraPlaca(x.placa) : ''; };
+  const vence = (tipo, id, nome) => { const d = docVigente(tipo, id, nome, atuais); return d ? d.vencimento || '' : ''; };
+  const seguroTxt = (tipo, v) => { const d = docVigente(tipo, v.id, 'Seguro do veículo', atuais); return d ? 'Tem' : PRECISA_SEGURO(tipo, v) ? 'Não tem' : ''; };
+  const porData = (a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
+
+  const caminhoes = todos('caminhoes').sort((a, b) => ordemCat(a.categoria) - ordemCat(b.categoria) || porPlaca(a, b)).map(c => [
+    f(mostraPlaca(c.placa)), t(c.apelido), t(nomeCat(c.categoria)), t(c.tipo), t(c.marca), t(c.modelo), t(c.ano), t(c.renavam), t(c.chassi),
+    n(kmAtual(c.id) || ''), t(nomeMot(c.motoristaId)), t(placaS(c.semirreboqueId)), t(SIT_CAM[c.situacao] || ''),
+    dt(vence('caminhao', c.id, 'CRLV (licenciamento)')), { v: seguroTxt('caminhao', c), s: seguroTxt('caminhao', c) === 'Não tem' ? XS.breve : XS.txt }, dt(vence('caminhao', c.id, 'Seguro do veículo')), t(c.obs),
+  ]);
+  const semis = todos('semirreboques').sort(porPlaca).map(x => {
+    const c = camDoSemi(x.id);
+    return [f(mostraPlaca(x.placa)), t(x.apelido), t(nomeCat(catVeic('semirreboque', x))), t(x.tipo), n(x.eixos ? Number(x.eixos) : ''), t(x.marca), t(x.ano), t(x.renavam), t(x.chassi),
+      t(c ? mostraPlaca(c.placa) : 'Desengatado'), t(SIT_SEMI[x.situacao] || ''), dt(vence('semirreboque', x.id, 'CRLV (licenciamento)')), t(x.obs)];
+  });
+  const motoristas = todos('motoristas').sort(porNome).map(m => {
+    const c = camDoMot(m.id);
+    return [f(m.nome), t(m.telefone), t(m.cnh), t(m.categoria), dt(m.validadeCnh), dt(m.validadeToxicologico), t(c ? mostraPlaca(c.placa) : ''), t(SIT_MOT[m.situacao] || ''), t(m.obs)];
+  });
+  const documentos = todos('documentos').map(d => ({ d, v: veiculoDoDoc(d), s: situacaoDoc(d, atuais) }))
+    .sort((a, b) => porPlaca(a.v || {}, b.v || {}) || a.s.peso - b.s.peso)
+    .map(({ d, v, s }) => [f(v ? mostraPlaca(v.placa) : ''), t(v ? v.apelido : ''), t(classeVeic(d.veiculoTipo, v)), f(nomeDoc(d)), t(d.empresa), t(d.numero), dt(d.emissao), dt(d.vencimento),
+      { v: s.txt, s: ({ vencido: XS.vencido, breve: XS.breve, ok: XS.ok }[s.nivel] || XS.neutro) }, r(d.valor), t(pagamentoTxt(d)), t(d.arquivo ? d.arquivo.nome : ''), t(d.obs)]);
+  const dias = todos('dias').sort(porData).map(x => [dt(x.data), f(placaC(x.caminhaoId)), t(apelidoC(x.caminhaoId)), t(nomeMot(x.motoristaId)), t(placaS(x.semirreboqueId)),
+    n(x.kmInicial), n(x.kmFinal), n(kmDia(x)), t(x.origem), t(x.destino), t(x.obs)]);
+  const consumo = consumoPorAbastecimento();
+  const abs = todos('abastecimentos').sort(porData).map(a => { const k = consumo.get(a.id); return [dt(a.data), f(placaC(a.caminhaoId)), t(apelidoC(a.caminhaoId)), t(nomeMot(a.motoristaId)), t(a.combustivel),
+    { v: a.litros || '', s: XS.inteiro }, r(a.valor), r(a.litros ? Math.round((a.valor / a.litros) * 1000) / 1000 : ''), n(a.km), t(a.tanqueCheio ? 'Sim' : 'Não'), { v: k ? Math.round(k.kml * 100) / 100 : '', s: XS.txt }, t(a.posto)]; });
+  const mans = todos('manutencoes').sort(porData).map(m => [dt(m.data), f(nomeVeic(m.veiculoTipo, m.veiculoId)), t(m.veiculoTipo === 'caminhao' ? 'Caminhão' : 'Semirreboque'), t(m.tipo), t(m.descricao), t(m.oficina),
+    n(m.km), r(m.valor), n(m.proximaKm), dt(m.proximaData)]);
+  const trocas = todos('trocas').sort(porData).map(x => [dt(x.data), f(placaC(x.caminhaoId)), t(apelidoC(x.caminhaoId)), t(partesTroca(x).join(' · '))]);
+  return montarXlsx([
+    aba('Caminhões', 'Caminhões e carros', ['Placa', 'Apelido', 'Categoria', 'Tipo', 'Marca', 'Modelo', 'Ano', 'Renavam', 'Chassi', 'Hodômetro (km)', 'Motorista', 'Semirreboque engatado', 'Situação', 'CRLV vence', 'Seguro', 'Seguro vence', 'Observação'],
+      [11, 16, 13, 20, 14, 24, 11, 14, 20, 12, 20, 14, 12, 12, 9, 12, 60], caminhoes),
+    aba('Semirreboques', 'Semirreboques', ['Placa', 'Apelido', 'Categoria', 'Tipo', 'Eixos', 'Fabricante', 'Ano', 'Renavam', 'Chassi', 'Engatado em', 'Situação', 'CRLV vence', 'Observação'],
+      [11, 16, 13, 16, 7, 14, 11, 14, 20, 13, 12, 12, 60], semis),
+    aba('Motoristas', 'Motoristas', ['Nome', 'Telefone', 'Nº da CNH', 'Categoria', 'Validade da CNH', 'Validade do toxicológico', 'Dirigindo', 'Situação', 'Observação'],
+      [26, 16, 14, 10, 14, 16, 11, 18, 40], motoristas),
+    aba('Documentos', 'Documentos', ['Placa', 'Apelido', 'Veículo', 'Documento', 'Empresa', 'Número ou apólice', 'Emissão ou início', 'Vencimento', 'Situação', 'Valor', 'Pagamento', 'Arquivo', 'Observação'],
+      [11, 16, 13, 22, 16, 18, 13, 12, 18, 13, 18, 18, 60], documentos),
+    aba('Km do dia', 'Km do dia', ['Data', 'Placa', 'Apelido', 'Motorista', 'Semirreboque', 'Km inicial', 'Km final', 'Km rodados', 'Saiu de', 'Chegou em', 'Observação'],
+      [12, 11, 16, 22, 13, 11, 11, 11, 18, 18, 40], dias),
+    aba('Abastecimentos', 'Abastecimentos', ['Data', 'Placa', 'Apelido', 'Motorista', 'Combustível', 'Litros', 'Valor', 'R$ por litro', 'Km no hodômetro', 'Completou o tanque', 'Consumo (km/l)', 'Posto'],
+      [12, 11, 16, 22, 12, 9, 13, 12, 14, 10, 11, 28], abs),
+    aba('Manutenções', 'Manutenções', ['Data', 'Placa', 'Veículo', 'Serviço', 'O que foi feito', 'Oficina', 'Km', 'Valor', 'Próxima (km)', 'Próxima (data)'],
+      [12, 11, 13, 22, 40, 22, 11, 13, 12, 13], mans),
+    aba('Trocas', 'Trocas de motorista e de semirreboque', ['Data', 'Placa', 'Apelido', 'O que mudou'], [12, 11, 16, 70], trocas),
+  ]);
+}
+async function baixarTudoExcel() {
+  let arq;
+  try { arq = planilhaTudo(); } catch (e) { toast('Não consegui montar a planilha.', true); return; }
+  if (await baixar('decont-cadastro-completo-' + hojeISO() + '.xlsx', arq, XLSX_TIPO)) toast('Planilha com tudo o que está cadastrado salva.');
 }
 async function baixarDocumentosExcel() {
   if (!D.documentos.size && !D.caminhoes.size) { toast('Cadastre os veículos e os documentos primeiro.', true); return; }
@@ -3895,6 +3922,7 @@ function ligarEventos() {
         break;
       case 'imprimir': imprimirRelatorio(); break;
       case 'docs-excel': baixarDocumentosExcel(); break;
+      case 'tudo-excel': baixarTudoExcel(); break;
       case 'docs-pdf': baixarDocumentosPDF(); break;
       case 'ver-alertas': e.preventDefault(); location.hash = 'painel'; mostrarAba('painel'); setTimeout(() => { const b = $('#bloco-alertas'); if (b && !b.hidden) b.scrollIntoView({ block: 'start' }); }, 50); break;
       case 'abrir-arquivo': abrirArquivo(alvo[1]); break;

@@ -29,7 +29,7 @@ com gráficos e o extrato de cada caminhão.
    sistema calcula o total ou a parcela que faltar). "Renovar" cadastra o novo e deixa o
    anterior como histórico; só o mais novo conta para o vencimento. Cada veículo mostra
    o que ainda falta cadastrar (caminhão: CRLV, seguro, RNTRC e tacógrafo; semirreboque:
-   CRLV).
+   CRLV). O seguro aparece numa linha em cada veículo: se tem ou não e quando vence.
 6. **Relatório**: indicadores com metas de consumo (km/l) e custo por km, gráficos
    (consumo, custo por km, gasto, km, litros e preço do diesel por caminhão, km por dia,
    gasto, litros de diesel, consumo e custo
@@ -57,6 +57,12 @@ planilha com as abas Resumo (cada veículo, Renavam, chassi, quantos documentos 
 vencendo e em dia, o próximo vencimento e o que falta), Todos os documentos (com filtro) e
 uma aba por caminhão e por semirreboque. A situação vem colorida, as datas e os valores
 já no formato do Excel. A planilha é montada no próprio sistema, sem internet.
+
+**Tudo no Excel**: o botão "Baixar tudo no Excel (.xlsx)" da aba Frota gera uma planilha com
+tudo o que está cadastrado, uma aba para cada coisa: Caminhões (com motorista, semirreboque
+engatado, vencimento do CRLV e se tem seguro), Semirreboques, Motoristas, Documentos, Km do
+dia, Abastecimentos, Manutenções e Trocas. Sai sempre a frota inteira, qualquer que seja a
+categoria escolhida no alto da tela (a coluna Categoria permite filtrar no Excel).
 
 **Relatório de documentos em PDF**: o botão "Relatório em PDF" da aba Documentos gera um PDF
 (A4 deitado) com a situação de cada veículo, o próximo vencimento, o que falta cadastrar e
