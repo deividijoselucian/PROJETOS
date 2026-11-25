@@ -42,6 +42,19 @@ com gráficos e o extrato de cada caminhão.
    toxicológico com validade), "Conjuntos agora" para trocar motorista e semirreboque de
    cada caminhão (a troca fica registrada), cópia de segurança e dados de exemplo.
 
+**Categorias**: cada caminhão e semirreboque pode ser de Transporte, Rede, Rede Viva ou
+Particular (o semirreboque sem categoria segue o caminhão em que está engatado). O seletor
+"Categoria" no alto da tela vale para o sistema inteiro: painel, lançamentos, documentos,
+relatório, planilhas e avisos passam a mostrar só aquela categoria. Com "Todas", o painel e
+o relatório mostram a divisão por categoria (km, litros, combustível, manutenção e custo
+por km, com gráficos). O sistema lembra a última categoria escolhida em cada aparelho.
+
+**Documentos no Excel**: o botão "Baixar no Excel (.xlsx)" da aba Documentos gera a
+planilha com as abas Resumo (cada veículo, Renavam, chassi, quantos documentos vencidos,
+vencendo e em dia, o próximo vencimento e o que falta), Todos os documentos (com filtro) e
+uma aba por caminhão e por semirreboque. A situação vem colorida, as datas e os valores
+já no formato do Excel. A planilha é montada no próprio sistema, sem internet.
+
 Avisos do painel: CNH, exame toxicológico ou documento de veículo vencendo (30 dias) ou
 vencido, manutenção perto (2.000 km ou 15 dias) ou passada, caminhão rodando sem km
 lançado há 3 dias.
