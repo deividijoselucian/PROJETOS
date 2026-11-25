@@ -57,6 +57,9 @@ planilha com as abas Resumo (cada veículo, Renavam, chassi, quantos documentos 
 vencendo e em dia, o próximo vencimento e o que falta), Todos os documentos (com filtro) e
 uma aba por caminhão e por semirreboque. A situação vem colorida, as datas e os valores
 já no formato do Excel. A planilha é montada no próprio sistema, sem internet.
+Em todas as abas vêm primeiro as informações do documento (número, emissão, vencimento,
+situação, valor, arquivo, observação) e depois, separado com cabeçalho azul e a faixa
+SEGURO, a seguradora, a apólice, o valor do seguro, o pagamento e as parcelas.
 
 **Tudo no Excel**: o botão "Baixar tudo no Excel (.xlsx)" da aba Frota gera uma planilha com
 tudo o que está cadastrado, uma aba para cada coisa: Caminhões (com motorista, semirreboque
@@ -120,6 +123,13 @@ que foi cadastrado de verdade.
     mantém os dados.
 
 Para gerar de novo no Linux: `sudo apt install nsis` e depois `./exe/build.sh`.
+
+Para entregar o .exe já com a frota cadastrada: `CARGA=copia.json ./exe/build.sh`, com uma
+cópia salva pelo botão "Salvar cópia de tudo (.json)". Na primeira vez que o sistema abre
+num computador sem frota cadastrada, ele carrega essa cópia (com as fotos e os PDFs), uma
+vez só: o que for apagado ou mudado depois não volta, e se o computador já tem a frota nada
+muda. Esse .exe leva os dados da frota: entregue só ao dono, não publique nem guarde no
+repositório.
 O GitHub Actions faz isso a cada mudança nesta pasta e publica no pré-lançamento
 `sistema-carlise`.
 

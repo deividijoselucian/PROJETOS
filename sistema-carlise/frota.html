@@ -1083,6 +1083,7 @@ function iniciarLocal() {
   lerLocal();
   window.addEventListener('storage', e => { if (e.key === CHAVE_LOCAL) { lerLocal(); agendarRender(); } });
   agendarRender();
+  cargaInicial();
 }
 function iniciarNuvem(db) {
   Armazem.db = db;
@@ -2385,7 +2386,7 @@ function zipar(arquivos) {
   return new Blob([...partes, ...central, new Uint8Array(fim.buffer)], { type: XLSX_TIPO });
 }
 /* estilos da planilha (índices de cellXfs) */
-const XS = { cab: 1, data: 2, moeda: 3, txt: 4, forte: 5, vencido: 6, breve: 7, ok: 8, neutro: 9, titulo: 10, fraco: 11, inteiro: 12, grupo: 13, moedaForte: 14, cinza: 15, dataCinza: 16, moedaCinza: 17, intForte: 18 };
+const XS = { cab: 1, data: 2, moeda: 3, txt: 4, forte: 5, vencido: 6, breve: 7, ok: 8, neutro: 9, titulo: 10, fraco: 11, inteiro: 12, grupo: 13, moedaForte: 14, cinza: 15, dataCinza: 16, moedaCinza: 17, intForte: 18, cabSeg: 19, grupoDoc: 20, grupoSeg: 21 };
 const ESTILOS_XLSX = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="&quot;R$&quot; #,##0.00"/></numFmts>
@@ -2400,7 +2401,7 @@ const ESTILOS_XLSX = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <font><b/><sz val="11"/><color rgb="FF0B7550"/><name val="Calibri"/><family val="2"/></font>
 <font><sz val="11"/><color rgb="FF7A8496"/><name val="Calibri"/><family val="2"/></font>
 </fonts>
-<fills count="8">
+<fills count="9">
 <fill><patternFill patternType="none"/></fill>
 <fill><patternFill patternType="gray125"/></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FF171C24"/><bgColor indexed="64"/></patternFill></fill>
@@ -2409,10 +2410,11 @@ const ESTILOS_XLSX = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <fill><patternFill patternType="solid"><fgColor rgb="FFDBF2E7"/><bgColor indexed="64"/></patternFill></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFE4E8EF"/><bgColor indexed="64"/></patternFill></fill>
 <fill><patternFill patternType="solid"><fgColor rgb="FFE2E8FA"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF2B3F8C"/><bgColor indexed="64"/></patternFill></fill>
 </fills>
 <borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style="thin"><color rgb="FFD3D9E3"/></bottom><diagonal/></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="19">
+<cellXfs count="22">
 <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
 <xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
 <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top"/></xf>
@@ -2432,6 +2434,9 @@ const ESTILOS_XLSX = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <xf numFmtId="164" fontId="8" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top"/></xf>
 <xf numFmtId="165" fontId="8" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
 <xf numFmtId="0" fontId="2" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="1" fillId="8" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="2" fillId="6" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="0" fontId="2" fillId="7" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
 </cellXfs>
 <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
@@ -2498,6 +2503,20 @@ function montarXlsx(abas) {
   return zipar(arquivos);
 }
 
+/* cabeçalho em dois andares: a faixa com o nome de cada bloco e os títulos das colunas.
+   O bloco do seguro vem depois das informações do documento, com cor própria. */
+function cabBlocos(blocos) {
+  const faixa = [], cab = [];
+  for (const b of blocos) b.colunas.forEach((c, i) => { faixa.push({ v: i ? '' : b.nome, s: b.seguro ? XS.grupoSeg : XS.grupoDoc }); cab.push({ v: c, s: b.seguro ? XS.cabSeg : XS.cab }); });
+  return [faixa, cab];
+}
+const ehSeguro = d => d && d.tipo === 'Seguro do veículo';
+/* observação do documento nas planilhas: o que não tem coluna própria fora do seguro
+   (empresa do rastreador, parcelas do IPVA) vai junto */
+function obsDocPlanilha(d) {
+  if (ehSeguro(d)) return d.obs || '';
+  return [d.empresa, d.pagamento === 'parcelado' && d.parcelas > 1 ? `${d.parcelas}× de ${fR(d.valorParcela || (d.valor ? d.valor / d.parcelas : 0))}` : '', d.obs].filter(Boolean).join(' · ');
+}
 /* planilha dos documentos: Resumo, Todos os documentos e uma aba por veículo */
 function planilhaDocumentos() {
   const atuais = docsAtuais();
@@ -2516,36 +2535,43 @@ function planilhaDocumentos() {
   const linhaDoc = ({ d, s }) => {
     const antigo = s.nivel === 'antigo';
     const t = antigo ? XS.cinza : XS.txt;
+    const seg = ehSeguro(d);
     return [
-      { v: nomeDoc(d), s: antigo ? XS.cinza : XS.forte }, { v: d.empresa || '', s: t }, { v: d.numero || '', s: t },
+      { v: nomeDoc(d), s: antigo ? XS.cinza : XS.forte }, { v: seg ? '' : d.numero || '', s: t },
       { d: d.emissao || '', s: antigo ? XS.dataCinza : XS.data }, { d: d.vencimento || '', s: antigo ? XS.dataCinza : XS.data },
       { v: s.txt, s: estiloSit(s) }, { v: s.dias != null && !antigo ? s.dias : '', s: antigo ? XS.cinza : XS.inteiro },
-      { v: d.valor || '', s: antigo ? XS.moedaCinza : XS.moeda }, { v: pagamentoTxt(d), s: t }, { v: d.parcelas || '', s: antigo ? XS.cinza : XS.inteiro },
-      { v: d.valorParcela || '', s: antigo ? XS.moedaCinza : XS.moeda }, { v: d.arquivo ? d.arquivo.nome || 'sim' : '', s: t }, { v: d.obs || '', s: t },
+      { v: seg ? '' : d.valor || '', s: antigo ? XS.moedaCinza : XS.moeda }, { v: d.arquivo ? d.arquivo.nome || 'sim' : '', s: t }, { v: obsDocPlanilha(d), s: t },
+      // seguro
+      { v: seg ? d.empresa || '' : '', s: seg && !antigo ? XS.forte : t }, { v: seg ? d.numero || '' : '', s: t },
+      { v: seg ? d.valor || '' : '', s: antigo ? XS.moedaCinza : XS.moeda }, { v: seg ? pagamentoTxt(d) : '', s: t },
+      { v: seg ? d.parcelas || '' : '', s: antigo ? XS.cinza : XS.inteiro }, { v: seg ? d.valorParcela || '' : '', s: antigo ? XS.moedaCinza : XS.moeda },
     ];
   };
-  const CAB_DOC = ['Documento', 'Empresa', 'Número ou apólice', 'Emissão ou início', 'Vencimento', 'Situação', 'Dias para vencer', 'Valor total', 'Pagamento', 'Parcelas', 'Valor da parcela', 'Arquivo', 'Observação'];
-  const LARG_DOC = [26, 18, 22, 14, 13, 20, 10, 14, 12, 9, 14, 22, 36];
+  const CAB_DOC = ['Documento', 'Número', 'Emissão ou início', 'Vencimento', 'Situação', 'Dias para vencer', 'Valor', 'Arquivo', 'Observação'];
+  const LARG_DOC = [26, 16, 14, 13, 20, 10, 13, 22, 36];
+  const CAB_SEG = ['Seguradora', 'Apólice', 'Valor do seguro', 'Pagamento', 'Parcelas', 'Valor da parcela'];
+  const LARG_SEG = [18, 18, 14, 12, 9, 14];
   const cab = lista => lista.map(t => ({ v: t, s: XS.cab }));
   const descVeic = (tipo, v) => (tipo === 'caminhao' ? descCam(v) || v.tipo || 'Caminhão' : [v.apelido, 'Semirreboque ' + (v.tipo || '')].filter(Boolean).join(' · '));
 
-  // CRLV e seguro: vencimento colorido pela situação; sem seguro aparece em amarelo
-  const colunasCrlvSeguro = (tipo, v) => {
-    const crlv = docVigente(tipo, v.id, 'CRLV (licenciamento)', atuais);
+  const estDoc = d => (d ? estiloSit(situacaoDoc(d, atuais)) : XS.breve);
+  const celCrlv = (tipo, v) => { const crlv = docVigente(tipo, v.id, 'CRLV (licenciamento)', atuais); return { d: crlv ? crlv.vencimento : '', s: crlv ? estDoc(crlv) : XS.data }; };
+  // seguro: tem ou não e o vencimento colorido pela situação; sem seguro aparece em amarelo
+  const colunasSeguro = (tipo, v) => {
     const seg = docVigente(tipo, v.id, 'Seguro do veículo', atuais);
-    const estDoc = d => (d ? estiloSit(situacaoDoc(d, atuais)) : XS.breve);
     if (!seg) {
-      const txt = PRECISA_SEGURO(tipo, v) ? 'Sem seguro cadastrado' : '';
-      return [{ d: crlv ? crlv.vencimento : '', s: crlv ? estDoc(crlv) : XS.data }, { v: txt, s: txt ? XS.breve : XS.txt }, { v: '', s: XS.txt }, { d: '', s: XS.data }, { v: '', s: XS.moeda }, { v: '', s: XS.txt }];
+      const precisa = PRECISA_SEGURO(tipo, v);
+      return [{ v: precisa ? 'Não tem' : '', s: precisa ? XS.breve : XS.txt }, { d: '', s: XS.data }, { v: '', s: XS.txt }, { v: '', s: XS.txt }, { v: '', s: XS.moeda }, { v: '', s: XS.txt }];
     }
-    return [
-      { d: crlv ? crlv.vencimento : '', s: crlv ? estDoc(crlv) : XS.data }, { v: seg.empresa || '', s: XS.forte }, { v: seg.numero || '', s: XS.txt },
-      { d: seg.vencimento || '', s: estDoc(seg) }, { v: seg.valor || '', s: XS.moeda }, { v: pagamentoTxt(seg), s: XS.txt },
-    ];
+    return [{ v: 'Tem', s: XS.forte }, { d: seg.vencimento || '', s: estDoc(seg) }, { v: seg.empresa || '', s: XS.txt }, { v: seg.numero || '', s: XS.txt }, { v: seg.valor || '', s: XS.moeda }, { v: pagamentoTxt(seg), s: XS.txt }];
   };
   // Resumo
-  const resumoLinhas = [[{ v: 'Documentos da frota' + (UI.categoria ? ' · ' + nomeCat(UI.categoria === SEM_CAT ? '' : UI.categoria) : ''), s: XS.titulo }], [{ v: emitida, s: XS.fraco }], [],
-    cab(['Categoria', 'Veículo', 'Placa', 'Tipo', 'Marca e modelo', 'Ano', 'Renavam', 'Chassi', 'CRLV vence', 'Seguradora', 'Apólice', 'Seguro vence', 'Valor do seguro', 'Pagamento do seguro', 'Vencidos', 'Vencem em breve', 'Em dia', 'Ainda não cadastrado'])];
+  const resumoLinhas = [[{ v: 'Documentos da frota' + (UI.categoria ? ' · ' + nomeCat(UI.categoria === SEM_CAT ? '' : UI.categoria) : ''), s: XS.titulo }], [{ v: emitida, s: XS.fraco }],
+    ...cabBlocos([
+      { nome: 'VEÍCULO', colunas: ['Categoria', 'Veículo', 'Placa', 'Tipo', 'Marca e modelo', 'Ano', 'Renavam', 'Chassi'] },
+      { nome: 'DOCUMENTOS', colunas: ['CRLV vence', 'Vencidos', 'Vencem em breve', 'Em dia', 'Ainda não cadastrado'] },
+      { nome: 'SEGURO', seguro: true, colunas: ['Seguro', 'Seguro vence', 'Seguradora', 'Apólice', 'Valor do seguro', 'Pagamento'] },
+    ])];
   for (const { tipo, v } of veics) {
     const r = resumoDocs(tipo, v.id, atuais);
     const prox = todos('documentos').filter(d => d.veiculoTipo === tipo && d.veiculoId === v.id && atuais.has(d.id) && d.vencimento).sort((a, b) => a.vencimento.localeCompare(b.vencimento))[0];
@@ -2553,18 +2579,18 @@ function planilhaDocumentos() {
     resumoLinhas.push([
       { v: nomeCat(catVeic(tipo, v)), s: XS.txt }, { v: classeVeic(tipo, v), s: XS.txt }, { v: mostraPlaca(v.placa), s: XS.forte }, { v: v.tipo || '', s: XS.txt },
       { v: tipo === 'caminhao' ? descCam(v) : [v.apelido, v.marca].filter(Boolean).join(' · '), s: XS.txt }, { v: v.ano || '', s: XS.txt }, { v: v.renavam || '', s: XS.txt }, { v: v.chassi || '', s: XS.txt },
-      ...colunasCrlvSeguro(tipo, v),
-      { v: r.venc, s: r.venc ? XS.vencido : XS.inteiro }, { v: r.breve, s: r.breve ? XS.breve : XS.inteiro }, { v: emDia, s: XS.inteiro },
+      celCrlv(tipo, v), { v: r.venc, s: r.venc ? XS.vencido : XS.inteiro }, { v: r.breve, s: r.breve ? XS.breve : XS.inteiro }, { v: emDia, s: XS.inteiro },
       { v: r.faltam.join(', '), s: XS.txt },
+      ...colunasSeguro(tipo, v),
     ]);
   }
-  const resumo = { nome: 'Resumo', cabecalho: 3, ultimaLinhaFiltro: resumoLinhas.length, linhas: resumoLinhas, larguras: [13, 13, 11, 20, 30, 11, 14, 20, 12, 18, 18, 13, 14, 16, 9, 10, 8, 36] };
+  const resumo = { nome: 'Resumo', cabecalho: 3, ultimaLinhaFiltro: resumoLinhas.length, linhas: resumoLinhas, larguras: [13, 13, 11, 20, 30, 11, 14, 20, 12, 9, 10, 8, 36, 10, 13, 18, 18, 14, 16] };
 
   // Todos os documentos
-  const todasLinhas = [[{ v: 'Todos os documentos', s: XS.titulo }], [{ v: emitida + ' · os renovados aparecem em cinza', s: XS.fraco }], [],
-    cab(['Categoria', 'Veículo', 'Placa', 'Renavam', ...CAB_DOC])];
+  const todasLinhas = [[{ v: 'Todos os documentos', s: XS.titulo }], [{ v: emitida + ' · os renovados aparecem em cinza', s: XS.fraco }],
+    ...cabBlocos([{ nome: 'VEÍCULO', colunas: ['Categoria', 'Veículo', 'Placa', 'Renavam'] }, { nome: 'DOCUMENTO', colunas: CAB_DOC }, { nome: 'SEGURO', seguro: true, colunas: CAB_SEG }])];
   for (const { tipo, v } of veics) for (const x of docsDe(tipo, v.id)) todasLinhas.push([{ v: nomeCat(catVeic(tipo, v)), s: XS.txt }, { v: classeVeic(tipo, v), s: XS.txt }, { v: mostraPlaca(v.placa), s: XS.forte }, { v: v.renavam || '', s: XS.txt }, ...linhaDoc(x)]);
-  const todas = { nome: 'Todos os documentos', cabecalho: 3, ultimaLinhaFiltro: todasLinhas.length, linhas: todasLinhas, larguras: [13, 13, 11, 14, ...LARG_DOC] };
+  const todas = { nome: 'Todos os documentos', cabecalho: 3, ultimaLinhaFiltro: todasLinhas.length, linhas: todasLinhas, larguras: [13, 13, 11, 14, ...LARG_DOC, ...LARG_SEG] };
 
   // uma aba por veículo
   const porVeiculo = veics.map(({ tipo, v }) => {
@@ -2572,14 +2598,16 @@ function planilhaDocumentos() {
     const r = resumoDocs(tipo, v.id, atuais);
     const eng = tipo === 'caminhao' && v.semirreboqueId ? semi(v.semirreboqueId) : null;
     const ficha = ['categoria ' + nomeCat(catVeic(tipo, v)), v.tipo, v.ano ? 'ano ' + v.ano : '', v.renavam ? 'Renavam ' + v.renavam : '', v.chassi ? 'chassi ' + v.chassi : '', eng ? 'semirreboque engatado ' + mostraPlaca(eng.placa) : ''].filter(Boolean).join(' · ');
-    const linhas = [[{ v: mostraPlaca(v.placa) + ' · ' + descVeic(tipo, v), s: XS.titulo }], [{ v: ficha || ' ', s: XS.fraco }], [], cab(CAB_DOC)];
+    const linhas = [[{ v: mostraPlaca(v.placa) + ' · ' + descVeic(tipo, v), s: XS.titulo }], [{ v: ficha || ' ', s: XS.fraco }], ...cabBlocos([{ nome: 'DOCUMENTO', colunas: CAB_DOC }, { nome: 'SEGURO', seguro: true, colunas: CAB_SEG }])];
     lista.forEach(x => linhas.push(linhaDoc(x)));
     const ultima = linhas.length;
-    const totalAtual = soma(lista.filter(x => x.s.nivel !== 'antigo'), x => x.d.valor);
-    linhas.push([{ v: 'Total dos documentos em vigor', s: XS.intForte }, { v: '', s: XS.intForte }, { v: '', s: XS.intForte }, { v: '', s: XS.intForte }, { v: '', s: XS.intForte }, { v: '', s: XS.intForte }, { v: '', s: XS.intForte }, { v: totalAtual, s: XS.moedaForte }]);
+    const emVigor = lista.filter(x => x.s.nivel !== 'antigo');
+    const totDocs = soma(emVigor.filter(x => !ehSeguro(x.d)), x => x.d.valor), totSeg = soma(emVigor.filter(x => ehSeguro(x.d)), x => x.d.valor);
+    const vazio = { v: '', s: XS.intForte };
+    linhas.push([{ v: 'Total em vigor', s: XS.intForte }, vazio, vazio, vazio, vazio, vazio, { v: totDocs, s: XS.moedaForte }, vazio, vazio, vazio, vazio, { v: totSeg || '', s: XS.moedaForte }]);
     if (!lista.length) linhas.push([{ v: 'Nenhum documento cadastrado.', s: XS.fraco }]);
     if (r.faltam.length && v.situacao !== 'fora') { linhas.push([]); linhas.push([{ v: 'Ainda não cadastrado: ' + r.faltam.join(', '), s: XS.breve }]); }
-    return { nome: mostraPlaca(v.placa) + (tipo === 'semirreboque' ? ' semi' : ''), cabecalho: 3, ultimaLinhaFiltro: ultima, linhas, larguras: LARG_DOC };
+    return { nome: mostraPlaca(v.placa) + (tipo === 'semirreboque' ? ' semi' : ''), cabecalho: 3, ultimaLinhaFiltro: ultima, linhas, larguras: [...LARG_DOC, ...LARG_SEG] };
   });
   return montarXlsx([resumo, todas, ...porVeiculo]);
 }
@@ -2593,8 +2621,10 @@ function planilhaTudo() {
   const n = v => ({ v: v == null || v === '' ? '' : v, s: XS.inteiro });
   const r = v => ({ v: v == null || v === '' ? '' : v, s: XS.moeda });
   const dt = v => ({ d: v || '', s: XS.data });
-  const aba = (nome, titulo, colunas, larguras, linhas) => ({ nome, cabecalho: 3, ultimaLinhaFiltro: linhas.length + 4, larguras,
-    linhas: [[{ v: titulo, s: XS.titulo }], [{ v: emitida + ' · ' + plural(linhas.length, 'registro', 'registros'), s: XS.fraco }], [], cab(colunas), ...linhas] });
+  // iniSeg: coluna onde começa o bloco do seguro (só na aba Documentos)
+  const aba = (nome, titulo, colunas, larguras, linhas, iniSeg) => ({ nome, cabecalho: 3, ultimaLinhaFiltro: linhas.length + 4, larguras,
+    linhas: [[{ v: titulo, s: XS.titulo }], [{ v: emitida + ' · ' + plural(linhas.length, 'registro', 'registros'), s: XS.fraco }],
+      ...(iniSeg ? cabBlocos([{ nome: 'DOCUMENTO', colunas: colunas.slice(0, iniSeg) }, { nome: 'SEGURO', seguro: true, colunas: colunas.slice(iniSeg) }]) : [[], cab(colunas)]), ...linhas] });
   const placaC = id => { const c = cam(id); return c ? mostraPlaca(c.placa) : ''; };
   const apelidoC = id => { const c = cam(id); return c ? c.apelido || '' : ''; };
   const placaS = id => { const x = semi(id); return x ? mostraPlaca(x.placa) : ''; };
@@ -2618,8 +2648,12 @@ function planilhaTudo() {
   });
   const documentos = todos('documentos').map(d => ({ d, v: veiculoDoDoc(d), s: situacaoDoc(d, atuais) }))
     .sort((a, b) => porPlaca(a.v || {}, b.v || {}) || a.s.peso - b.s.peso)
-    .map(({ d, v, s }) => [f(v ? mostraPlaca(v.placa) : ''), t(v ? v.apelido : ''), t(classeVeic(d.veiculoTipo, v)), f(nomeDoc(d)), t(d.empresa), t(d.numero), dt(d.emissao), dt(d.vencimento),
-      { v: s.txt, s: ({ vencido: XS.vencido, breve: XS.breve, ok: XS.ok }[s.nivel] || XS.neutro) }, r(d.valor), t(pagamentoTxt(d)), t(d.arquivo ? d.arquivo.nome : ''), t(d.obs)]);
+    .map(({ d, v, s }) => {
+      const seg = ehSeguro(d);
+      return [f(v ? mostraPlaca(v.placa) : ''), t(v ? v.apelido : ''), t(classeVeic(d.veiculoTipo, v)), f(nomeDoc(d)), t(seg ? '' : d.numero), dt(d.emissao), dt(d.vencimento),
+        { v: s.txt, s: ({ vencido: XS.vencido, breve: XS.breve, ok: XS.ok }[s.nivel] || XS.neutro) }, r(seg ? '' : d.valor), t(d.arquivo ? d.arquivo.nome : ''), t(obsDocPlanilha(d)),
+        seg ? f(d.empresa) : t(''), t(seg ? d.numero : ''), r(seg ? d.valor : ''), t(seg ? pagamentoTxt(d) : '')];
+    });
   const dias = todos('dias').sort(porData).map(x => [dt(x.data), f(placaC(x.caminhaoId)), t(apelidoC(x.caminhaoId)), t(nomeMot(x.motoristaId)), t(placaS(x.semirreboqueId)),
     n(x.kmInicial), n(x.kmFinal), n(kmDia(x)), t(x.origem), t(x.destino), t(x.obs)]);
   const consumo = consumoPorAbastecimento();
@@ -2635,8 +2669,8 @@ function planilhaTudo() {
       [11, 16, 13, 16, 7, 14, 11, 14, 20, 13, 12, 12, 60], semis),
     aba('Motoristas', 'Motoristas', ['Nome', 'Telefone', 'Nº da CNH', 'Categoria', 'Validade da CNH', 'Validade do toxicológico', 'Dirigindo', 'Situação', 'Observação'],
       [26, 16, 14, 10, 14, 16, 11, 18, 40], motoristas),
-    aba('Documentos', 'Documentos', ['Placa', 'Apelido', 'Veículo', 'Documento', 'Empresa', 'Número ou apólice', 'Emissão ou início', 'Vencimento', 'Situação', 'Valor', 'Pagamento', 'Arquivo', 'Observação'],
-      [11, 16, 13, 22, 16, 18, 13, 12, 18, 13, 18, 18, 60], documentos),
+    aba('Documentos', 'Documentos', ['Placa', 'Apelido', 'Veículo', 'Documento', 'Número', 'Emissão ou início', 'Vencimento', 'Situação', 'Valor', 'Arquivo', 'Observação', 'Seguradora', 'Apólice', 'Valor do seguro', 'Pagamento do seguro'],
+      [11, 16, 13, 22, 16, 13, 12, 18, 13, 18, 50, 18, 18, 14, 18], documentos, 11),
     aba('Km do dia', 'Km do dia', ['Data', 'Placa', 'Apelido', 'Motorista', 'Semirreboque', 'Km inicial', 'Km final', 'Km rodados', 'Saiu de', 'Chegou em', 'Observação'],
       [12, 11, 16, 22, 13, 11, 11, 11, 18, 18, 40], dias),
     aba('Abastecimentos', 'Abastecimentos', ['Data', 'Placa', 'Apelido', 'Motorista', 'Combustível', 'Litros', 'Valor', 'R$ por litro', 'Km no hodômetro', 'Completou o tanque', 'Consumo (km/l)', 'Posto'],
@@ -3664,8 +3698,13 @@ function planilha(tipo) {
   }
   if (tipo === 'documentos') {
     const atuais = docsAtuais();
-    const linhas = [['Categoria', 'Veículo', 'Placa', 'Renavam', 'Documento', 'Empresa', 'Número ou apólice', 'Emissão ou início', 'Vencimento', 'Situação', 'Valor total (R$)', 'Pagamento', 'Parcelas', 'Valor da parcela (R$)', 'Arquivo', 'Observação']];
-    (UI.listaDocs || []).forEach(d => { const v = veiculoDoDoc(d); linhas.push([nomeCat(catVeic(d.veiculoTipo, v)), classeVeic(d.veiculoTipo, v), v ? mostraPlaca(v.placa) : '', v ? v.renavam || '' : '', nomeDoc(d), d.empresa || '', d.numero, fmtData(d.emissao), fmtData(d.vencimento), situacaoDoc(d, atuais).txt, d.valor ? dec(d.valor, 2) : '', d.pagamento === 'parcelado' ? 'parcelado' : d.pagamento === 'avista' ? 'à vista' : '', d.parcelas || '', d.valorParcela ? dec(d.valorParcela, 2) : '', d.arquivo ? d.arquivo.nome : '', d.obs]); });
+    const linhas = [['Categoria', 'Veículo', 'Placa', 'Renavam', 'Documento', 'Número', 'Emissão ou início', 'Vencimento', 'Situação', 'Valor (R$)', 'Arquivo', 'Observação', 'Seguradora', 'Apólice', 'Valor do seguro (R$)', 'Pagamento do seguro', 'Parcelas', 'Valor da parcela (R$)']];
+    (UI.listaDocs || []).forEach(d => {
+      const v = veiculoDoDoc(d), seg = ehSeguro(d);
+      linhas.push([nomeCat(catVeic(d.veiculoTipo, v)), classeVeic(d.veiculoTipo, v), v ? mostraPlaca(v.placa) : '', v ? v.renavam || '' : '', nomeDoc(d), seg ? '' : d.numero, fmtData(d.emissao), fmtData(d.vencimento), situacaoDoc(d, atuais).txt,
+        !seg && d.valor ? dec(d.valor, 2) : '', d.arquivo ? d.arquivo.nome : '', obsDocPlanilha(d),
+        seg ? d.empresa || '' : '', seg ? d.numero || '' : '', seg && d.valor ? dec(d.valor, 2) : '', seg ? (d.pagamento === 'parcelado' ? 'parcelado' : d.pagamento === 'avista' ? 'à vista' : '') : '', seg ? d.parcelas || '' : '', seg && d.valorParcela ? dec(d.valorParcela, 2) : '']);
+    });
     return ['documentos-' + h + '.csv', csv(linhas)];
   }
   if (tipo === 'extrato') {
@@ -3690,7 +3729,11 @@ async function salvarCopia() {
 async function carregarCopia(arquivo) {
   let obj;
   try { obj = JSON.parse(await arquivo.text()); } catch (e) { toast('Este arquivo não é uma cópia do DECONT.', true); return; }
-  if (!obj || obj.app !== 'sistema-carlise' || typeof obj.dados !== 'object') { toast('Este arquivo não é uma cópia do DECONT.', true); return; }
+  await aplicarCopia(obj, 'Cópia carregada');
+}
+/* grava uma cópia (.json) nos dados de agora; devolve true se deu certo */
+async function aplicarCopia(obj, titulo) {
+  if (!obj || obj.app !== 'sistema-carlise' || !obj.dados || typeof obj.dados !== 'object') { toast('Este arquivo não é uma cópia do DECONT.', true); return false; }
   const ops = [];
   const cont = {};
   for (const c of COLS) {
@@ -3698,7 +3741,7 @@ async function carregarCopia(arquivo) {
     cont[c] = 0;
     for (const x of lista) if (x && typeof x === 'object' && typeof x.id === 'string' && /^[A-Za-z0-9_.~:@+-]{1,120}$/.test(x.id)) { ops.push(['set', c, x]); cont[c]++; }
   }
-  if (!ops.length) { toast('A cópia está vazia.', true); return; }
+  if (!ops.length) { toast('A cópia está vazia.', true); return false; }
   let semArquivo = 0;
   const novos = [], trocados = [];
   const arquivos = obj.arquivos && typeof obj.arquivos === 'object' ? obj.arquivos : {};
@@ -3720,8 +3763,29 @@ async function carregarCopia(arquivo) {
   try {
     await gravarVarios(ops, (f, t) => { if (t > 20 && f % 10 === 0) toast(`Carregando a cópia: ${f} de ${t}…`); });
     trocados.forEach(a => Arquivos.apagar(a));
-    toast(`Cópia carregada: ${plural(cont.caminhoes, 'caminhão', 'caminhões')}, ${plural(cont.motoristas, 'motorista', 'motoristas')}, ${plural(cont.dias + cont.abastecimentos + cont.manutencoes, 'lançamento', 'lançamentos')}, ${plural(cont.documentos, 'documento', 'documentos')}.${semArquivo ? ' ' + plural(semArquivo, 'arquivo não pôde ser guardado', 'arquivos não puderam ser guardados') + ' aqui.' : ''}`);
-  } catch (e) { novos.forEach(a => Arquivos.apagar(a)); toast(msgErro(e), true); }
+    const partes = [plural(cont.caminhoes, 'caminhão', 'caminhões'), cont.semirreboques ? plural(cont.semirreboques, 'semirreboque', 'semirreboques') : '', cont.motoristas ? plural(cont.motoristas, 'motorista', 'motoristas') : '',
+      cont.dias + cont.abastecimentos + cont.manutencoes ? plural(cont.dias + cont.abastecimentos + cont.manutencoes, 'lançamento', 'lançamentos') : '', plural(cont.documentos, 'documento', 'documentos')].filter(Boolean);
+    toast(`${titulo}: ${partes.join(', ')}.${semArquivo ? ' ' + plural(semArquivo, 'arquivo não pôde ser guardado', 'arquivos não puderam ser guardados') + ' aqui.' : ''}`);
+    return true;
+  } catch (e) { novos.forEach(a => Arquivos.apagar(a)); toast(msgErro(e), true); return false; }
+}
+/* O programa do Windows pode ser montado com a frota dentro (exe/montar.py --carga).
+   Na primeira vez que abre num computador que ainda não tem frota cadastrada, carrega
+   essa frota, uma vez só: o que for apagado ou mudado depois não volta. */
+const CHAVE_CARGA = 'sistema-carlise:carga-inicial';
+async function cargaInicial() {
+  const el = document.getElementById('carga-inicial');
+  if (!el) return;
+  let obj = null;
+  try { obj = JSON.parse(el.textContent); } catch (e) { obj = null; }
+  el.remove();
+  if (!obj || obj.app !== 'sistema-carlise') return;
+  const marca = String(obj.salvoEm || 'carga');
+  try { if (localStorage.getItem(CHAVE_CARGA) === marca) return; } catch (e) { return; }
+  const temFrota = todos('caminhoes').some(c => !c.exemplo) || todos('semirreboques').some(x => !x.exemplo);
+  if (temFrota || await aplicarCopia(obj, 'Frota carregada')) {
+    try { localStorage.setItem(CHAVE_CARGA, marca); } catch (e) { /* sem armazenamento */ }
+  }
 }
 
 /* EXEMPLO:INICIO (usado também para semear a base publicada) */
