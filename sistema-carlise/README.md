@@ -19,19 +19,32 @@ com gráficos e o extrato de cada caminhão.
    tanque que ficou abaixo da média do caminhão.
 4. **Manutenção**: serviço, valor, oficina, km, e a próxima por km ou por data. A lista de
    próximas manutenções avisa quando está perto ou vencida.
-5. **Relatório**: indicadores com metas de consumo (km/l) e custo por km, gráficos
+5. **Documentos**: os documentos de cada caminhão e de cada semirreboque, separados por
+   veículo: CRLV, IPVA, seguro, RNTRC, aferição do tacógrafo, AET, CIV, CIPP, licença
+   ambiental, rastreador, extintor, laudo de opacidade ou outro. Cada um tem número,
+   emissão, vencimento, valor e a foto ou o PDF (até 15 MB). O seguro tem seguradora,
+   apólice, vigência e pagamento à vista ou parcelado (parcelas e valor de cada uma; o
+   sistema calcula o total ou a parcela que faltar). "Renovar" cadastra o novo e deixa o
+   anterior como histórico; só o mais novo conta para o vencimento. Cada veículo mostra
+   o que ainda falta cadastrar (caminhão: CRLV, seguro, RNTRC e tacógrafo; semirreboque:
+   CRLV).
+6. **Relatório**: indicadores com metas de consumo (km/l) e custo por km, gráficos
    (consumo, custo por km, gasto, km, litros e preço do diesel por caminhão, km por dia,
    gasto, litros de diesel, consumo e custo
-   mês a mês, km, litros e consumo por motorista, manutenção por serviço, preço do diesel) e o
-   **extrato por caminhão**: todos os lançamentos em ordem de data, com o gasto
+   mês a mês, km, litros e consumo por motorista, manutenção por serviço, preço do diesel),
+   os documentos vencidos ou vencendo e o
+   **extrato por caminhão**: ficha com Renavam e chassi, documentos do caminhão e do
+   semirreboque engatado, e todos os lançamentos em ordem de data, com o gasto
    acumulado. Dá para imprimir (no programa do Windows), baixar o relatório (.html) e
    baixar o extrato (.csv).
-6. **Frota**: caminhões, semirreboques e motoristas (CNH e exame toxicológico com
-   validade), "Conjuntos agora" para trocar motorista e semirreboque de cada caminhão
-   (a troca fica registrada), cópia de segurança e dados de exemplo.
+7. **Frota**: caminhões e semirreboques (placa, tipo, marca, modelo, ano de fabricação e
+   modelo, Renavam, chassi, situação dos documentos), motoristas (CNH e exame
+   toxicológico com validade), "Conjuntos agora" para trocar motorista e semirreboque de
+   cada caminhão (a troca fica registrada), cópia de segurança e dados de exemplo.
 
-Avisos do painel: CNH ou exame toxicológico vencendo (30 dias) ou vencido, manutenção
-perto (2.000 km ou 15 dias) ou passada, caminhão rodando sem km lançado há 3 dias.
+Avisos do painel: CNH, exame toxicológico ou documento de veículo vencendo (30 dias) ou
+vencido, manutenção perto (2.000 km ou 15 dias) ou passada, caminhão rodando sem km
+lançado há 3 dias.
 
 Contas:
 
@@ -52,6 +65,10 @@ Toda lista tem "Baixar planilha (.csv)", que abre no Excel (separador `;`, vírg
 - **Pelo programa do Windows** ou abrindo o `frota.html` direto: no navegador daquele
   computador. Use "Salvar cópia de tudo (.json)" de vez em quando; "Carregar uma cópia"
   traz os dados de volta (ou leva de um lugar para o outro).
+
+As fotos e os PDFs dos documentos ficam na conta (pelo claude.ai, para quem tem acesso de
+edição) ou no próprio computador (programa do Windows). No programa do Windows eles vão
+junto na cópia de segurança.
 
 Os dados de exemplo vêm marcados e saem todos no botão "Apagar os exemplos", sem mexer no
 que foi cadastrado de verdade.
