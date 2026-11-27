@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Monta painel-deconto-servidor.tar.gz: o programa do servidor, as páginas dos sistemas
-# (DECONT e Controle de Operação), o mapa e o instalador, numa pasta painel-deconto/.
+# (DECONTO e Controle de Operação), o mapa e o instalador, numa pasta painel-deconto/.
 # Não leva dados, carga nem senha.
 # Uso: bash painel/servidor/montar-pacote.sh [pasta-de-saida]
 set -euo pipefail

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Monta a versão do DECONT que abre direto no Windows, sem internet.
+"""Monta a versão do DECONTO que abre direto no Windows, sem internet.
 
 A página publicada (../frota.html) não tem <html>/<head> (a plataforma de artefatos
 coloca na hora de publicar) e busca as fontes no Google Fonts. Aqui o arquivo ganha o
@@ -7,7 +7,7 @@ cabeçalho, as fontes vão embutidas em base64 e o link externo sai.
 
 Uso: python3 montar.py saida.html [--carga copia.json]
 
-Com --carga, a cópia (.json salva pelo DECONT) vai dentro da página e é carregada na
+Com --carga, a cópia (.json salva pelo DECONTO) vai dentro da página e é carregada na
 primeira vez que o sistema abre num computador sem frota cadastrada. Esse .exe leva os
 dados da frota: entregue só ao dono e não publique.
 """
@@ -53,7 +53,7 @@ def carga_html(caminho):
         texto = f.read()
     obj = json.loads(texto)
     if not isinstance(obj, dict) or obj.get("app") != "sistema-carlise" or not isinstance(obj.get("dados"), dict):
-        sys.exit("%s não é uma cópia do DECONT" % caminho)
+        sys.exit("%s não é uma cópia do DECONTO" % caminho)
     # "</" escrito como "<\/" (vale o mesmo em JSON) para o navegador não fechar o <script> antes da hora
     texto = json.dumps(obj, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
     return '<script type="application/json" id="carga-inicial">' + texto + "</script>\n"

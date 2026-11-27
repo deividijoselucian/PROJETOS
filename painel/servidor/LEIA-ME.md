@@ -4,7 +4,7 @@
 
 Um endereço só, com usuário e senha, onde a equipe entra e escolhe o sistema que vai usar:
 
-- **DECONT**: a frota (km do dia, abastecimento, manutenção, documentos com vencimento e os
+- **DECONTO**: a frota (km do dia, abastecimento, manutenção, documentos com vencimento e os
   PDFs, relatório, Excel e PDF).
 - **Controle de Operação** (o antigo Controle Munck): onde cada caminhão munck trabalha, agenda,
   km das obras, mapa, manutenção e relatório.
@@ -18,7 +18,7 @@ mexe neles.
 - Porta interna: 3200 (ou a próxima livre até 3299)
 - Processo no PM2: `painel-deconto`
 - Endereço: `https://painel.SEU-IP-COM-TRAÇOS.sslip.io` (o instalador mostra no fim)
-- Dados: `/opt/painel-deconto/data` (`frota.json`, `operacao.json`, as fotos e PDFs do DECONT em
+- Dados: `/opt/painel-deconto/data` (`frota.json`, `operacao.json`, as fotos e PDFs do DECONTO em
   `arquivos/frota`, e uma cópia por dia de cada sistema em `copias`, guardando as últimas 30)
 - Nenhum pacote do npm: o programa usa só o Node.js.
 
@@ -42,10 +42,10 @@ O instalador descobre o IP público sozinho e monta o endereço `painel.IP-COM-T
 Se o IP público que recebe as portas for diferente do que a VM usa para sair para a internet,
 veja "Usar outro endereço" mais abaixo.
 
-## 2. Levar a carga do DECONT (antes de instalar)
+## 2. Levar a carga do DECONTO (antes de instalar)
 
-A carga é o arquivo **`painel-deconto-carga-frota.json`**: a cópia de tudo do DECONT (veículos,
-placas, documentos e os PDFs dos CRLVs). Se você não recebeu esse arquivo pronto, gere no DECONT:
+A carga é o arquivo **`painel-deconto-carga-frota.json`**: a cópia de tudo do DECONTO (veículos,
+placas, documentos e os PDFs dos CRLVs). Se você não recebeu esse arquivo pronto, gere no DECONTO:
 "Salvar cópia de tudo (.json)" e troque o nome do arquivo baixado para
 `painel-deconto-carga-frota.json`.
 
@@ -57,12 +57,12 @@ Faça isto **antes** de rodar o comando de instalação:
    Não precisa mudar de pasta.
 
 O instalador procura esse arquivo em `/opt`, em `/root` e na pasta de cada usuário em `/home`.
-Ele só usa a carga se o DECONT do servidor ainda estiver vazio; se já tiver dados, o arquivo é
+Ele só usa a carga se o DECONTO do servidor ainda estiver vazio; se já tiver dados, o arquivo é
 deixado de lado e nada é apagado. No fim ele mostra quantos registros e arquivos entraram, por
-exemplo "Carga de DECONT: 40 registros e 20 arquivos.". Depois disso pode apagar o arquivo da
+exemplo "Carga de DECONTO: 40 registros e 20 arquivos.". Depois disso pode apagar o arquivo da
 sua pasta: o servidor guarda uma cópia dele em `/opt/painel-deconto/data`.
 
-Se esquecer a carga, dá para levar os dados depois pela tela: no DECONT do painel, use
+Se esquecer a carga, dá para levar os dados depois pela tela: no DECONTO do painel, use
 "Carregar uma cópia" e escolha o arquivo.
 
 ## 3. Instalar

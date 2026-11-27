@@ -1,7 +1,7 @@
 'use strict';
 /* Testes de tela do Painel Deconto (Playwright). Rodar: node --test painel/testes/telas.test.js
    Sobe o servidor num processo filho, com pastas temporárias e as páginas de verdade
-   (DECONT e Controle de Operação), e usa o Chromium do Playwright. */
+   (DECONTO e Controle de Operação), e usa o Chromium do Playwright. */
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const { spawn } = require('node:child_process');
@@ -102,8 +102,8 @@ async function dados(ctx, sis) {
 const arquivosNoDisco = () => (fs.existsSync(ARQS_FROTA) ? fs.readdirSync(ARQS_FROTA).filter(n => !n.endsWith('.json')).length : 0);
 const larguraDaPagina = p => p.evaluate(() => document.documentElement.scrollWidth);
 
-// ---------- 1. login, tela inicial e DECONT pelo cartão ----------
-teste('login e tela inicial mostram os 5 cartões; DECONT abre pelo cartão e mostra "Salvo no servidor"', async () => {
+// ---------- 1. login, tela inicial e DECONTO pelo cartão ----------
+teste('login e tela inicial mostram os 5 cartões; DECONTO abre pelo cartão e mostra "Salvo no servidor"', async () => {
   const ctx = await contexto();
   const p = await ctx.newPage();
   await p.goto(BASE + '/');
@@ -113,7 +113,7 @@ teste('login e tela inicial mostram os 5 cartões; DECONT abre pelo cartão e mo
   await p.click('#ir');
   await p.waitForURL(BASE + '/');
   const nomes = await p.$$eval('.cartao h2', hs => hs.map(h => h.textContent.trim()));
-  assert.deepStrictEqual(nomes, ['DECONT', 'Controle de Operação', 'RH', 'Financeiro', 'Cargas']);
+  assert.deepStrictEqual(nomes, ['DECONTO', 'Controle de Operação', 'RH', 'Financeiro', 'Cargas']);
   assert.strictEqual(await p.locator('a.cartao[href="/frota/"]').count(), 1);
   assert.strictEqual(await p.locator('a.cartao[href="/operacao/"]').count(), 1);
   const breves = await p.$$eval('.cartao.breve', cs => cs.map(c => c.querySelector('h2').textContent.trim() + ': ' + c.textContent));
@@ -126,11 +126,11 @@ teste('login e tela inicial mostram os 5 cartões; DECONT abre pelo cartão e mo
   await p.waitForURL(BASE + '/frota/');
   await esperarServidor(p);
   assert.strictEqual(await p.evaluate(() => window.PAINEL && window.PAINEL.sistema), 'frota');
-  assert.strictEqual(await p.title(), 'DECONT');
+  assert.strictEqual(await p.title(), 'DECONTO');
 });
 
 // ---------- 2. caminhão pela tela e o outro navegador vê ----------
-teste('DECONT: cadastrar caminhão pela tela e outro navegador vê em até 2 s sem recarregar', async () => {
+teste('DECONTO: cadastrar caminhão pela tela e outro navegador vê em até 2 s sem recarregar', async () => {
   const a = await abrir(await logado(), '/frota/#frota');
   const b = await abrir(await logado(), '/frota/#frota');
   await esperarServidor(a);
@@ -154,7 +154,7 @@ teste('DECONT: cadastrar caminhão pela tela e outro navegador vê em até 2 s s
 });
 
 // ---------- 3. documento com PDF ----------
-teste('DECONT: documento com PDF anexado fica com o arquivo no servidor e a API devolve os mesmos bytes', async () => {
+teste('DECONTO: documento com PDF anexado fica com o arquivo no servidor e a API devolve os mesmos bytes', async () => {
   const ctx = await logado();
   const p = await abrir(ctx, '/frota/#documentos');
   await esperarServidor(p);
@@ -195,7 +195,7 @@ function copiaInventada() {
   }
   return { app: 'sistema-carlise', versao: 1, salvoEm: '2026-11-01T10:00:00.000Z', dados: { caminhoes, semirreboques: [], motoristas: [], dias: [], abastecimentos: [], manutencoes: [], trocas: [], documentos, config: [] }, arquivos };
 }
-teste('DECONT: "Carregar uma cópia" com 20 documentos e PDFs guarda os 20 no servidor, e carregar de novo não cria arquivos', async () => {
+teste('DECONTO: "Carregar uma cópia" com 20 documentos e PDFs guarda os 20 no servidor, e carregar de novo não cria arquivos', async () => {
   const ctx = await logado();
   const p = await abrir(ctx, '/frota/#frota');
   await esperarServidor(p);
@@ -233,7 +233,7 @@ teste('DECONT: "Carregar uma cópia" com 20 documentos e PDFs guarda os 20 no se
 });
 
 // ---------- 5. salvar cópia de tudo ----------
-teste('DECONT: "Salvar cópia de tudo" no modo servidor gera um .json com os arquivos embutidos', async () => {
+teste('DECONTO: "Salvar cópia de tudo" no modo servidor gera um .json com os arquivos embutidos', async () => {
   const ctx = await logado();
   const p = await abrir(ctx, '/frota/#frota');
   await esperarServidor(p);
@@ -340,19 +340,19 @@ teste('Controle de Operação: abre pelo cartão, agenda pelo quadro e o outro n
 });
 
 // ---------- 8. celular ----------
-teste('celular 390px: tela inicial e DECONT sem rolagem para o lado', async () => {
+teste('celular 390px: tela inicial e DECONTO sem rolagem para o lado', async () => {
   const ctx = await logado({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   const p = await abrir(ctx, '/');
   await p.waitForSelector('.cartao');
   const larguras = { inicial: await larguraDaPagina(p) };
   await p.goto(BASE + '/frota/');
   await esperarServidor(p);
-  larguras['DECONT painel'] = await larguraDaPagina(p);
+  larguras['DECONTO painel'] = await larguraDaPagina(p);
   for (const aba of ['frota', 'documentos']) {
     await p.evaluate(x => { location.hash = x; }, aba);
     await p.waitForFunction(x => { const v = document.querySelector('#v-' + x); return !!v && !v.hidden; }, aba);
     await p.waitForTimeout(300);
-    larguras['DECONT #' + aba] = await larguraDaPagina(p);
+    larguras['DECONTO #' + aba] = await larguraDaPagina(p);
   }
   const largas = Object.entries(larguras).filter(([, w]) => w > 390);
   assert.deepStrictEqual(largas, [], 'larguras: ' + JSON.stringify(larguras));
@@ -371,7 +371,7 @@ teste('celular 390px e 360px: Controle de Operação sem rolagem para o lado', a
 });
 
 // ---------- 11. gravação de outra pessoa enquanto a página abre ----------
-teste('gravação feita por outro navegador enquanto a página abre aparece sem recarregar (DECONT e Controle)', async () => {
+teste('gravação feita por outro navegador enquanto a página abre aparece sem recarregar (DECONTO e Controle)', async () => {
   const outro = await logado();
   for (const [sis, col, obj, chave] of [['frota', 'caminhoes', { placa: 'CRR1D00' }, 'cam-corrida'], ['operacao', 'obras', { nome: 'Obra da corrida', situacao: 'andamento', etapas: [] }, 'ob-corrida']]) {
     const ctx = await logado();

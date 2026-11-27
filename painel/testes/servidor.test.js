@@ -20,7 +20,7 @@ let cookie = '';
 
 fs.mkdirSync(PUBLICO, { recursive: true });
 fs.mkdirSync(CARGA, { recursive: true });
-fs.writeFileSync(path.join(PUBLICO, 'frota.html'), '<title>DECONT</title>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow">\n<p>pagina da frota</p>');
+fs.writeFileSync(path.join(PUBLICO, 'frota.html'), '<title>DECONTO</title>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow">\n<p>pagina da frota</p>');
 fs.writeFileSync(path.join(PUBLICO, 'operacao.html'), '<title>Controle de Operação</title>\n<p>pagina da operacao</p>');
 fs.writeFileSync(path.join(PUBLICO, 'mapa-sul.json'), '{"ok":true}');
 // carga inicial da frota: um documento com PDF embutido e um caminhão
@@ -81,7 +81,7 @@ test('tela inicial mostra os sistemas na ordem, com os futuros em desenvolviment
   const r = await pedir('/');
   assert.strictEqual(r.status, 200);
   const html = await r.text();
-  const ordem = ['DECONT', 'Controle de Operação', 'RH', 'Financeiro', 'Cargas'].map(n => html.indexOf(n));
+  const ordem = ['DECONTO', 'Controle de Operação', 'RH', 'Financeiro', 'Cargas'].map(n => html.indexOf(n));
   assert.ok(ordem.every(i => i > 0), 'todos os nomes aparecem');
   assert.deepStrictEqual([...ordem].sort((a, b) => a - b), ordem, 'na ordem 1 a 5');
   assert.match(html, /href="\/frota\/"/);
@@ -94,7 +94,7 @@ test('/frota sem barra vai para /frota/ e a página traz window.PAINEL', async (
   assert.strictEqual(r1.headers.get('location'), '/frota/');
   const html = await (await pedir('/frota/')).text();
   assert.match(html, /window\.PAINEL = \{[^<]*"sistema":"frota"/);
-  assert.match(html, /<head>[\s\S]*<title>DECONT<\/title>[\s\S]*<\/head>/);
+  assert.match(html, /<head>[\s\S]*<title>DECONTO<\/title>[\s\S]*<\/head>/);
   assert.match(html, /pagina da frota/);
 });
 test('sistema em desenvolvimento ou desconhecido dá 404', async () => {

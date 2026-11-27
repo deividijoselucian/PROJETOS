@@ -11,7 +11,7 @@ para a fase 2.
 
 ## Sistemas
 
-1. **DECONT** (`/frota/`): a frota, com km do dia, abastecimento, manutenção, documentos com
+1. **DECONTO** (`/frota/`): a frota, com km do dia, abastecimento, manutenção, documentos com
    vencimento (e os PDFs guardados no servidor) e relatório.
 2. **Controle de Operação** (`/operacao/`): o antigo Controle Munck, com onde cada caminhão
    trabalha, agenda, km das obras, mapa, manutenção e relatório.
@@ -25,13 +25,13 @@ para a fase 2.
 - `servidor/sistemas.js`: a lista de sistemas da tela inicial. Sistema novo = uma linha aqui e
   a página dele em `publico/`.
 - `servidor/banco.js`: os dados de cada sistema (`data/<sistema>.json`, cópia por dia), os
-  arquivos do DECONT e a carga inicial.
+  arquivos do DECONTO e a carga inicial.
 - `servidor/paginas.js`: as telas de login e inicial e a moldura de cada sistema.
 - `servidor/instalar-no-servidor.sh` e `servidor/montar-pacote.sh`: o instalador e o pacote
   `painel-deconto-servidor.tar.gz`, publicado pelo GitHub Actions
   (`.github/workflows/painel-deconto.yml`). Passo a passo em
   [servidor/LEIA-ME.md](servidor/LEIA-ME.md).
-- As páginas dos sistemas não ficam aqui: o pacote leva `sistema-carlise/frota.html` (DECONT),
+- As páginas dos sistemas não ficam aqui: o pacote leva `sistema-carlise/frota.html` (DECONTO),
   `munck/munck.html` (Controle de Operação) e `munck/mapa-sul.json` (o mapa).
 - `testes/servidor.test.js`: os testes do servidor.
 

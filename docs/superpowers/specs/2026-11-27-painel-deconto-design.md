@@ -7,7 +7,7 @@
 Um endereço só, na VM **sistemadeconto** da Locaweb, onde a equipe entra com usuário e senha e
 encontra os sistemas da empresa. Hoje são dois, feitos neste projeto:
 
-- **DECONT** (o antigo Sistema Carlise): a frota, com km do dia, abastecimento, manutenção,
+- **DECONTO** (o antigo Sistema Carlise): a frota, com km do dia, abastecimento, manutenção,
   documentos com vencimento (já tem as placas e os 20 CRLVs cadastrados), relatório, Excel e PDF.
 - **Controle de Operação** (o antigo Controle Munck): onde cada caminhão munck trabalha, agenda,
   km das obras por dia ou etapa, obras, mapa, manutenção e relatório.
@@ -15,7 +15,7 @@ encontra os sistemas da empresa. Hoje são dois, feitos neste projeto:
 Outros sistemas vão ser criados depois e entram no mesmo painel.
 
 **A primeira tela** (pedido do usuário): depois do login, a tela inicial é o painel, com os
-sistemas em cartões; ele escolhe qual usar. Para começar, sobe o DECONT (o "painel de ontem") e,
+sistemas em cartões; ele escolhe qual usar. Para começar, sobe o DECONTO (o "painel de ontem") e,
 já pronto, o Controle de Operação.
 
 **Fases** (pedido do usuário): usuários e acessos ficam para a **fase 2**. Na fase 1 há um
@@ -25,7 +25,7 @@ sistemas de cada uma e tirar acessos.
 
 **Segmentos e CNPJs (depois)**: o grupo tem vários CNPJs, e cada segmento da operação vai ter os
 seus sistemas. Isso ainda vai ser definido (quais segmentos, qual CNPJ, o que cada um faz). Quando
-estiver, cada segmento entra no painel como mais cartões, com dados separados, e a frota do DECONT
+estiver, cada segmento entra no painel como mais cartões, com dados separados, e a frota do DECONTO
 (hoje com veículos de Deconto Soluções Elétricas, Prestadora de Serviços GP e de pessoas físicas)
 pode ser dividida. Nada disso entra agora.
 
@@ -37,22 +37,22 @@ pode ser dividida. Nada disso entra agora.
   que o sistema dos munck não usasse o mesmo sistema da frota, por serem outro segmento).
 - Para cada pessoa, o administrador marca quais sistemas ela usa e se ela é administradora.
 - O que alguém lança aparece na hora para quem está com o mesmo sistema aberto.
-- Levar para o servidor o que o DECONT já tem: veículos, placas, CRLVs e os PDFs.
+- Levar para o servidor o que o DECONTO já tem: veículos, placas, CRLVs e os PDFs.
 - Trocar o nome "Controle Munck" por "Controle de Operação" em tudo (tela, planilhas, cópias).
 - Instalar com um comando só, como a Sinistra: pasta própria, PM2, nginx, HTTPS.
 
 ## Fora deste trabalho
 
 - Criar os sistemas novos (cada um vai ser um projeto à parte).
-- Juntar dados entre DECONT e Controle de Operação (ex.: o mesmo caminhão nos dois).
+- Juntar dados entre DECONTO e Controle de Operação (ex.: o mesmo caminhão nos dois).
 - Aplicativo de celular, avisos por WhatsApp ou e-mail.
 
 ## O que seria um fracasso mesmo funcionando
 
-- Perder ou embaralhar as placas e os CRLVs que já estão no DECONT.
+- Perder ou embaralhar as placas e os CRLVs que já estão no DECONTO.
 - Uma pessoa ver um sistema que não foi liberado para ela.
 - Os dois sistemas misturarem dados.
-- Quebrar o que já funciona hoje: o link do DECONT no claude.ai, o DECONT.exe e o link do
+- Quebrar o que já funciona hoje: o link do DECONTO no claude.ai, o DECONTO.exe e o link do
   Controle no claude.ai continuam abrindo como hoje.
 
 ## Restrições
@@ -79,7 +79,7 @@ O usuário ficou com o 1.
 **Endereços** (decisão minha): `https://painel.<ip>.sslip.io` (ou um domínio da empresa depois).
 - `/entrar`: login.
 - `/`: página do Painel Deconto com os cartões dos sistemas liberados para a pessoa.
-- `/frota/`: DECONT.
+- `/frota/`: DECONTO.
 - `/operacao/`: Controle de Operação.
 
 **Usuários** (proposta): `admin` criado na instalação, com a senha mostrada no fim. O
@@ -92,11 +92,11 @@ tenta abrir o endereço de um sistema que não é seu volta para o painel.
 
 **Dados no servidor** (decisão minha): `/opt/painel-deconto/data/`
 - `frota.json` e `operacao.json`: os registros de cada sistema, separados.
-- `arquivos/frota/`: as fotos e PDFs dos documentos do DECONT (até 15 MB cada, como hoje).
+- `arquivos/frota/`: as fotos e PDFs dos documentos do DECONTO (até 15 MB cada, como hoje).
 - `copias/`: uma cópia por dia de cada sistema, guardando as últimas 30.
 - `usuarios.json` e `sessoes.json`: senhas só como hash.
 
-**Levar os dados**: no DECONT do painel, "Carregar uma cópia" com o arquivo
+**Levar os dados**: no DECONTO do painel, "Carregar uma cópia" com o arquivo
 `frota-carlise-20-veiculos.json` (os 18 veículos, 2 semirreboques e os 20 CRLVs com o PDF). No
 Controle de Operação, a cópia salva no link do claude.ai, se houver algo lá. Depois disso, a
 equipe usa só o painel; o link do claude.ai e o .exe continuam existindo, mas com dados à parte.
@@ -111,7 +111,7 @@ dados nem nas senhas.
 
 ## Decisões minhas que saíram da leitura do desenho
 
-- **Cópia de tudo com os arquivos**: no DECONT do painel, "Salvar cópia de tudo (.json)" leva
+- **Cópia de tudo com os arquivos**: no DECONTO do painel, "Salvar cópia de tudo (.json)" leva
   também as fotos e PDFs (como no .exe), para dar para mudar de servidor sem perder nada.
 - **Acessos só no painel**: o bloco "Acesso ao sistema" que o Controle Munck ganhou hoje sai de
   dentro do sistema e vai para a página do painel (criar acesso, marcar sistemas, tirar acesso,

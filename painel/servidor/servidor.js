@@ -3,7 +3,7 @@
    Painel Deconto no servidor (fase 1).
    Login (usuário admin), tela inicial com os sistemas e cada sistema no seu
    endereço (/frota/, /operacao/), com os dados de cada um separados, avisos ao
-   vivo (Server-Sent Events) e os arquivos do DECONT guardados no disco.
+   vivo (Server-Sent Events) e os arquivos do DECONTO guardados no disco.
    Não usa nenhum pacote: só o Node.js 18 ou mais novo.
    ==================================================================== */
 const http = require('http');

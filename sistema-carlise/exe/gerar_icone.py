@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Desenha o ícone do DECONT e salva como .ico.
+"""Desenha o ícone do DECONTO e salva como .ico.
 
 Um caminhão com semirreboque, em branco, sobre o azul da faixa da placa Mercosul,
 com as rodas no amarelo da faixa da estrada. Não depende de bibliotecas: rasteriza

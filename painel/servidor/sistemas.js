@@ -4,7 +4,7 @@
    Sistema novo: uma linha aqui e a página em publico/<pagina>. */
 module.exports = [
   {
-    id: 'frota', numero: 1, nome: 'DECONT', pronto: true,
+    id: 'frota', numero: 1, nome: 'DECONTO', pronto: true,
     descricao: 'Frota: km do dia, abastecimento, manutenção, documentos com vencimento e relatório.',
     pagina: 'frota.html', arquivos: true, extras: [], cor: '#1C47B5',
     cols: ['caminhoes', 'semirreboques', 'motoristas', 'dias', 'abastecimentos', 'manutencoes', 'trocas', 'documentos', 'config'],

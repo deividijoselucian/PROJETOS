@@ -1,4 +1,4 @@
-<title>DECONT</title>
+<title>DECONTO</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -375,13 +375,10 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
     <div class="marca">
       <svg viewBox="0 0 34 34" aria-hidden="true">
         <rect x="0.5" y="0.5" width="33" height="33" rx="7" fill="#1F3E9C"/>
-        <rect x="4" y="10" width="15" height="11" rx="1.2" fill="#FFFFFF"/>
-        <path d="M20.5 13.5h5.2l3.8 4.2v3.3h-9z" fill="#FFFFFF"/>
-        <path d="M22.3 15h2.8l2.1 2.4h-4.9z" fill="#1F3E9C"/>
-        <rect x="4" y="22" width="25.5" height="1.6" fill="#FFFFFF"/>
-        <circle cx="9" cy="25" r="2.6" fill="#F2C230"/><circle cx="15" cy="25" r="2.6" fill="#F2C230"/><circle cx="25.5" cy="25" r="2.6" fill="#F2C230"/>
+        <circle cx="17" cy="17" r="10.6" fill="none" stroke="#FFFFFF" stroke-width="4.2"/>
+        <path d="M18.6 9.6L12.6 18.2H16.4L15.2 24.6L21.6 15.4H17.8Z" fill="#F2C230"/>
       </svg>
-      <div><div class="marca-nome">DECONT</div><div class="marca-sub">Controle da frota</div></div>
+      <div><div class="marca-nome">DECONTO</div><div class="marca-sub">Controle da frota</div></div>
     </div>
     <div class="barra-dir">
       <span class="quem" id="quem" hidden><a href="/" title="Voltar ao Painel Deconto">← Painel<span class="longo">&nbsp;Deconto</span></a><span id="quem-nome"></span><button type="button" data-acao="sair">Sair</button></span>
@@ -828,7 +825,7 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
 <script>
 'use strict';
 /* ====================================================================
-   DECONT: controle da frota (caminhões, semirreboques, motoristas,
+   DECONTO: controle da frota (caminhões, semirreboques, motoristas,
    km do dia, abastecimentos e manutenções).
    Onde os dados ficam: aberto pelo link do claude.ai, na conta (capability db),
    em qualquer aparelho. Aberto como arquivo ou pelo programa do Windows,
@@ -2600,8 +2597,8 @@ function montarXlsx(abas) {
       + abas.map((a, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
       + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>' },
     { nome: '_rels/.rels', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>' },
-    { nome: 'docProps/core.xml', texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Documentos da frota</dc:title><dc:creator>DECONT</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0, 19)}Z</dcterms:created></cp:coreProperties>` },
-    { nome: 'docProps/app.xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>DECONT</Application></Properties>' },
+    { nome: 'docProps/core.xml', texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Documentos da frota</dc:title><dc:creator>DECONTO</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0, 19)}Z</dcterms:created></cp:coreProperties>` },
+    { nome: 'docProps/app.xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>DECONTO</Application></Properties>' },
     { nome: 'xl/workbook.xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>'
       + abas.map((a, i) => `<sheet name="${xmlEsc(a.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets>'
       + (nomesFiltro ? `<definedNames>${nomesFiltro}</definedNames>` : '') + '</workbook>' },
@@ -2632,7 +2629,7 @@ function obsDocPlanilha(d) {
 function planilhaDocumentos() {
   const atuais = docsAtuais();
   const h = hojeISO();
-  const emitida = 'DECONT · ' + emitido().toLowerCase();
+  const emitida = 'DECONTO · ' + emitido().toLowerCase();
   const estiloSit = s => ({ vencido: XS.vencido, breve: XS.breve, ok: XS.ok }[s.nivel] || XS.neutro);
   const pagamentoTxt = d => (d.pagamento === 'parcelado' ? 'Parcelado' : d.pagamento === 'avista' ? 'À vista' : '');
   const veics = [
@@ -2725,7 +2722,7 @@ function planilhaDocumentos() {
 /* planilha com tudo o que está cadastrado: uma aba para cada parte do sistema */
 function planilhaTudo() {
   const atuais = docsAtuais();
-  const emitida = 'DECONT · ' + emitido().toLowerCase();
+  const emitida = 'DECONTO · ' + emitido().toLowerCase();
   const cab = l => l.map(t => ({ v: t, s: XS.cab }));
   const t = v => ({ v: v == null ? '' : v, s: XS.txt });
   const f = v => ({ v: v == null ? '' : v, s: XS.forte });
@@ -2794,7 +2791,7 @@ function planilhaTudo() {
 async function baixarTudoExcel() {
   let arq;
   try { arq = planilhaTudo(); } catch (e) { toast('Não consegui montar a planilha.', true); return; }
-  if (await baixar('decont-cadastro-completo-' + hojeISO() + '.xlsx', arq, XLSX_TIPO)) toast('Planilha com tudo o que está cadastrado salva.');
+  if (await baixar('deconto-cadastro-completo-' + hojeISO() + '.xlsx', arq, XLSX_TIPO)) toast('Planilha com tudo o que está cadastrado salva.');
 }
 async function baixarDocumentosExcel() {
   if (!D.documentos.size && !D.caminhoes.size) { toast('Cadastre os veículos e os documentos primeiro.', true); return; }
@@ -2949,7 +2946,7 @@ function pdfDocumentos() {
   const { M, W } = pdf;
   const cabecalho = () => {
     pdf.txt(M, pdf.y - 14, 'Documentos da frota', 16, true);
-    pdf.txtDir(W - M, pdf.y - 12, 'DECONT', 9, true, '#1C47B5');
+    pdf.txtDir(W - M, pdf.y - 12, 'DECONTO', 9, true, '#1C47B5');
     pdf.txt(M, pdf.y - 27, `${emitido()} · ${plural(veics.length, 'veículo', 'veículos')}${catTxt}`, 8.5, false, '#535E72');
     pdf.linha(M, pdf.y - 33, W - M, pdf.y - 33, '#151A23');
     pdf.y -= 44;
@@ -3004,7 +3001,7 @@ function pdfDocumentos() {
     ]));
   });
   pdf.tabela([{ t: 'Documento', w: 112 }, { t: 'Número', w: 76 }, { t: 'Emissão', w: 52 }, { t: 'Vencimento', w: 56 }, { t: 'Situação', w: 88 }, { t: 'Valor', w: 60, dir: true }, { t: 'Detalhes', w: 286, quebra: true }, { t: 'Anexo', w: 40 }], linhasDocs, cabecalho);
-  return pdf.fechar(`DECONT · ${emitido()} · "Vence em breve": seguro ${avisosCfg().diasSeguro} dias antes, outros documentos ${avisosCfg().dias} dias antes.`);
+  return pdf.fechar(`DECONTO · ${emitido()} · "Vence em breve": seguro ${avisosCfg().diasSeguro} dias antes, outros documentos ${avisosCfg().dias} dias antes.`);
 }
 async function baixarDocumentosPDF() {
   if (!D.documentos.size && !D.caminhoes.size) { toast('Cadastre os veículos e os documentos primeiro.', true); return; }
@@ -3097,7 +3094,7 @@ function relatorioFrota(el) {
   const comCusto = linhas.filter(r => r.custo != null);
   el.innerHTML = `
     <header class="rel-cab">
-      <div><span class="rel-eyebrow">DECONT · Relatório da frota${UI.categoria ? ' · categoria ' + esc(nomeCat(UI.categoria === SEM_CAT ? '' : UI.categoria)) : ''}</span><h2 class="rel-titulo">${esc(P.titulo)}</h2>
+      <div><span class="rel-eyebrow">DECONTO · Relatório da frota${UI.categoria ? ' · categoria ' + esc(nomeCat(UI.categoria === SEM_CAT ? '' : UI.categoria)) : ''}</span><h2 class="rel-titulo">${esc(P.titulo)}</h2>
       <span class="hint">${esc(fmtData(P.ini))} a ${esc(fmtData(P.fim))} · ${plural(camAtivos().length, 'caminhão ativo', 'caminhões ativos')} · ${esc(emitido())}</span></div>
     </header>
     <div class="kpis">${kpisHTML(frota)}</div>
@@ -3156,7 +3153,7 @@ function relatorioFrota(el) {
         <tfoot><tr><td colspan="2">Frota${frota.manut !== soma(linhas, r => r.manut) ? ' <span class="fraco">(manutenção inclui os semirreboques)</span>' : ''}</td><td class="n">${fKm(frota.km)}</td><td class="n">${fL(frota.litros)}</td><td class="n">${fR(frota.comb)}</td><td class="n">${fR(frota.manut)}</td><td class="n">${fKml(frota.kml)}</td><td class="n">${fRkm(frota.custo)}</td><td class="nao-imprime"></td></tr></tfoot>
       </table></div>
     </section>
-    <p class="rodape-rel">DECONT · ${esc(emitido())}. Consumo = km de um tanque cheio até o outro ÷ litros de diesel colocados (Arla 32 fora). Custo por km = combustível (com Arla) + manutenção, ÷ km rodados.</p>`;
+    <p class="rodape-rel">DECONTO · ${esc(emitido())}. Consumo = km de um tanque cheio até o outro ÷ litros de diesel colocados (Arla 32 fora). Custo por km = combustível (com Arla) + manutenção, ÷ km rodados.</p>`;
 
   const kmlFrota = frota.kml, custoFrota = frota.custo;
   if (!UI.categoria) {
@@ -3230,7 +3227,7 @@ function relatorioCaminhao(el, c) {
   const ev = evolucaoMensal(c.id, 6);
   el.innerHTML = `
     <header class="rel-cab">
-      <div><span class="rel-eyebrow">DECONT · Extrato do caminhão</span>
+      <div><span class="rel-eyebrow">DECONTO · Extrato do caminhão</span>
       <h2 class="rel-titulo">${placaHTML(c.placa, true)}<span class="veic-txt">${esc(descCam(c))}</span></h2>
       <span class="hint">${esc(P.titulo)} · ${esc(fmtData(P.ini))} a ${esc(fmtData(P.fim))} · ${esc(emitido())}</span></div>
       <button class="btn small ghost nao-imprime" type="button" data-acao="ver-extrato" data-cam="">Voltar para toda a frota</button>
@@ -3273,7 +3270,7 @@ function relatorioCaminhao(el, c) {
       <p class="hint">Todos os lançamentos do ${esc(mostraPlaca(c.placa))} no período, em ordem de data: km do dia, abastecimentos, manutenções e trocas de motorista ou semirreboque.</p>
       <div class="tabela-box"><table class="tabela">${tabelaExtratoHTML(L)}</table></div>
     </section>
-    <p class="rodape-rel">DECONT · ${esc(emitido())}. A manutenção dos semirreboques não entra no extrato do caminhão, porque o semirreboque troca de caminhão.</p>`;
+    <p class="rodape-rel">DECONTO · ${esc(emitido())}. A manutenção dos semirreboques não entra no extrato do caminhão, porque o semirreboque troca de caminhão.</p>`;
 
   const comp = (v, vf, fmt) => [{ rot: mostraPlaca(c.placa), valores: [v || 0], longo: rotuloCam(c) }, { rot: 'Média da frota', valores: [vf || 0] }];
   graficoBarras($('#gr-c-kml'), { itens: comp(r.kml, frota.kml), series: [S_KM], fmt: v => nf2.format(v) + ' km/l', meta: mt.kml || null, rotMeta: mt.kml ? 'meta ' + nf2.format(mt.kml) : '', status: mt.kml ? v => seloMeta(v, mt.kml, true) : null, titulo: 'Consumo', vazio: 'Precisa de km e de abastecimento de diesel no período.' });
@@ -3318,7 +3315,7 @@ function notificarDoDia(forcar) {
   const al = calcAlertas().filter(a => a.nivel === 'vencido' || a.nivel === 'breve');
   if (!al.length) { if (forcar) toast('Nada vencendo agora. O Windows avisa quando tiver.'); return; }
   try {
-    new Notification(`DECONT: ${plural(al.length, 'aviso', 'avisos')}`, { body: al.slice(0, 4).map(a => a.txt).join('\n') + (al.length > 4 ? `\ne mais ${al.length - 4}.` : '') });
+    new Notification(`DECONTO: ${plural(al.length, 'aviso', 'avisos')}`, { body: al.slice(0, 4).map(a => a.txt).join('\n') + (al.length > 4 ? `\ne mais ${al.length - 4}.` : '') });
     localStorage.setItem(CHAVE_NOTIF, hojeISO());
   } catch (e) { /* o Windows não deixou */ }
 }
@@ -3841,12 +3838,12 @@ async function salvarCopia() {
 }
 async function carregarCopia(arquivo) {
   let obj;
-  try { obj = JSON.parse(await arquivo.text()); } catch (e) { toast('Este arquivo não é uma cópia do DECONT.', true); return; }
+  try { obj = JSON.parse(await arquivo.text()); } catch (e) { toast('Este arquivo não é uma cópia do DECONTO.', true); return; }
   await aplicarCopia(obj, 'Cópia carregada');
 }
 /* grava uma cópia (.json) nos dados de agora; devolve true se deu certo */
 async function aplicarCopia(obj, titulo) {
-  if (!obj || obj.app !== 'sistema-carlise' || !obj.dados || typeof obj.dados !== 'object') { toast('Este arquivo não é uma cópia do DECONT.', true); return false; }
+  if (!obj || obj.app !== 'sistema-carlise' || !obj.dados || typeof obj.dados !== 'object') { toast('Este arquivo não é uma cópia do DECONTO.', true); return false; }
   const ops = [];
   const cont = {};
   for (const c of COLS) {

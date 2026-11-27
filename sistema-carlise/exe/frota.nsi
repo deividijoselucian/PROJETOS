@@ -1,4 +1,4 @@
-; DECONT (controle da frota): um .exe só, sem instalação e sem pedir administrador.
+; DECONTO (controle da frota): um .exe só, sem instalação e sem pedir administrador.
 ; Ao abrir, copia o sistema para a pasta do usuário, cria o atalho na Área de Trabalho
 ; e mostra numa janela própria do Microsoft Edge (que vem no Windows 10 e 11).
 ; Sem Edge, abre no navegador padrão.
@@ -8,12 +8,12 @@
 Unicode true
 SetCompressor /SOLID lzma
 
-!define NOME "DECONT"
+!define NOME "DECONTO"
 !define PASTA "$LOCALAPPDATA\SistemaCarlise"
 
 Name "${NOME}"
 Caption "${NOME}"
-OutFile "dist\DECONT.exe"
+OutFile "dist\DECONTO.exe"
 Icon "build\icone.ico"
 RequestExecutionLevel user
 SilentInstall silent
@@ -23,7 +23,7 @@ VIAddVersionKey /LANG=0 "ProductName" "${NOME}"
 VIAddVersionKey /LANG=0 "FileDescription" "${NOME}: controle da frota de caminhões"
 VIAddVersionKey /LANG=0 "FileVersion" "1.0.0"
 VIAddVersionKey /LANG=0 "ProductVersion" "1.0.0"
-VIAddVersionKey /LANG=0 "LegalCopyright" "DECONT"
+VIAddVersionKey /LANG=0 "LegalCopyright" "DECONTO"
 
 Section
   SetOutPath "${PASTA}"
@@ -31,6 +31,7 @@ Section
   File "build\icone.ico"
   ; o atalho do nome antigo sai; a pasta continua a mesma para não perder os dados
   Delete "$DESKTOP\Sistema Carlise.lnk"
+  Delete "$DESKTOP\DECONT.lnk"
 
   ; Procura o Edge para abrir o sistema como aplicativo (sem barra de endereço).
   ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe" ""

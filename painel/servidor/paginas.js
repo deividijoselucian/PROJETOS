@@ -2,7 +2,10 @@
 /* Páginas do Painel Deconto: login, tela inicial com os sistemas e a moldura de cada sistema. */
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-const MARCA = '<svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="0.5" y="0.5" width="33" height="33" rx="7" fill="#1F3E9C"/><rect x="6" y="7" width="9" height="9" rx="2" fill="#FFFFFF"/><rect x="19" y="7" width="9" height="9" rx="2" fill="#F2C230"/><rect x="6" y="19" width="9" height="9" rx="2" fill="#F2C230"/><rect x="19" y="19" width="9" height="9" rx="2" fill="#FFFFFF"/></svg>';
+const MARCA = '<svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="0.5" y="0.5" width="33" height="33" rx="7" fill="#1F3E9C"/><circle cx="17" cy="17" r="10.6" fill="none" stroke="#FFFFFF" stroke-width="4.2"/><path d="M18.6 9.6L12.6 18.2H16.4L15.2 24.6L21.6 15.4H17.8Z" fill="#F2C230"/></svg>';
+
+/* Ícone da aba do navegador: a mesma logo. */
+const ICONE = '<link rel="icon" href="data:image/svg+xml,' + encodeURIComponent(MARCA.replace(' aria-hidden="true"', ' xmlns="http://www.w3.org/2000/svg"')) + '">';
 
 const ESTILO = `
 :root {
@@ -57,7 +60,7 @@ input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
 .msg.erro { color: var(--bad); } .msg.ok { color: var(--ok); }
 `;
 const FONTES = '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap">';
-const cabeca = titulo => `<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<title>${esc(titulo)}</title>\n${FONTES}\n<style>${ESTILO}</style>\n</head>\n`;
+const cabeca = titulo => `<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<title>${esc(titulo)}</title>\n${ICONE}\n${FONTES}\n<style>${ESTILO}</style>\n</head>\n`;
 
 function paginaEntrar() {
   return cabeca('Painel Deconto · Entrar') + `<body>
@@ -146,7 +149,7 @@ function paginaSistema(htmlSistema, u, s) {
   const corpo = htmlSistema.replace(/<title>[\s\S]*?<\/title>\n?|<meta name="claude:[^>]*>\n?|<link rel="(?:preconnect|stylesheet)"[^>]*>\n?/g, m => { if (!m.includes('claude:')) cab.push(m.trim()); return ''; });
   const painel = JSON.stringify({ usuario: u.usuario, nome: u.nome, admin: !!u.admin, sistema: s.id, nomeSistema: s.nome }).replace(/</g, '\\u003c');
   return '<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
-    + cab.join('\n') + `\n<style>${RESET}</style>\n<script>window.PAINEL = ${painel};</script>\n</head>\n<body>\n` + corpo + '\n</body>\n</html>\n';
+    + ICONE + '\n' + cab.join('\n') + `\n<style>${RESET}</style>\n<script>window.PAINEL = ${painel};</script>\n</head>\n<body>\n` + corpo + '\n</body>\n</html>\n';
 }
 
 module.exports = { paginaEntrar, paginaInicial, paginaSistema };

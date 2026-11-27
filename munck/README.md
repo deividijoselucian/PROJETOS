@@ -1,8 +1,8 @@
 # Controle Munck
 
-Sistema separado do DECONT, para os caminhões munck: onde cada caminhão está trabalhando,
+Sistema separado do DECONTO, para os caminhões munck: onde cada caminhão está trabalhando,
 a agenda dos serviços e o km inicial e final de cada obra, por dia ou por etapa. Tem nome,
-link e dados próprios; nada é compartilhado com o DECONT.
+link e dados próprios; nada é compartilhado com o DECONTO.
 
 ## Abas
 
@@ -65,7 +65,7 @@ link e dados próprios; nada é compartilhado com o DECONT.
 - **No servidor**: o sistema agora roda dentro do **Painel Deconto** (pasta
   [`painel/`](../painel/README.md)), com o nome **Controle de Operação**, no endereço
   `/operacao/` do painel. Lá ele tem login, os dados num arquivo próprio no servidor, separados
-  dos do DECONT (cópia automática por dia), e o que um lança aparece na hora para os outros.
+  dos do DECONTO (cópia automática por dia), e o que um lança aparece na hora para os outros.
   Instala com um comando só, do mesmo jeito que a Sinistra (PM2, nginx e HTTPS pelo sslip.io):
   passo a passo em [painel/servidor/LEIA-ME.md](../painel/servidor/LEIA-ME.md).
 - Pelo link do claude.ai: na conta, num banco de dados da própria página, em qualquer
@@ -76,7 +76,7 @@ link e dados próprios; nada é compartilhado com o DECONT.
 ## Arquivo
 
 - `munck.html`: o sistema inteiro numa página. A planilha do Excel e os gráficos são montados
-  no próprio sistema, sem internet (os mesmos do DECONT).
+  no próprio sistema, sem internet (os mesmos do DECONTO).
 - `mapa-sul.json`: o mapa (contorno de PR, SC e RS, municípios de SC simplificados e as 1.191
   cidades dos três estados com latitude e longitude), publicado junto com a página. Aberto
   direto como arquivo, o navegador não lê esse arquivo e o mapa não aparece; pelo link funciona.

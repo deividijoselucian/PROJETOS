@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Um servidor só, na VM sistemadeconto, com login, a tela inicial do Painel Deconto com os sistemas em cartões, o DECONT (com fotos e PDFs) e o Controle de Operação, instalado com um comando.
+**Goal:** Um servidor só, na VM sistemadeconto, com login, a tela inicial do Painel Deconto com os sistemas em cartões, o DECONTO (com fotos e PDFs) e o Controle de Operação, instalado com um comando.
 
 **Fase 1 (este plano):** um login só (`admin`, senha criada na instalação e trocável na tela inicial); todos os sistemas aparecem para quem entra. **Fase 2 (outro plano):** usuários, sistemas de cada pessoa e a área Acessos — pedido do usuário em 27/11.
 
-**Architecture:** Programa Node sem pacotes (`painel/servidor/`), derivado de `munck/servidor/servidor.js` (já testado): lista de sistemas, usuários com os sistemas de cada um, dados de cada sistema num arquivo próprio, avisos ao vivo por Server-Sent Events e arquivos do DECONT em disco. Cada sistema continua sendo a sua página única (`sistema-carlise/frota.html` e `munck/munck.html`), que ganha o modo "painel" quando a página traz `window.PAINEL`.
+**Architecture:** Programa Node sem pacotes (`painel/servidor/`), derivado de `munck/servidor/servidor.js` (já testado): lista de sistemas, usuários com os sistemas de cada um, dados de cada sistema num arquivo próprio, avisos ao vivo por Server-Sent Events e arquivos do DECONTO em disco. Cada sistema continua sendo a sua página única (`sistema-carlise/frota.html` e `munck/munck.html`), que ganha o modo "painel" quando a página traz `window.PAINEL`.
 
 **Tech Stack:** Node.js ≥ 18 (http, fs, crypto, node:test), HTML/JS das páginas existentes, Playwright (só nos testes de tela, já instalado nesta máquina), bash, PM2, nginx, certbot, GitHub Actions.
 
@@ -18,10 +18,10 @@
 - Telas, mensagens e textos em português.
 - Nada de dados reais, senhas ou chaves no repositório PROJETOS (é público) nem no pacote.
 - Pasta `/opt/painel-deconto`, processo PM2 `painel-deconto`, site nginx `painel-deconto`, endereço `painel.<ip-com-traços>.sslip.io`, porta 3200 ou a próxima livre até 3299, `HOST=127.0.0.1`.
-- Sistemas: `frota` = "DECONT" em `/frota/`; `operacao` = "Controle de Operação" em `/operacao/`.
-- Arquivos do DECONT: JPG, PNG, WebP, GIF ou PDF, até 15 MB (os mesmos de `TIPOS_ARQ` e `LIMITE_ARQ` em `frota.html`).
+- Sistemas: `frota` = "DECONTO" em `/frota/`; `operacao` = "Controle de Operação" em `/operacao/`.
+- Arquivos do DECONTO: JPG, PNG, WebP, GIF ou PDF, até 15 MB (os mesmos de `TIPOS_ARQ` e `LIMITE_ARQ` em `frota.html`).
 - Uma cópia por dia de cada sistema em `data/copias/`, guardando as últimas 30.
-- O link do DECONT no claude.ai, o DECONT.exe e o link do Controle continuam funcionando: os modos "nuvem" e "local" das páginas não mudam.
+- O link do DECONTO no claude.ai, o DECONTO.exe e o link do Controle continuam funcionando: os modos "nuvem" e "local" das páginas não mudam.
 - Cópias antigas do "Controle Munck" (`app: 'controle-munck'`) continuam carregando no Controle de Operação.
 
 ## Review Focus
@@ -44,7 +44,7 @@
 
 **Interfaces:**
 - Produces: `sistemas.js` exporta `[{ id, nome, descricao, pagina, cols, arquivos, extras, cor }]`:
-  - `{ id: 'frota', nome: 'DECONT', descricao: 'Frota: km do dia, abastecimento, manutenção, documentos e relatório', pagina: 'frota.html', cols: ['caminhoes','semirreboques','motoristas','dias','abastecimentos','manutencoes','trocas','documentos','config'], arquivos: true, extras: [], cor: '#1C47B5' }`
+  - `{ id: 'frota', nome: 'DECONTO', descricao: 'Frota: km do dia, abastecimento, manutenção, documentos e relatório', pagina: 'frota.html', cols: ['caminhoes','semirreboques','motoristas','dias','abastecimentos','manutencoes','trocas','documentos','config'], arquivos: true, extras: [], cor: '#1C47B5' }`
   - `{ id: 'operacao', nome: 'Controle de Operação', descricao: 'Caminhões munck: onde estão, agenda, km das obras, mapa, manutenção e relatório', pagina: 'operacao.html', cols: ['caminhoes','motoristas','obras','agenda','km','manutencoes','config'], arquivos: false, extras: ['mapa-sul.json'], cor: '#5B3FD6' }`
 - Produces (rotas): `GET /entrar`; `POST /api/entrar {usuario, senha}`; `POST /api/sair`; `GET /api/eu → {usuario, nome, admin, sistemas: [id]}`; `GET /` (tela inicial); `GET /api/usuarios` (admin) `→ [{usuario, nome, admin, sistemas}]`; `POST /api/usuarios` (admin) `{usuario, nome, senha, admin, sistemas}`; `PUT /api/usuarios/:usuario` (admin) `{nome?, admin?, sistemas?, senha?}`; `DELETE /api/usuarios/:usuario` (admin); `POST /api/minha-senha {atual, nova}`; `GET /:sistema` → 301 `/:sistema/`; `GET /:sistema/` → página do sistema com `<script>window.PAINEL = {usuario, nome, admin, sistema, nomeSistema}</script>` no `<head>`; `GET /operacao/mapa-sul.json`.
 - Regra de acesso: `podeUsar(u, sistemaId)` = `u.admin || u.sistemas.includes(sistemaId)`. Página sem acesso: 302 para `/`. API sem acesso: 403 `{erro: 'Você não tem acesso a este sistema.'}`. Sem login: página 302 `/entrar`, API 401.
@@ -74,7 +74,7 @@
 - [ ] **Step 4: Rodar e ver passar.**
 - [ ] **Step 5: Commit** `Painel Deconto: dados de cada sistema e avisos ao vivo`.
 
-### Task 3: Arquivos do DECONT no servidor
+### Task 3: Arquivos do DECONTO no servidor
 
 **Files:**
 - Modify: `painel/servidor/banco.js` (guarda de arquivos)
@@ -90,7 +90,7 @@
 - [ ] **Step 2: Rodar e ver falhar.**
 - [ ] **Step 3: Implementar.** O id é `arq-` + 16 bytes aleatórios em hex; o `id` da URL é conferido com `/^arq-[0-9a-f]{32}$/` antes de virar caminho.
 - [ ] **Step 4: Rodar e ver passar.**
-- [ ] **Step 5: Commit** `Painel Deconto: fotos e PDFs do DECONT no servidor`.
+- [ ] **Step 5: Commit** `Painel Deconto: fotos e PDFs do DECONTO no servidor`.
 
 ### Task 4: Tela inicial e acessos
 
@@ -102,13 +102,13 @@
 - Consumes: rotas de usuários da Task 1.
 - Produces: na tela inicial, para o administrador, a área **Acessos**: lista (usuário, nome, sistemas, administrador), formulário "Criar acesso" (usuário, nome, senha, uma caixa por sistema, administrador sim/não), "Mudar sistemas" por pessoa e "Tirar o acesso" com confirmação. Para todos: "Trocar a minha senha" e "Sair".
 
-- [ ] **Step 1: Escrever os testes de tela:** `admin cria maria só com frota e ela vê só o cartão DECONT`; `admin tira frota da maria com a página do DECONT aberta e a próxima gravação dela volta para o painel`; `maria troca a senha e a antiga não entra`; `admin apaga maria e ela volta para /entrar`; `no celular (390 px) a tela inicial não rola para o lado`.
+- [ ] **Step 1: Escrever os testes de tela:** `admin cria maria só com frota e ela vê só o cartão DECONTO`; `admin tira frota da maria com a página do DECONTO aberta e a próxima gravação dela volta para o painel`; `maria troca a senha e a antiga não entra`; `admin apaga maria e ela volta para /entrar`; `no celular (390 px) a tela inicial não rola para o lado`.
 - [ ] **Step 2: Rodar e ver falhar:** `node --test painel/testes/telas.test.js`.
 - [ ] **Step 3: Implementar** a tela no mesmo visual (barra escura, Barlow, cartões com a cor do sistema), tema claro e escuro.
 - [ ] **Step 4: Rodar e ver passar** e olhar uma captura de tela (claro, escuro e celular).
 - [ ] **Step 5: Commit** `Painel Deconto: tela inicial e acessos`.
 
-### Task 5: DECONT no modo painel
+### Task 5: DECONTO no modo painel
 
 **Files:**
 - Modify: `sistema-carlise/frota.html` (armazenamento, `Arquivos`, cabeçalho, cópia)
@@ -118,11 +118,11 @@
 - Consumes: rotas de dados (Task 2) e de arquivos (Task 3); `window.PAINEL` (Task 1).
 - Produces: com `window.PAINEL`, `Armazem.modo = 'servidor'`: `gravar`, `apagar`, `gravarVarios` pela API (caminhos relativos `api/...`), atualização ao vivo por `EventSource('api/eventos')` com nova leitura de tudo ao reconectar; `Arquivos.guardar/ler/apagar` com `onde: 'servidor'`; no cabeçalho "← Painel Deconto" (link `/`), nome de quem entrou e "Sair"; estado "Salvo no servidor"; 401 leva a `/entrar` e 403 a `/`. "Salvar cópia de tudo" leva os arquivos também no modo servidor; "Carregar uma cópia" sobe para o servidor todo arquivo que vier embutido (`onde` diferente de `'nuvem'`) e aproveita o arquivo que o documento já tem quando nome e tamanho batem.
 
-- [ ] **Step 1: Escrever os testes de tela:** `admin abre DECONT pelo cartão e vê "Salvo no servidor"`; `cadastra caminhão e o outro navegador vê na hora`; `anexa um PDF num documento e abre o PDF`; `carregar a cópia de teste com 20 documentos e 20 PDFs deixa 20 documentos com arquivo; carregar de novo continua com 20`; `"← Painel Deconto" volta para a tela inicial`. A cópia de teste é gerada no próprio teste com dados inventados (placas `TST1A00`…`TST1A19` e um PDF mínimo).
+- [ ] **Step 1: Escrever os testes de tela:** `admin abre DECONTO pelo cartão e vê "Salvo no servidor"`; `cadastra caminhão e o outro navegador vê na hora`; `anexa um PDF num documento e abre o PDF`; `carregar a cópia de teste com 20 documentos e 20 PDFs deixa 20 documentos com arquivo; carregar de novo continua com 20`; `"← Painel Deconto" volta para a tela inicial`. A cópia de teste é gerada no próprio teste com dados inventados (placas `TST1A00`…`TST1A19` e um PDF mínimo).
 - [ ] **Step 2: Rodar e ver falhar.**
 - [ ] **Step 3: Implementar** em `frota.html`, sem mudar os modos "nuvem" e "local".
-- [ ] **Step 4: Rodar e ver passar.** Rodar também os testes antigos do DECONT (modos nuvem e local): `teste2.js`, `teste4.js`, `teste5.js`, `teste7.js`, `teste9.js`, `teste10.js`, `teste11.js` e `teste12.js` em `/tmp/claude-0/-home-user-PROJETOS/6b592832-8003-51fe-b585-162759b747ad/scratchpad/` → sem FALHA e `ERROS: nenhum`.
-- [ ] **Step 5: Commit** `DECONT: modo painel (dados e arquivos no servidor)`.
+- [ ] **Step 4: Rodar e ver passar.** Rodar também os testes antigos do DECONTO (modos nuvem e local): `teste2.js`, `teste4.js`, `teste5.js`, `teste7.js`, `teste9.js`, `teste10.js`, `teste11.js` e `teste12.js` em `/tmp/claude-0/-home-user-PROJETOS/6b592832-8003-51fe-b585-162759b747ad/scratchpad/` → sem FALHA e `ERROS: nenhum`.
+- [ ] **Step 5: Commit** `DECONTO: modo painel (dados e arquivos no servidor)`.
 
 ### Task 6: Controle de Operação (nome novo e modo painel)
 
@@ -158,4 +158,4 @@
 
 - Abrir 22, 80 e 443 da VM sistemadeconto no painel da Locaweb (ele, ou eu pelo computador dele conectado).
 - Rodar o comando de instalação **só depois do "pode subir" dele**, com `run_in_background`, um de cada vez.
-- No painel instalado: trocar a senha do admin; no DECONT, "Carregar uma cópia" com `frota-carlise-20-veiculos.json`; conferir 18 caminhões, 2 semirreboques e 20 CRLVs com o PDF abrindo.
+- No painel instalado: trocar a senha do admin; no DECONTO, "Carregar uma cópia" com `frota-carlise-20-veiculos.json`; conferir 18 caminhões, 2 semirreboques e 20 CRLVs com o PDF abrindo.

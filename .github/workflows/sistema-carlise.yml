@@ -1,4 +1,4 @@
-name: DECONT (programa para Windows)
+name: DECONTO (programa para Windows)
 
 on:
   push:
@@ -19,14 +19,14 @@ jobs:
       - name: Instalar NSIS
         run: sudo apt-get update && sudo apt-get install -y nsis
 
-      - name: Gerar DECONT.exe
+      - name: Gerar DECONTO.exe
         run: bash sistema-carlise/exe/build.sh
 
       - name: Guardar o arquivo
         uses: actions/upload-artifact@v4
         with:
-          name: DECONT
-          path: sistema-carlise/exe/dist/DECONT.exe
+          name: DECONTO
+          path: sistema-carlise/exe/dist/DECONTO.exe
 
       - name: Publicar para download (pré-lançamento "sistema-carlise")
         env:
@@ -35,9 +35,10 @@ jobs:
           TAG=sistema-carlise
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" \
             --target "$GITHUB_SHA" --prerelease \
-            --title "DECONT (programa para Windows)" \
-            --notes "Baixe DECONT.exe e abra. Ele cria o atalho DECONT na Área de Trabalho."
-          gh release edit "$TAG" --title "DECONT (programa para Windows)" \
-            --notes "Baixe DECONT.exe e abra. Ele cria o atalho DECONT na Área de Trabalho."
+            --title "DECONTO (programa para Windows)" \
+            --notes "Baixe DECONTO.exe e abra. Ele cria o atalho DECONTO na Área de Trabalho."
+          gh release edit "$TAG" --title "DECONTO (programa para Windows)" \
+            --notes "Baixe DECONTO.exe e abra. Ele cria o atalho DECONTO na Área de Trabalho."
           gh release delete-asset "$TAG" SistemaCarlise.exe -y 2>/dev/null || true
-          gh release upload "$TAG" --clobber sistema-carlise/exe/dist/DECONT.exe
+          gh release delete-asset "$TAG" DECONT.exe -y 2>/dev/null || true
+          gh release upload "$TAG" --clobber sistema-carlise/exe/dist/DECONTO.exe

@@ -7,7 +7,7 @@
 # Uso (como root):
 #   cd /opt && tar -xzf painel-deconto-servidor.tar.gz && bash painel-deconto/instalar-no-servidor.sh
 #
-# Carga do DECONT: se o DECONT do servidor ainda não tem dados (não existe data/frota.json)
+# Carga do DECONTO: se o DECONTO do servidor ainda não tem dados (não existe data/frota.json)
 # e houver um arquivo painel-deconto-carga-frota.json em /opt, /root ou /home/<usuário>/,
 # ele vai para a pasta carga/ e o servidor importa ao subir.
 #
@@ -97,13 +97,13 @@ chmod 600 .env
 mkdir -p data carga
 chmod 700 data carga
 
-# ---------- 3b. Carga inicial do DECONT ----------
-# Só quando o DECONT do servidor ainda não tem dados. O servidor importa ao subir
+# ---------- 3b. Carga inicial do DECONTO ----------
+# Só quando o DECONTO do servidor ainda não tem dados. O servidor importa ao subir
 # e tira o arquivo da pasta carga/ (guarda uma cópia em data/).
-passo "Carga do DECONT"
+passo "Carga do DECONTO"
 CARGA_COPIADA=0
 if [ -f data/frota.json ]; then
-  echo "O DECONT já tem dados no servidor. Nenhuma carga foi copiada."
+  echo "O DECONTO já tem dados no servidor. Nenhuma carga foi copiada."
 else
   ACHADO=""
   for f in "/opt/$ARQ_CARGA" "/root/$ARQ_CARGA" /home/*/"$ARQ_CARGA"; do
@@ -113,9 +113,9 @@ else
     cp "$ACHADO" carga/frota.json
     chmod 600 carga/frota.json
     CARGA_COPIADA=1
-    echo "Achei $ACHADO. Copiei para $PASTA/carga/frota.json; o DECONT importa ao subir."
+    echo "Achei $ACHADO. Copiei para $PASTA/carga/frota.json; o DECONTO importa ao subir."
   else
-    echo "Nenhum $ARQ_CARGA em /opt, /root ou /home/*/. O DECONT começa vazio."
+    echo "Nenhum $ARQ_CARGA em /opt, /root ou /home/*/. O DECONTO começa vazio."
   fi
 fi
 
@@ -127,7 +127,7 @@ else pm2 start servidor.js --name "$NOME" --max-memory-restart 200M; fi
 pm2 save
 pm2 startup systemd -u root --hp /root >/dev/null 2>&1 || true
 
-# Espera até 20 segundos: com a carga do DECONT (PDFs) a primeira subida demora um pouco mais.
+# Espera até 20 segundos: com a carga do DECONTO (PDFs) a primeira subida demora um pouco mais.
 RESPONDEU=0
 for _ in $(seq 1 20); do
   sleep 1
@@ -196,7 +196,7 @@ fi
 LINHA_CARGA=""
 if [ "$CARGA_COPIADA" = 1 ]; then
   LINHA_CARGA="$(pm2 logs "$NOME" --nostream --lines 50 2>/dev/null \
-    | grep -oE 'Carga de DECONT: [0-9]+ registros e [0-9]+ arquivos\.|Carga de DECONT não entrou: .*' \
+    | grep -oE 'Carga de DECONTO: [0-9]+ registros e [0-9]+ arquivos\.|Carga de DECONTO não entrou: .*' \
     | tail -n 1 || true)"
 fi
 
@@ -214,11 +214,11 @@ fi
 echo "    Dados:    $PASTA/data (cópia automática por dia em data/copias)"
 if [ "$CARGA_COPIADA" = 1 ]; then
   case "$LINHA_CARGA" in
-    "Carga de DECONT: "*)
+    "Carga de DECONTO: "*)
       echo "    $LINHA_CARGA"
       echo "    O arquivo $ACHADO pode ser apagado: o servidor guardou uma cópia em data/." ;;
     "")
-      echo "    Carga do DECONT: não achei o resultado nos logs. Confira com o comando abaixo." ;;
+      echo "    Carga do DECONTO: não achei o resultado nos logs. Confira com o comando abaixo." ;;
     *)
       echo "    ⚠️  $LINHA_CARGA"
       echo "    O arquivo ficou em $PASTA/carga/frota.json. Confira com o comando abaixo." ;;
