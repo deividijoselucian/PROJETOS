@@ -70,6 +70,11 @@ p { margin: 0; }
 .estado[data-modo="local"]::before { background: var(--guindaste); }
 .estado[data-modo="erro"]::before, .estado[data-modo="leitura"]::before { background: #FF8F87; }
 @media (max-width: 520px) { .estado { font-size: 0; gap: 0; padding: 7px; } .marca-sub { display: none; } }
+.barra-dir { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.quem { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--barra-muted); white-space: nowrap; }
+.quem button { font: 600 0.85rem var(--body); color: var(--barra-ink); background: transparent; border: 1px solid var(--barra-line); border-radius: 8px; padding: 5px 10px; min-height: 34px; cursor: pointer; }
+.quem button:hover { border-color: var(--guindaste); }
+@media (max-width: 520px) { .quem span { display: none; } }
 .abas { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .abas::-webkit-scrollbar { display: none; }
 .aba { flex: none; position: relative; color: var(--barra-muted); text-decoration: none; font-weight: 600; font-size: 0.98rem; padding: 12px 12px 14px; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; }
@@ -168,7 +173,7 @@ p { margin: 0; }
 .campo.largo { grid-column: 1 / -1; }
 .campo > label { font-weight: 600; font-size: 0.9rem; }
 .campo .dica { font-size: 0.82rem; color: var(--muted); }
-input[type="text"], input[type="date"], input[type="time"], input:not([type]), select, textarea {
+input[type="text"], input[type="date"], input[type="time"], input[type="password"], input:not([type]), select, textarea {
   font: inherit; font-size: 1rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
   border-radius: 8px; padding: 9px 11px; min-height: 44px; width: 100%; min-width: 0;
 }
@@ -357,7 +362,10 @@ button.seg { border: 0; background: transparent; }
       </svg>
       <div><div class="marca-nome">Controle Munck</div><div class="marca-sub">Obras e agenda dos caminhões munck</div></div>
     </div>
-    <span class="estado" id="estado" data-modo="carregando" role="status">Carregando…</span>
+    <div class="barra-dir">
+      <span class="quem" id="quem" hidden><span id="quem-nome"></span><button type="button" data-acao="sair">Sair</button></span>
+      <span class="estado" id="estado" data-modo="carregando" role="status">Carregando…</span>
+    </div>
   </div>
   <nav class="abas" aria-label="Seções do sistema" role="tablist">
     <a class="aba" role="tab" href="#painel" data-aba="painel">Painel <span class="cont" id="cont-alertas" hidden></span></a>
@@ -705,6 +713,28 @@ button.seg { border: 0; background: transparent; }
       </form>
       <div class="tabela-box"><table class="tabela" id="t-mot"></table></div>
     </section>
+    <section class="bloco" id="bloco-acesso" hidden>
+      <div class="bloco-cab"><div><h2 class="h2">Acesso ao sistema</h2><p class="hint" id="acesso-txt">Quem entra no sistema com usuário e senha.</p></div></div>
+      <div class="tabela-box" id="usuarios-box" hidden><table class="tabela" id="t-usuarios"></table></div>
+      <form class="ficha" id="f-usuario" novalidate hidden>
+        <div class="ficha-cab"><h2 class="h2">Criar acesso</h2></div>
+        <div class="campos">
+          <div class="campo"><label for="usu-usuario">Usuário</label><input id="usu-usuario" autocomplete="off" autocapitalize="none" placeholder="Ex.: joao"></div>
+          <div class="campo"><label for="usu-nome">Nome</label><input id="usu-nome" autocomplete="off"></div>
+          <div class="campo"><label for="usu-senha">Senha</label><input id="usu-senha" type="text" autocomplete="off"><span class="dica">No mínimo 6 letras ou números. Passe para a pessoa.</span></div>
+          <div class="campo"><label for="usu-admin">Pode criar acessos?</label><select id="usu-admin"><option value="">Não</option><option value="1">Sim (administrador)</option></select></div>
+        </div>
+        <div class="acoes-linha"><button class="btn" type="submit">Criar acesso</button><span class="f-msg" role="status"></span></div>
+      </form>
+      <form class="ficha" id="f-senha" novalidate>
+        <div class="ficha-cab"><h2 class="h2">Trocar a minha senha</h2></div>
+        <div class="campos">
+          <div class="campo"><label for="sen-atual">Senha atual</label><input id="sen-atual" type="password" autocomplete="current-password"></div>
+          <div class="campo"><label for="sen-nova">Senha nova</label><input id="sen-nova" type="password" autocomplete="new-password"></div>
+        </div>
+        <div class="acoes-linha"><button class="btn" type="submit">Trocar a senha</button><span class="f-msg" role="status"></span></div>
+      </form>
+    </section>
     <section class="bloco">
       <div class="bloco-cab"><div><h2 class="h2">Planilha e cópia</h2><p class="hint" id="dados-txt"></p></div></div>
       <div class="acoes-linha">
@@ -967,12 +997,66 @@ function iniciarNuvem(db) {
   agendarRender();
 }
 function limpo(o) { const x = JSON.parse(JSON.stringify(o)); delete x.id; return x; }
+
+/* No servidor (instalado com instalar-no-servidor.sh): os dados ficam lá, e o servidor avisa
+   os outros navegadores abertos quando alguém muda alguma coisa. */
+const SERVIDOR = window.MUNCK_SERVIDOR || null;
+async function api(metodo, caminho, corpo) {
+  let r;
+  try {
+    r = await fetch(caminho, { method: metodo, credentials: 'same-origin', headers: corpo !== undefined ? { 'Content-Type': 'application/json' } : {}, body: corpo !== undefined ? JSON.stringify(corpo) : undefined });
+  } catch (e) { throw { code: 'servidor' }; }
+  if (r.status === 401) { location.href = 'entrar'; throw { code: 'sessao' }; }
+  let dados = null;
+  try { dados = await r.json(); } catch (e) { dados = null; }
+  if (!r.ok) throw { code: r.status === 413 ? 'grande' : r.status === 403 ? 'proibido' : 'servidor', message: dados && dados.erro };
+  return dados;
+}
+async function baixarDoServidor() {
+  const d = await api('GET', 'api/dados');
+  COLS.forEach(c => { D[c] = new Map((d[c] || []).filter(x => x && x.id).map(x => [x.id, x])); });
+}
+function iniciarServidor() {
+  Armazem.modo = 'carregando';
+  const quem = $('#quem');
+  quem.hidden = false;
+  $('#quem-nome').textContent = SERVIDOR.nome || SERVIDOR.usuario || '';
+  const tentar = () => baixarDoServidor().then(() => { Armazem.modo = 'servidor'; Armazem.semConexao = false; ouvirServidor(); agendarRender(); })
+    .catch(e => { if (e && e.code === 'sessao') return; Armazem.semConexao = true; agendarRender(); setTimeout(tentar, 5000); });
+  tentar();
+}
+function ouvirServidor() {
+  const es = new EventSource('api/eventos');
+  let caiu = false;
+  es.onmessage = ev => {
+    let m = null;
+    try { m = JSON.parse(ev.data); } catch (e) { return; }
+    const lista = m.tipo === 'lote' ? m.ops : [m];
+    for (const op of lista) {
+      if (!op || !COLS.includes(op.col)) continue;
+      if (op.tipo === 'set' && op.obj && op.obj.id) D[op.col].set(op.obj.id, op.obj);
+      else if (op.tipo === 'del') D[op.col].delete(op.id);
+    }
+    agendarRender();
+  };
+  es.onerror = () => { caiu = true; Armazem.semConexao = true; agendarRender(); };
+  es.onopen = () => {
+    if (caiu) { caiu = false; baixarDoServidor().then(() => { Armazem.semConexao = false; agendarRender(); }).catch(() => {}); }
+    else { Armazem.semConexao = false; agendarRender(); }
+  };
+}
 async function gravar(col, obj) {
   if (UI.somenteLeitura) throw { code: 'invalid_argument' };
   const antes = D[col].get(obj.id);
   D[col].set(obj.id, obj);
   if (Armazem.modo === 'local') {
     if (!gravarLocal()) { if (antes) D[col].set(obj.id, antes); else D[col].delete(obj.id); throw { code: 'local' }; }
+    agendarRender();
+    return;
+  }
+  if (Armazem.modo === 'servidor') {
+    try { await api('PUT', 'api/dados/' + col + '/' + encodeURIComponent(obj.id), obj); }
+    catch (e) { if (antes) D[col].set(obj.id, antes); else D[col].delete(obj.id); agendarRender(); throw e; }
     agendarRender();
     return;
   }
@@ -997,6 +1081,12 @@ async function apagar(col, id) {
     agendarRender();
     return;
   }
+  if (Armazem.modo === 'servidor') {
+    try { await api('DELETE', 'api/dados/' + col + '/' + encodeURIComponent(id)); }
+    catch (e) { if (antes) D[col].set(id, antes); agendarRender(); throw e; }
+    agendarRender();
+    return;
+  }
   try { await Armazem.db.collection(col).doc(id).delete(); }
   catch (e) {
     if (antes) D[col].set(id, antes);
@@ -1014,6 +1104,15 @@ async function gravarVarios(ops) {
     COLS.forEach(c => { copia[c] = new Map(D[c]); });
     for (const [tipo, col, x] of ops) { if (tipo === 'set') D[col].set(x.id, x); else D[col].delete(x); }
     if (!gravarLocal()) { COLS.forEach(c => { D[c] = copia[c]; }); throw { code: 'local' }; }
+    agendarRender();
+    return;
+  }
+  if (Armazem.modo === 'servidor') {
+    const copia = {};
+    COLS.forEach(c => { copia[c] = new Map(D[c]); });
+    for (const [tipo, col, x] of ops) { if (tipo === 'set') D[col].set(x.id, x); else D[col].delete(x); }
+    try { await api('POST', 'api/lote', { ops: ops.map(([tipo, col, x]) => (tipo === 'set' ? { tipo: 'set', col, obj: x } : { tipo: 'del', col, id: x })) }); }
+    catch (e) { COLS.forEach(c => { D[c] = copia[c]; }); agendarRender(); throw e; }
     agendarRender();
     return;
   }
@@ -1035,6 +1134,10 @@ function msgErro(e) {
     case 'resource_exhausted': return 'Muitas gravações de uma vez. Espere alguns segundos e tente de novo.';
     case 'local': return 'Não consegui salvar neste computador: o armazenamento do navegador está cheio ou bloqueado.';
     case 'revoked': return 'O acesso a estes dados foi retirado.';
+    case 'servidor': return 'O servidor não respondeu. Confira a internet e tente de novo.';
+    case 'sessao': return 'Sua entrada no sistema venceu. Entre de novo.';
+    case 'grande': return 'A cópia é grande demais para enviar de uma vez.';
+    case 'proibido': return 'Só um administrador pode fazer isso.';
     default: return 'Não consegui salvar agora. Confira a internet e tente de novo.';
   }
 }
@@ -1089,6 +1192,9 @@ function renderEstado() {
   if (UI.somenteLeitura) { modo = 'leitura'; txt = 'Só leitura'; }
   else if (modo === 'nuvem' && Armazem.semConexao) { modo = 'erro'; txt = 'Sem conexão: pode estar desatualizado'; }
   else if (modo === 'nuvem') txt = 'Salvo na sua conta';
+  else if (modo === 'servidor' && Armazem.semConexao) { modo = 'erro'; txt = 'Sem conexão com o servidor'; }
+  else if (modo === 'servidor') { modo = 'nuvem'; txt = 'Salvo no servidor'; }
+  else if (modo === 'carregando' && Armazem.semConexao) { modo = 'erro'; txt = 'Tentando falar com o servidor…'; }
   else if (modo === 'local') txt = 'Salvo neste computador';
   el.dataset.modo = modo;
   el.textContent = txt;
@@ -2203,8 +2309,53 @@ function renderCadastro() {
   }), '', 'Nenhum motorista cadastrado. Use “Novo motorista”.');
   $('#dados-txt').textContent = Armazem.modo === 'nuvem'
     ? 'Os dados ficam salvos na sua conta e aparecem em qualquer aparelho que abrir este link. A planilha traz tudo o que está cadastrado.'
-    : 'Os dados ficam neste computador. Salve uma cópia de vez em quando.';
+    : Armazem.modo === 'servidor'
+      ? 'Os dados ficam no servidor (com uma cópia automática por dia) e aparecem para todos que entram no sistema. Para trazer o que estava no link do claude.ai: lá, "Salvar cópia de tudo"; aqui, "Carregar uma cópia".'
+      : 'Os dados ficam neste computador. Salve uma cópia de vez em quando.';
+  renderAcesso();
 }
+
+/* ---------- acesso ao sistema (só no servidor) ---------- */
+let usuariosServidor = null;
+function renderAcesso() {
+  const bloco = $('#bloco-acesso');
+  bloco.hidden = !SERVIDOR;
+  if (!SERVIDOR) return;
+  const admin = !!SERVIDOR.admin;
+  $('#usuarios-box').hidden = !admin;
+  $('#f-usuario').hidden = !admin;
+  $('#acesso-txt').textContent = admin ? 'Quem entra no sistema com usuário e senha. Todos lançam e veem tudo; só administrador cria e tira acessos.' : `Você entrou como ${SERVIDOR.usuario}.`;
+  if (!admin) return;
+  if (usuariosServidor === null) { usuariosServidor = []; api('GET', 'api/usuarios').then(l => { usuariosServidor = l; agendarRender(); }).catch(() => {}); return; }
+  tabela('#t-usuarios', [['Usuário'], ['Nome'], ['Pode criar acessos'], ['', 'n']], usuariosServidor.map(u => {
+    const chave = 'usuario:' + u.usuario;
+    const acoes = u.usuario === SERVIDOR.usuario ? '<span class="sem">você</span>'
+      : UI.confirmar === chave ? `<span class="conf">Tirar o acesso? <button class="lnk perigo" type="button" data-acao="usuario-tirar" data-usuario="${esc(u.usuario)}">Sim, tirar</button><button class="lnk" type="button" data-acao="apagar-nao">Não</button></span>`
+      : `<button class="lnk" type="button" data-acao="usuario-confirmar" data-usuario="${esc(u.usuario)}">Tirar o acesso</button>`;
+    return `<tr><td class="forte">${esc(u.usuario)}</td><td>${esc(u.nome || '')}</td><td>${u.admin ? 'Sim' : 'Não'}</td><td class="acoes">${acoes}</td></tr>`;
+  }), '', 'Carregando…');
+}
+async function criarUsuario(f) {
+  const usuario = $('#usu-usuario').value.trim().toLowerCase(), nome = $('#usu-nome').value.trim(), senha = $('#usu-senha').value;
+  if (!/^[a-z0-9._-]{2,30}$/.test(usuario)) return marcarErroCampo(f, '#usu-usuario', 'O usuário tem de 2 a 30 letras sem acento, números, ponto ou traço.');
+  if (senha.length < 6) return marcarErroCampo(f, '#usu-senha', 'A senha precisa ter pelo menos 6 letras ou números.');
+  try {
+    usuariosServidor = await api('POST', 'api/usuarios', { usuario, nome, senha, admin: $('#usu-admin').value === '1' });
+    ['#usu-usuario', '#usu-nome', '#usu-senha'].forEach(sel => { $(sel).value = ''; });
+    msgForm(f, `Acesso criado: ${usuario}.`, 'ok');
+    agendarRender();
+  } catch (e) { msgForm(f, (e && e.message) || msgErro(e), 'erro'); }
+}
+async function trocarSenha(f) {
+  const atual = $('#sen-atual').value, nova = $('#sen-nova').value;
+  if (nova.length < 6) return marcarErroCampo(f, '#sen-nova', 'A senha nova precisa ter pelo menos 6 letras ou números.');
+  try {
+    await api('POST', 'api/minha-senha', { atual, nova });
+    $('#sen-atual').value = ''; $('#sen-nova').value = '';
+    msgForm(f, 'Senha trocada.', 'ok');
+  } catch (e) { msgForm(f, (e && e.message) || msgErro(e), 'erro'); }
+}
+function marcarErroCampo(f, sel, txt) { const el = $(sel); el.setAttribute('aria-invalid', 'true'); el.focus(); msgForm(f, txt, 'erro'); return false; }
 
 /* ====================================================================
    Formulários
@@ -2855,6 +3006,12 @@ function ligarEventos() {
       }
       case 'tudo-excel': baixarExcel('tudo'); break;
       case 'backup': salvarCopia(); break;
+      case 'sair': api('POST', 'api/sair', {}).catch(() => {}).then(() => { location.href = 'entrar'; }); break;
+      case 'usuario-confirmar': UI.confirmar = 'usuario:' + b.dataset.usuario; render(); break;
+      case 'usuario-tirar':
+        UI.confirmar = null;
+        api('DELETE', 'api/usuarios/' + encodeURIComponent(b.dataset.usuario)).then(l => { usuariosServidor = l; toast('Acesso tirado.'); render(); }, er => toast((er && er.message) || msgErro(er), true));
+        break;
       case 'restaurar': $('#arquivo-copia').click(); break;
     }
   });
@@ -2895,6 +3052,8 @@ function ligarEventos() {
     const f = e.target;
     if (!f.classList.contains('ficha')) return;
     e.preventDefault();
+    if (f.id === 'f-usuario') { criarUsuario(f); return; }
+    if (f.id === 'f-senha') { trocarSenha(f); return; }
     salvarForm(f);
   });
 }
@@ -2903,6 +3062,7 @@ async function iniciar() {
   montarListasFixas();
   ligarEventos();
   rotear();
+  if (SERVIDOR) { iniciarServidor(); return; }
   if (window.claude && typeof window.claude.use === 'function') {
     let db = null;
     try { db = await window.claude.use('db'); } catch (e) { db = null; }

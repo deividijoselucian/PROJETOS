@@ -62,6 +62,10 @@ link e dados próprios; nada é compartilhado com o DECONT.
 
 ## Onde os dados ficam
 
+- **No servidor** (pasta `servidor/`, passo a passo em [servidor/LEIA-ME.md](servidor/LEIA-ME.md)):
+  numa VM Linux, com usuário e senha para cada pessoa, os dados num arquivo no servidor (cópia
+  automática por dia) e o que um lança aparece na hora para os outros. Instala com um comando
+  só, do mesmo jeito que a Sinistra (PM2, nginx e HTTPS pelo sslip.io).
 - Pelo link do claude.ai: na conta, num banco de dados da própria página, em qualquer
   aparelho que abrir o link.
 - Abrindo o `munck.html` direto: no navegador daquele computador (chave
