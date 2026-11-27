@@ -18,6 +18,11 @@ Outros sistemas vão ser criados depois e entram no mesmo painel.
 sistemas em cartões; ele escolhe qual usar. Para começar, sobe o DECONT (o "painel de ontem") e,
 já pronto, o Controle de Operação.
 
+**Fases** (pedido do usuário): usuários e acessos ficam para a **fase 2**. Na fase 1 há um
+login só (o `admin`, com a senha criada na instalação, que ele pode trocar na tela inicial), e
+todos os sistemas aparecem para quem entra. Na fase 2: criar o acesso de cada pessoa, marcar os
+sistemas de cada uma e tirar acessos.
+
 **Segmentos e CNPJs (depois)**: o grupo tem vários CNPJs, e cada segmento da operação vai ter os
 seus sistemas. Isso ainda vai ser definido (quais segmentos, qual CNPJ, o que cada um faz). Quando
 estiver, cada segmento entra no painel como mais cartões, com dados separados, e a frota do DECONT

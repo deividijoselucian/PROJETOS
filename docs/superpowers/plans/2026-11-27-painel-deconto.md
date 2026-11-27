@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Um servidor só, na VM sistemadeconto, com login único, a tela inicial do Painel Deconto com os sistemas em cartões, o DECONT (com fotos e PDFs) e o Controle de Operação, instalado com um comando.
+**Goal:** Um servidor só, na VM sistemadeconto, com login, a tela inicial do Painel Deconto com os sistemas em cartões, o DECONT (com fotos e PDFs) e o Controle de Operação, instalado com um comando.
+
+**Fase 1 (este plano):** um login só (`admin`, senha criada na instalação e trocável na tela inicial); todos os sistemas aparecem para quem entra. **Fase 2 (outro plano):** usuários, sistemas de cada pessoa e a área Acessos — pedido do usuário em 27/11.
 
 **Architecture:** Programa Node sem pacotes (`painel/servidor/`), derivado de `munck/servidor/servidor.js` (já testado): lista de sistemas, usuários com os sistemas de cada um, dados de cada sistema num arquivo próprio, avisos ao vivo por Server-Sent Events e arquivos do DECONT em disco. Cada sistema continua sendo a sua página única (`sistema-carlise/frota.html` e `munck/munck.html`), que ganha o modo "painel" quando a página traz `window.PAINEL`.
 
@@ -24,11 +26,11 @@
 
 ## Review Focus
 
-- Pessoa sem o sistema liberado abrindo `/frota/` direto ou chamando `/frota/api/...`: volta para o painel (página) ou recebe 403 (API). Teste na Task 1.
+- Alguém sem login abrindo `/frota/`, `/frota/api/dados`, um PDF em `/frota/api/arquivos/...` ou o `mapa-sul.json`: página vai para `/entrar`, API e arquivo dão 401. Teste na Task 1 e na Task 3.
 - Arquivo que não é foto nem PDF, ou acima de 15 MB, ou com nome com acento e espaço: o primeiro e o segundo são recusados com mensagem clara; o terceiro grava e abre com o nome certo. Teste na Task 3.
 - "Carregar uma cópia" com os 20 CRLVs (arquivo de 3 MB com os PDFs em base64): os 20 documentos ficam com o PDF abrindo; carregar a mesma cópia de novo não duplica documentos. Teste na Task 5.
 - Dois navegadores no mesmo sistema e o servidor reiniciado no meio: os dois veem o que o outro lança, e o que foi salvo antes do reinício continua lá. Teste na Task 2.
-- Administrador tira um sistema de uma pessoa que está com ele aberto, ou apaga a pessoa: a próxima gravação dela é recusada e ela volta para o painel ou para o login. Teste na Task 4.
+- Troca de senha: a senha antiga deixa de entrar e as outras entradas abertas saem; o sistema aberto numa entrada que saiu volta para `/entrar` na próxima gravação. Teste na Task 4.
 
 ---
 
