@@ -2449,13 +2449,17 @@ async function restaurarArquivo(doc, arquivos, novos) {
   const emb = arquivos && arquivos[a.id];
   try {
     if (Armazem.modo === 'local') {
+      // o arquivo fica no IndexedDB deste computador: o documento passa a dizer isso, mesmo
+      // quando a cópia veio do painel (onde: 'servidor'), senão a leitura vai atrás do servidor
+      const aqui = Object.assign({}, a, { onde: 'local' });
       const tinha = await Arquivos.op('readonly', st => st.get(a.id));
       if (emb) {
         await Arquivos.op('readwrite', st => st.put(base64ParaBlob(emb.dados, a.tipo || emb.tipo), a.id));
-        if (!tinha) novos.push(a);
-        return { doc, ok: true };
+        if (!tinha) novos.push(aqui);
+        return { doc: Object.assign({}, doc, { arquivo: aqui }), ok: true };
       }
-      return { doc, ok: !!tinha };
+      if (tinha) return { doc: Object.assign({}, doc, { arquivo: aqui }), ok: true };
+      return { doc, ok: false };
     }
     // na conta: se este documento já tem o mesmo arquivo de uma restauração anterior, aproveita
     const atual = D.documentos.get(doc.id);

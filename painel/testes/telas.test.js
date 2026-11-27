@@ -8,6 +8,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright');
 
 const PORTA = 3398;
@@ -438,6 +439,80 @@ teste('avisos ao vivo: se a sessão acabou enquanto a conexão caiu, a página v
     const foi = await p.waitForURL(BASE + '/entrar', { timeout: 15000 }).then(() => true, () => false);
     assert.ok(foi, `${sis}: foi para /entrar (está em ${p.url()}, estado: ${await p.textContent('#estado').catch(() => '?')})`);
   }
+});
+
+// ---------- 14. cópia do painel carregada no modo local (file://, como no .exe) ----------
+teste('DECONTO local (file://): cópia feita no painel fica com os PDFs neste computador, o PDF abre e a cópia seguinte leva o PDF', async () => {
+  // 1) no painel: um documento com PDF e a cópia baixada por "Salvar cópia de tudo"
+  const ctxP = await logado();
+  const painel = await abrir(ctxP, '/frota/#frota');
+  await esperarServidor(painel);
+  const pdf = pdfMinimo('CRLV do painel para o computador');
+  const idArq = await painel.evaluate(async b64 => {
+    const bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const arq = await Arquivos.guardar(new File([bytes], 'CRLV-PNL1A23.pdf', { type: 'application/pdf' }));
+    await gravar('caminhoes', { id: 'cam-pnl-1', placa: 'PNL1A23', tipo: 'Truck', situacao: 'ativo', criadoEm: new Date().toISOString() });
+    await gravar('documentos', { id: 'doc-pnl-1', veiculoTipo: 'caminhao', veiculoId: 'cam-pnl-1', tipo: 'CRLV (licenciamento)', numero: '555', vencimento: '2027-10-31', arquivo: arq, criadoEm: new Date().toISOString() });
+    return arq.id;
+  }, pdf.toString('base64'));
+  const [baixado] = await Promise.all([painel.waitForEvent('download', { timeout: 30000 }), painel.click('#sec-dados [data-acao="backup"]')]);
+  const copiaPainel = JSON.parse(fs.readFileSync(await baixado.path(), 'utf8'));
+  const docPainel = copiaPainel.dados.documentos.find(d => d.id === 'doc-pnl-1');
+  assert.strictEqual(docPainel.arquivo.onde, 'servidor', 'na cópia do painel o arquivo é do servidor');
+  assert.ok(copiaPainel.arquivos[idArq] && copiaPainel.arquivos[idArq].dados, 'a cópia do painel leva o PDF embutido');
+  const comArquivo = copiaPainel.dados.documentos.filter(d => d.arquivo && d.arquivo.onde === 'servidor' && copiaPainel.arquivos[d.arquivo.id]);
+
+  // 2) o DECONTO aberto direto do arquivo (file://, sem servidor): modo local
+  const ctxL = await contexto();
+  const l = await ctxL.newPage();
+  await l.goto(pathToFileURL(path.join(RAIZ, 'sistema-carlise', 'frota.html')).href + '#frota');
+  await l.waitForFunction(() => Armazem.modo === 'local');
+  await limparToast(l);
+  await l.setInputFiles('#arquivo-copia', { name: 'sistema-carlise-copia.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(copiaPainel)) });
+  await esperarToast(l, 'Cópia carregada', 60000);
+  const toast = await textoToast(l);
+  assert.doesNotMatch(toast, /não pôde|não puderam/, 'todos os arquivos guardados: ' + toast);
+  const ler = () => l.evaluate(async id => {
+    const d = D.documentos.get(id);
+    let bytes = null, erro = null;
+    try { bytes = Array.from(new Uint8Array(await (await Arquivos.ler(d.arquivo)).arrayBuffer())); } catch (e) { erro = String(e && e.message || e); }
+    return { onde: d.arquivo.onde, id: d.arquivo.id, bytes, erro };
+  }, 'doc-pnl-1');
+  let r = await ler();
+  assert.strictEqual(r.onde, 'local', 'o documento diz que o arquivo está neste computador');
+  assert.strictEqual(r.id, idArq);
+  assert.ok(r.bytes && Buffer.from(r.bytes).equals(pdf), 'o PDF abre com os mesmos bytes: ' + r.erro);
+  const foraDoLocal = await l.evaluate(() => todos('documentos').filter(d => d.arquivo && d.arquivo.onde !== 'local').map(d => d.id));
+  assert.deepStrictEqual(foraDoLocal, [], 'todos os documentos da cópia ficaram com o arquivo neste computador');
+
+  // depois de fechar e abrir de novo, continua igual
+  await l.reload();
+  await l.waitForFunction(() => Armazem.modo === 'local');
+  r = await ler();
+  assert.strictEqual(r.onde, 'local', 'depois de abrir de novo');
+  assert.ok(r.bytes && Buffer.from(r.bytes).equals(pdf), 'depois de abrir de novo o PDF abre: ' + r.erro);
+
+  // "Ver PDF" na tela abre o arquivo (o Chromium do teste não mostra PDF: guarda o endereço que a página abriria)
+  await l.evaluate(() => { location.hash = 'documentos'; window.__aberto = null; window.open = u => { window.__aberto = String(u); return {}; }; });
+  const ver = l.locator('[data-acao="abrir-arquivo"][data-alvo="documentos:doc-pnl-1"]').first();
+  await ver.waitFor({ timeout: 10000 });
+  await limparToast(l);
+  await ver.click();
+  await l.waitForFunction(() => !!window.__aberto, null, { timeout: 10000 }).catch(() => {});
+  const visto = await l.evaluate(async () => { const u = window.__aberto; if (!u) return null; return { u, bytes: Array.from(new Uint8Array(await (await fetch(u)).arrayBuffer())) }; });
+  assert.ok(visto, '"Ver PDF" abriu o arquivo (aviso: ' + await textoToast(l) + ')');
+  assert.match(visto.u, /^blob:/);
+  assert.ok(Buffer.from(visto.bytes).equals(pdf), '"Ver PDF" mostra o PDF da cópia');
+
+  // 3) "Salvar cópia de tudo" feita no computador leva os PDFs
+  await l.evaluate(() => { location.hash = 'frota'; });
+  const [baixadoL] = await Promise.all([l.waitForEvent('download', { timeout: 30000 }), l.click('#sec-dados [data-acao="backup"]')]);
+  const copiaLocal = JSON.parse(fs.readFileSync(await baixadoL.path(), 'utf8'));
+  const e = copiaLocal.arquivos && copiaLocal.arquivos[idArq];
+  assert.ok(e && Buffer.from(e.dados, 'base64').equals(pdf), 'a cópia feita no computador leva o PDF');
+  const faltam = comArquivo.filter(d => !(copiaLocal.arquivos && copiaLocal.arquivos[d.arquivo.id] && copiaLocal.arquivos[d.arquivo.id].dados === copiaPainel.arquivos[d.arquivo.id].dados)).map(d => d.id);
+  assert.deepStrictEqual(faltam, [], 'nenhum PDF da cópia do painel ficou de fora da cópia seguinte');
 });
 
 // ---------- 9. erros de página ----------
