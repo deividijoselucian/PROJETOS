@@ -147,7 +147,8 @@ teste('DECONT: cadastrar caminhão pela tela e outro navegador vê em até 2 s s
   assert.ok(ms <= 2000, 'o outro navegador viu em ' + ms + ' ms');
   assert.strictEqual(await b.evaluate(() => window.__semRecarregar), 'sim', 'o outro navegador não recarregou');
   await esperarToast(a, 'TST2B34');
-  assert.ok((await a.textContent('#t-cam')).includes('TST2B34'));
+  // a tela redesenha no quadro seguinte (requestAnimationFrame), logo depois do aviso
+  await a.waitForFunction(() => document.querySelector('#t-cam').textContent.includes('TST2B34'), null, { timeout: 2000 });
   const f = await dados(a.context(), 'frota');
   assert.ok(f.caminhoes.some(c => c.placa === 'TST2B34' && c.modelo === 'FH 460'), 'gravado no servidor');
 });
@@ -355,6 +356,34 @@ teste('celular 390px: tela inicial e DECONT sem rolagem para o lado', async () =
   }
   const largas = Object.entries(larguras).filter(([, w]) => w > 390);
   assert.deepStrictEqual(largas, [], 'larguras: ' + JSON.stringify(larguras));
+});
+
+// ---------- 10. Controle de Operação no celular ----------
+teste('celular 390px e 360px: Controle de Operação sem rolagem para o lado', async () => {
+  const larguras = {};
+  for (const w of [390, 360]) {
+    const ctx = await logado({ viewport: { width: w, height: 800 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    const p = await abrir(ctx, '/operacao/');
+    await esperarServidor(p);
+    larguras[w] = await larguraDaPagina(p);
+  }
+  assert.ok(larguras[390] <= 390 && larguras[360] <= 360, 'larguras: ' + JSON.stringify(larguras));
+});
+
+// ---------- 11. gravação de outra pessoa enquanto a página abre ----------
+teste('gravação feita por outro navegador enquanto a página abre aparece sem recarregar (DECONT e Controle)', async () => {
+  const outro = await logado();
+  for (const [sis, col, obj, chave] of [['frota', 'caminhoes', { placa: 'CRR1D00' }, 'cam-corrida'], ['operacao', 'obras', { nome: 'Obra da corrida', situacao: 'andamento', etapas: [] }, 'ob-corrida']]) {
+    const ctx = await logado();
+    // os avisos ao vivo demoram a ligar (internet lenta): a gravação acontece nesse intervalo
+    await ctx.route(`**/${sis}/api/eventos`, async r => { await new Promise(x => setTimeout(x, 2500)); await r.continue().catch(() => {}); });
+    const p = await abrir(ctx, `/${sis}/`);
+    await p.waitForFunction(() => { const e = document.querySelector('#estado'); return !!e && /Salvo no servidor/.test(e.textContent); }, null, { timeout: 15000 }).catch(() => {});
+    const r = await outro.request.put(`${BASE}/${sis}/api/dados/${col}/${chave}`, { data: obj });
+    assert.strictEqual(r.status(), 200);
+    const viu = await p.waitForFunction(([c, k]) => D[c].has(k), [col, chave], { timeout: 6000 }).then(() => true, () => false);
+    assert.ok(viu, `${sis}: o registro gravado durante a abertura apareceu`);
+  }
 });
 
 // ---------- 9. erros de página ----------

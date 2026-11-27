@@ -56,7 +56,7 @@ p { margin: 0; }
   max-width: 1200px; margin: 0 auto;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.barra-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px 4px; }
+.barra-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-block: 10px 4px; }
 .marca { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .marca svg { width: 34px; height: 34px; flex: none; }
 .marca-nome { font-family: var(--display); font-weight: 700; font-size: 1.35rem; letter-spacing: 0.01em; line-height: 1.1; }
@@ -67,12 +67,13 @@ p { margin: 0; }
 .estado[data-modo="local"]::before { background: var(--faixa); }
 .estado[data-modo="erro"]::before, .estado[data-modo="leitura"]::before { background: #FF8F87; }
 @media (max-width: 520px) { .estado { font-size: 0; gap: 0; padding: 7px; } .marca-sub { display: none; } }
-.barra-dir { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.barra-dir { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; margin-left: auto; }
 .quem { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--asfalto-muted); white-space: nowrap; }
 .quem a { color: var(--asfalto-ink); font-weight: 600; text-decoration: none; border: 1px solid var(--asfalto-line); border-radius: 8px; padding: 5px 10px; min-height: 34px; display: inline-flex; align-items: center; }
 .quem button { font: 600 0.85rem var(--body); color: var(--asfalto-ink); background: transparent; border: 1px solid var(--asfalto-line); border-radius: 8px; padding: 5px 10px; min-height: 34px; cursor: pointer; }
 .quem a:hover, .quem button:hover { border-color: var(--faixa); }
 @media (max-width: 720px) { .quem #quem-nome { display: none; } }
+@media (max-width: 520px) { .quem .longo { display: none; } }
 .cat-global { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--asfalto-muted); }
 .cat-global select { width: auto; min-height: 36px; padding: 5px 8px; font-size: 0.9rem; font-weight: 600; color: var(--asfalto-ink); background: var(--asfalto); border: 1px solid var(--asfalto-line); border-radius: 8px; }
 .cat-global select:focus { background: var(--asfalto); }
@@ -383,7 +384,7 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
       <div><div class="marca-nome">DECONT</div><div class="marca-sub">Controle da frota</div></div>
     </div>
     <div class="barra-dir">
-      <span class="quem" id="quem" hidden><a href="/">← Painel Deconto</a><span id="quem-nome"></span><button type="button" data-acao="sair">Sair</button></span>
+      <span class="quem" id="quem" hidden><a href="/" title="Voltar ao Painel Deconto">← Painel<span class="longo">&nbsp;Deconto</span></a><span id="quem-nome"></span><button type="button" data-acao="sair">Sair</button></span>
       <label class="cat-global" for="cat-global"><span>Categoria</span><select id="cat-global"></select></label>
       <span class="estado" id="estado" data-modo="carregando" role="status">Carregando…</span>
     </div>
@@ -1143,28 +1144,48 @@ function iniciarServidor() {
   Armazem.modo = 'carregando';
   $('#quem').hidden = false;
   $('#quem-nome').textContent = PAINEL.nome || PAINEL.usuario || '';
-  const tentar = () => baixarDoServidor().then(() => { Armazem.modo = 'servidor'; Armazem.semConexao = false; ouvirServidor(); agendarRender(); })
-    .catch(e => { if (e && (e.code === 'sessao' || e.code === 'proibido')) return; Armazem.semConexao = true; agendarRender(); setTimeout(tentar, 5000); });
-  tentar();
+  ouvirServidor();
 }
 function ouvirServidor() {
   const es = new EventSource('api/eventos');
-  let caiu = false;
-  es.onmessage = ev => {
-    let m = null;
-    try { m = JSON.parse(ev.data); } catch (e) { return; }
+  let fila = null, abriu = false, conferindo = false;
+  const aplicarAviso = m => {
     for (const op of (m.tipo === 'lote' ? m.ops : [m])) {
       if (!op || !COLS.includes(op.col)) continue;
       if (op.tipo === 'set' && op.obj && op.obj.id) D[op.col].set(op.obj.id, op.obj);
       else if (op.tipo === 'del') D[op.col].delete(op.id);
     }
     cacheKm = new Map(); cacheConsumo = null;
-    agendarRender();
   };
-  es.onerror = () => { caiu = true; Armazem.semConexao = true; agendarRender(); };
-  es.onopen = () => {
-    if (caiu) { caiu = false; baixarDoServidor().then(() => { Armazem.semConexao = false; agendarRender(); }).catch(() => {}); }
-    else { Armazem.semConexao = false; agendarRender(); }
+  const sincronizar = () => {
+    fila = [];
+    baixarDoServidor().then(() => {
+      const f = fila || [];
+      fila = null;
+      f.forEach(aplicarAviso);
+      Armazem.modo = 'servidor';
+      Armazem.semConexao = false;
+      agendarRender();
+    }).catch(e => {
+      fila = null;
+      if (e && (e.code === 'sessao' || e.code === 'proibido')) { es.close(); return; }
+      Armazem.semConexao = true;
+      agendarRender();
+      setTimeout(() => { if (es.readyState === 1) sincronizar(); }, 5000);
+    });
+  };
+  es.onmessage = ev => {
+    let m = null;
+    try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (fila) fila.push(m);
+    else { aplicarAviso(m); agendarRender(); }
+  };
+  es.onopen = () => { abriu = true; sincronizar(); };
+  es.onerror = () => {
+    Armazem.semConexao = true;
+    agendarRender();
+    // se nunca abriu, pode ser a entrada que venceu: a API leva para o login
+    if (!abriu && !conferindo) { conferindo = true; api('GET', 'api/dados').catch(() => {}).then(() => { conferindo = false; }); }
   };
 }
 
