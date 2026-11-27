@@ -11,6 +11,10 @@
   --accent: #5B3FD6; --accent-hover: #4A30B8; --accent-ink: #FFFFFF; --accent-soft: #ECE8FC;
   --ok: #0B7550; --ok-soft: #DBF2E7; --warn: #8A5300; --warn-soft: #FBEDD3; --bad: #BA2E29; --bad-soft: #FBE2E0;
   --hoje: #F6F4FF; --fds: #F7F6FA;
+  --chart-grid: #E6E4EC; --chart-base: #A29DB2; --s-km: #5B3FD6; --s-manut: #F47230; --realce: brightness(0.85);
+  /* mapa: em atividade, em andamento e atrasada (validadas para daltonismo); futura só no contorno */
+  --m-atividade: #00B894; --m-andamento: #257DE0; --m-atrasada: #F47230; --m-futura: #6B6680;
+  --mapa-mar: #E2E8F1; --mapa-terra: #FFFFFF; --mapa-vizinho: #F0EFF5; --mapa-linha: #E3E0EB; --mapa-divisa: #8F8AA0;
   /* barra, guindaste e placa: iguais nos dois temas */
   --barra: #1B1824; --barra-ink: #F4F3F8; --barra-muted: #ADA8BD; --barra-line: #312C40; --guindaste: #F2C230;
   --placa-fundo: #FFFFFF; --placa-borda: #2A2E36; --placa-faixa: #1F3E9C; --placa-tinta: #101216;
@@ -24,6 +28,9 @@
     --accent: #B3A4FF; --accent-hover: #CCC2FF; --accent-ink: #100F15; --accent-soft: #2A2348;
     --ok: #4FCB96; --ok-soft: #12372A; --warn: #F1B65C; --warn-soft: #3A2A0F; --bad: #FF8F87; --bad-soft: #421D1C;
     --hoje: #1E1A30; --fds: #15131C;
+    --chart-grid: #2A2636; --chart-base: #4E485F; --s-km: #B3A4FF; --s-manut: #E76624; --realce: brightness(1.2);
+    --m-atividade: #00A888; --m-andamento: #338CED; --m-atrasada: #E76624; --m-futura: #A39EB3;
+    --mapa-mar: #0C0F16; --mapa-terra: #1D1A25; --mapa-vizinho: #15131B; --mapa-linha: #2C2838; --mapa-divisa: #6E6884;
     --barra: #0B0A10; --barra-line: #26222F;
     --sombra: none; color-scheme: dark;
   }
@@ -33,6 +40,9 @@
   --accent: #B3A4FF; --accent-hover: #CCC2FF; --accent-ink: #100F15; --accent-soft: #2A2348;
   --ok: #4FCB96; --ok-soft: #12372A; --warn: #F1B65C; --warn-soft: #3A2A0F; --bad: #FF8F87; --bad-soft: #421D1C;
   --hoje: #1E1A30; --fds: #15131C;
+  --chart-grid: #2A2636; --chart-base: #4E485F; --s-km: #B3A4FF; --s-manut: #E76624; --realce: brightness(1.2);
+  --m-atividade: #00A888; --m-andamento: #338CED; --m-atrasada: #E76624; --m-futura: #A39EB3;
+  --mapa-mar: #0C0F16; --mapa-terra: #1D1A25; --mapa-vizinho: #15131B; --mapa-linha: #2C2838; --mapa-divisa: #6E6884;
   --barra: #0B0A10; --barra-line: #26222F;
   --sombra: none; color-scheme: dark;
 }
@@ -249,6 +259,79 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .ficha-obra dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 .titulo-obra { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
 
+/* Gráficos */
+.graficos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+.graf { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.graf figcaption { display: flex; flex-direction: column; gap: 2px; }
+.graf figcaption strong { font-family: var(--display); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
+.graf figcaption span { font-size: 0.86rem; color: var(--muted); }
+.grafico-box { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 10px 6px; min-height: 90px; }
+.grafico-box svg { display: block; width: 100%; height: auto; overflow: visible; }
+.grafico-box text { fill: var(--muted); font: 500 11px var(--body); font-variant-numeric: tabular-nums; }
+.grafico-box text.rot-cat { fill: var(--ink); font-weight: 600; font-size: 12px; }
+.grafico-box text.val { fill: var(--ink); font-weight: 600; font-size: 12px; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.grafico-box .grade { stroke: var(--chart-grid); stroke-width: 1; }
+.grafico-box .base { stroke: var(--chart-base); stroke-width: 1; }
+.grafico-box .col:hover .marca, .grafico-box .col.ativa .marca { filter: var(--realce); }
+.grafico-box .alvo { fill: transparent; }
+.dica-graf, .mapa-dica { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 0.84rem; line-height: 1.4; padding: 6px 10px; border-radius: 7px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); font-variant-numeric: tabular-nums; z-index: 3; }
+.dica-graf b, .mapa-dica b { font-weight: 700; }
+
+/* Relatório */
+button.seg { border: 0; background: transparent; }
+.seg[aria-pressed="true"] { background: var(--surface); color: var(--accent); box-shadow: var(--sombra); outline: 1px solid var(--line); }
+.barra-rel { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.periodos { display: flex; flex-wrap: wrap; gap: 4px; background: var(--sunk); border-radius: 10px; padding: 4px; }
+.datas { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 0.92rem; }
+.datas label { display: inline-flex; gap: 6px; align-items: center; }
+.datas input { width: auto; min-height: 40px; padding: 6px 9px; }
+.relatorio { display: flex; flex-direction: column; gap: 26px; }
+.rel-cab { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: flex-end; justify-content: space-between; border-bottom: 2px solid var(--ink); padding-bottom: 12px; }
+.rel-cab > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rel-eyebrow { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.rel-titulo { font-family: var(--display); font-size: 2.1rem; font-weight: 700; line-height: 1.05; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.pill.t-km::before { background: var(--s-km); }
+.pill.t-man::before { background: var(--s-manut); }
+.pill.t-ag::before { background: var(--m-andamento); }
+.pill.t-km, .pill.t-man, .pill.t-ag { background: var(--sunk); color: var(--ink); }
+
+/* Mapa */
+.legenda-mapa { display: flex; flex-wrap: wrap; gap: 6px; }
+.leg { display: inline-flex; align-items: center; gap: 8px; font: 600 0.92rem var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px 5px 8px; min-height: 40px; cursor: pointer; }
+.leg[aria-pressed="false"] { background: transparent; color: var(--muted); border-style: dashed; }
+.leg[aria-pressed="false"] svg { opacity: 0.35; }
+.leg svg, .ico-est svg { width: 20px; height: 20px; flex: none; overflow: visible; }
+.leg-n { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 700; }
+.mapa-box { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--mapa-mar); height: min(68vh, 620px); min-height: 360px; }
+#mapa-area { position: absolute; inset: 0; }
+.mapa-box svg#mapa-svg { display: block; width: 100%; height: 100%; cursor: grab; user-select: none; touch-action: none; }
+.mapa-box.arrastando svg#mapa-svg { cursor: grabbing; }
+.mapa-box.marcando svg#mapa-svg { cursor: crosshair; }
+.mapa-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); padding: 20px; text-align: center; }
+.mapa-zoom { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.mapa-zoom button { width: 40px; height: 40px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 700 1.25rem/1 var(--body); cursor: pointer; box-shadow: var(--sombra); }
+.mapa-zoom button:hover { color: var(--accent); }
+.mapa-faixa { position: absolute; left: 10px; top: 10px; right: 60px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; background: var(--surface); border: 2px solid var(--accent); border-radius: 10px; padding: 8px 12px; font-weight: 600; box-shadow: var(--sombra); }
+.uf { fill: var(--mapa-vizinho); stroke: var(--mapa-divisa); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.uf.sc { fill: var(--mapa-terra); }
+.uf-borda { fill: none; stroke: var(--mapa-divisa); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.mun { fill: none; stroke: var(--mapa-linha); stroke-width: 0.7; vector-effect: non-scaling-stroke; }
+.uf-rot { fill: var(--mapa-divisa); opacity: 0.3; font: 700 46px var(--display); letter-spacing: 0.1em; }
+.ref circle { fill: var(--mapa-divisa); }
+.ref text { fill: var(--muted); font: 500 11px var(--body); paint-order: stroke; stroke: var(--mapa-terra); stroke-width: 3px; stroke-linejoin: round; }
+.mk { cursor: pointer; }
+.mk:focus { outline: none; }
+.mk .forma { stroke: var(--mapa-terra); stroke-width: 2; }
+.mk.futura .forma { fill: var(--mapa-terra); stroke: var(--m-futura); stroke-width: 2.5; }
+.mk.sel .forma, .mk:focus-visible .forma { stroke: var(--ink); stroke-width: 3; }
+.mk .anel { fill: none; stroke-width: 2; }
+.mk-rot { font: 600 12px var(--body); fill: var(--ink); paint-order: stroke; stroke: var(--mapa-terra); stroke-width: 3.5px; stroke-linejoin: round; }
+@media (prefers-reduced-motion: no-preference) { .mapa-box .mk .anel { animation: pulsa 1.8s ease-in-out infinite alternate; } @keyframes pulsa { from { opacity: 1; } to { opacity: 0.25; } } }
+.mapa-sel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; }
+.mapa-sel > div:first-child { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 320px; }
+.ico-est { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
+.fonte-mapa { font-size: 0.8rem; color: var(--muted); }
+
 /* Vazio */
 .vazio-grande { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 24px 22px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
 
@@ -281,6 +364,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
     <a class="aba" role="tab" href="#agenda" data-aba="agenda">Agenda</a>
     <a class="aba" role="tab" href="#km" data-aba="km">Km das obras</a>
     <a class="aba" role="tab" href="#obras" data-aba="obras">Obras</a>
+    <a class="aba" role="tab" href="#mapa" data-aba="mapa">Mapa</a>
+    <a class="aba" role="tab" href="#manutencao" data-aba="manutencao">Manutenção <span class="cont" id="cont-man" hidden></span></a>
+    <a class="aba" role="tab" href="#relatorio" data-aba="relatorio">Relatório</a>
     <a class="aba" role="tab" href="#cadastro" data-aba="cadastro">Caminhões e motoristas</a>
   </nav>
 </header>
@@ -442,8 +528,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
         <div class="campos">
           <div class="campo"><label for="ob-nome">Nome da obra</label><input id="ob-nome" name="nome" autocomplete="off"></div>
           <div class="campo"><label for="ob-cli">Cliente</label><input id="ob-cli" name="cliente" list="lista-clientes" autocomplete="off"></div>
-          <div class="campo"><label for="ob-cid">Cidade</label><input id="ob-cid" name="cidade" list="lista-cidades" autocomplete="off"></div>
+          <div class="campo"><label for="ob-cid">Cidade</label><input id="ob-cid" name="cidade" list="lista-cidades" autocomplete="off" placeholder="Ex.: Chapecó/SC"></div>
           <div class="campo"><label for="ob-end">Endereço ou local</label><input id="ob-end" name="endereco" autocomplete="off"></div>
+          <div class="campo"><label for="ob-coord">Ponto no mapa</label><input id="ob-coord" name="coord" autocomplete="off" placeholder="-27.0964, -52.6182"><span class="dica">Opcional: cole as coordenadas do Google Maps. Sem isso, a obra fica no centro da cidade.</span></div>
           <div class="campo"><label for="ob-cont">Responsável na obra</label><input id="ob-cont" name="contato" autocomplete="off" placeholder="Nome e telefone"></div>
           <div class="campo"><label for="ob-ini">Início</label><input type="date" id="ob-ini" name="inicio"></div>
           <div class="campo"><label for="ob-prev">Previsão de término</label><input type="date" id="ob-prev" name="previsao"></div>
@@ -466,6 +553,91 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
       </section>
     </div>
     <div class="vista-int" id="obra-det" hidden></div>
+  </section>
+
+  <!-- MAPA -->
+  <section class="vista" id="v-mapa" data-vista="mapa" hidden>
+    <div class="cab">
+      <div><h1 class="h1">Mapa das obras</h1><p class="hint">Onde estão as obras: em atividade hoje, em andamento, futuras e atrasadas. Clique numa obra para ver os detalhes. Arraste para mover e use + e − para aproximar.</p></div>
+    </div>
+    <div class="legenda-mapa" id="mapa-legenda" role="group" aria-label="Mostrar no mapa"></div>
+    <div class="mapa-box" id="mapa-box">
+      <div id="mapa-area"></div>
+      <div class="mapa-zoom">
+        <button type="button" data-acao="mapa-zoom" data-z="1" aria-label="Aproximar" title="Aproximar">+</button>
+        <button type="button" data-acao="mapa-zoom" data-z="-1" aria-label="Afastar" title="Afastar">−</button>
+        <button type="button" data-acao="mapa-enquadrar" aria-label="Mostrar todas as obras" title="Mostrar todas as obras">⤢</button>
+      </div>
+      <div class="mapa-faixa" id="mapa-faixa" hidden></div>
+      <div class="mapa-dica" id="mapa-dica" hidden></div>
+    </div>
+    <div id="mapa-sel"></div>
+    <section class="bloco">
+      <div class="bloco-cab"><div><h2 class="h2">Obras no mapa</h2><p class="hint" id="mapa-resumo"></p></div></div>
+      <div class="tabela-box"><table class="tabela" id="t-mapa"></table></div>
+      <p class="fonte-mapa">Mapa: malha municipal do IBGE. A obra fica no centro da cidade escrita no cadastro (ex.: Chapecó/SC), ou no ponto que você marcar. Anel em volta = caminhão trabalhando lá hoje.</p>
+    </section>
+  </section>
+
+  <!-- MANUTENÇÃO -->
+  <section class="vista" id="v-manutencao" data-vista="manutencao" hidden>
+    <div class="cab">
+      <div><h1 class="h1">Manutenção</h1><p class="hint">Serviços no caminhão e no munck, com a próxima por km ou por data.</p></div>
+    </div>
+    <form class="ficha" id="f-man" data-col="manutencoes" novalidate>
+      <div class="ficha-cab"><h2 class="h2" data-novo="Lançar manutenção" data-editar="Editando manutenção">Lançar manutenção</h2></div>
+      <div class="campos">
+        <div class="campo"><label for="man-data">Data</label><input type="date" id="man-data" name="data"></div>
+        <div class="campo"><label for="man-cam">Caminhão</label><select id="man-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
+        <div class="campo"><label for="man-tipo">Serviço</label><select id="man-tipo" name="tipo"></select></div>
+        <div class="campo"><label for="man-desc">O que foi feito</label><input id="man-desc" name="descricao" autocomplete="off" placeholder="Ex.: troca das mangueiras do braço"></div>
+        <div class="campo"><label for="man-of">Oficina</label><input id="man-of" name="oficina" list="lista-oficinas" autocomplete="off"></div>
+        <div class="campo"><label for="man-km">Km no hodômetro</label><input id="man-km" name="km" data-tipo="int" inputmode="numeric" autocomplete="off"></div>
+        <div class="campo"><label for="man-valor">Valor (R$)</label><input id="man-valor" name="valor" data-tipo="dec" inputmode="decimal" autocomplete="off" placeholder="0,00"></div>
+        <div class="campo"><label for="man-pkm">Próxima com km</label><input id="man-pkm" name="proximaKm" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica">Opcional.</span></div>
+        <div class="campo"><label for="man-pdata">Próxima em</label><input type="date" id="man-pdata" name="proximaData"><span class="dica">Opcional. Ex.: laudo do munck todo ano.</span></div>
+        <div class="campo largo"><label for="man-obs">Observação</label><input id="man-obs" name="obs" autocomplete="off"></div>
+      </div>
+      <div class="calc" id="man-calc" aria-live="polite"></div>
+      <div class="acoes-linha">
+        <button class="btn" type="submit" data-novo="Salvar manutenção" data-editar="Salvar alteração">Salvar manutenção</button>
+        <button class="btn ghost" type="button" data-acao="cancelar-edicao" hidden>Cancelar edição</button>
+        <span class="f-msg" role="status"></span>
+      </div>
+    </form>
+    <section class="bloco" id="bloco-proximas" hidden>
+      <div class="bloco-cab"><div><h2 class="h2">Próximas manutenções</h2><p class="hint">A última de cada serviço em cada caminhão, com o que falta em km ou em dias.</p></div></div>
+      <div class="tabela-box"><table class="tabela" id="t-proximas"></table></div>
+    </section>
+    <section class="bloco">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Manutenções feitas</h2><p class="hint" id="man-resumo"></p></div>
+        <div class="filtros">
+          <select id="fm-cam" data-lista="filtro-caminhoes" data-vazio="Todos os caminhões" aria-label="Caminhão"></select>
+          <select id="fm-mes" data-lista="meses" data-col="manutencoes" aria-label="Mês"></select>
+        </div>
+      </div>
+      <div class="tabela-box"><table class="tabela" id="t-man"></table></div>
+    </section>
+  </section>
+
+  <!-- RELATÓRIO -->
+  <section class="vista" id="v-relatorio" data-vista="relatorio" hidden>
+    <div class="barra-rel">
+      <div class="periodos" role="group" aria-label="Período">
+        <button class="seg" type="button" data-periodo="mes">Este mês</button>
+        <button class="seg" type="button" data-periodo="mesant">Mês passado</button>
+        <button class="seg" type="button" data-periodo="30d">Últimos 30 dias</button>
+        <button class="seg" type="button" data-periodo="ano">Este ano</button>
+        <button class="seg" type="button" data-periodo="datas">Escolher datas</button>
+      </div>
+      <div class="datas" id="datas-livres" hidden><label>De <input type="date" id="p-ini"></label><label>até <input type="date" id="p-fim"></label></div>
+      <div class="filtros">
+        <select id="rel-cam" data-lista="filtro-caminhoes" data-vazio="Todos os caminhões" aria-label="Caminhão"></select>
+        <button class="btn small" type="button" data-acao="rel-excel">Baixar no Excel</button>
+      </div>
+    </div>
+    <div class="relatorio" id="rel-conteudo"></div>
   </section>
 
   <!-- CAMINHÕES E MOTORISTAS -->
@@ -549,6 +721,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
   <datalist id="lista-servicos"></datalist>
   <datalist id="lista-clientes"></datalist>
   <datalist id="lista-cidades"></datalist>
+  <datalist id="lista-oficinas"></datalist>
 </main>
 <div class="toast" id="toast" role="status" hidden></div>
 
@@ -561,7 +734,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
    dados ficam na conta (capability db); aberto como arquivo, no navegador.
    ==================================================================== */
 
-const COLS = ['caminhoes', 'motoristas', 'obras', 'agenda', 'km', 'config'];
+const COLS = ['caminhoes', 'motoristas', 'obras', 'agenda', 'km', 'manutencoes', 'config'];
 const D = {};
 COLS.forEach(c => { D[c] = new Map(); });
 
@@ -575,9 +748,11 @@ const CATEGORIAS_CNH = ['B', 'C', 'D', 'E', 'AC', 'AD', 'AE'];
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const SEMANA_LONGA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
-const ABAS = ['painel', 'agenda', 'km', 'obras', 'cadastro'];
-const FORM_DA_COL = { caminhoes: 'f-cam', motoristas: 'f-mot', obras: 'f-obra', agenda: 'f-ag', km: 'f-km' };
-const VISTA_DO_FORM = { 'f-cam': 'cadastro', 'f-mot': 'cadastro', 'f-obra': 'obras', 'f-ag': 'agenda', 'f-km': 'km' };
+const ABAS = ['painel', 'agenda', 'km', 'obras', 'mapa', 'manutencao', 'relatorio', 'cadastro'];
+const FORM_DA_COL = { caminhoes: 'f-cam', motoristas: 'f-mot', obras: 'f-obra', agenda: 'f-ag', km: 'f-km', manutencoes: 'f-man' };
+const VISTA_DO_FORM = { 'f-cam': 'cadastro', 'f-mot': 'cadastro', 'f-obra': 'obras', 'f-ag': 'agenda', 'f-km': 'km', 'f-man': 'manutencao' };
+const TIPOS_MANUT = ['Troca de óleo e filtros', 'Revisão preventiva', 'Pneus', 'Freios', 'Suspensão', 'Elétrica', 'Motor', 'Câmbio e embreagem', 'Funilaria e pintura',
+  'Munck: sistema hidráulico', 'Munck: cabo de aço e gancho', 'Munck: lubrificação e graxa', 'Munck: inspeção e laudo (NR-11/NR-12)', 'Munck: reparo na estrutura', 'Corretiva (quebra)', 'Outro'];
 const NOVA = '__nova__';
 const NOME_APP = 'Controle Munck';
 const CHAVE_LOCAL = 'controle-munck:dados:v1';
@@ -602,6 +777,10 @@ const nomeMesAno = ym => MESES[Number(ym.slice(5, 7)) - 1] + ' de ' + ym.slice(0
 const nf0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 const nf1 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 const fKm = n => n == null ? '—' : nf0.format(n) + ' km';
+const nf2 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const fR = n => n == null || !isFinite(n) ? '—' : brl.format(n);
+const fPct = n => n == null || !isFinite(n) ? '—' : nf0.format(n * 100) + '%';
 const fH = n => n == null || !n ? '—' : nf1.format(n) + ' h';
 const soma = (lista, f) => lista.reduce((t, x) => t + (Number(f(x)) || 0), 0);
 const plural = (n, um, varios) => nf0.format(n) + ' ' + (n === 1 ? um : varios);
@@ -656,6 +835,7 @@ function kmAtual(camId) {
   const c = cam(camId);
   let km = (c && c.kmInicial) || 0;
   for (const r of D.km.values()) if (r.caminhaoId === camId && r.kmFinal > km) km = r.kmFinal;
+  for (const m of D.manutencoes.values()) if (m.caminhaoId === camId && m.km > km) km = m.km;
   return km;
 }
 /* último km lançado do caminhão até o dia (sem contar o registro em edição) */
@@ -718,7 +898,24 @@ function statsObra(obraId) {
   return { regs, etapas: [...porEtapa.values(), ...(semEtapa.n ? [semEtapa] : [])], porCam: [...porCam.values()].sort((a, b) => b.km - a.km), dias, km: soma(regs, kmDe), horas: soma(regs, r => r.horas) };
 }
 
-const UI = { aba: 'painel', semana: '', obraSel: '', confirmar: null, somenteLeitura: false, ignorarHash: false };
+const UI = { aba: 'painel', semana: '', obraSel: '', confirmar: null, somenteLeitura: false, ignorarHash: false, periodo: 'mes', pIni: '', pFim: '' };
+let P = { ini: '', fim: '', nome: '', titulo: '' };
+function calcPeriodo() {
+  const h = hojeISO();
+  const mai = t => t.charAt(0).toUpperCase() + t.slice(1);
+  const fimMes = i => { const d = dataDe(i); d.setMonth(d.getMonth() + 1); d.setDate(0); return iso(d); };
+  switch (UI.periodo) {
+    case 'mesant': { const i = mesAnterior(h); return { ini: i, fim: fimMes(i), nome: 'Mês passado: ' + nomeMesAno(i), titulo: mai(nomeMesAno(i)) }; }
+    case '30d': return { ini: somaDias(h, -29), fim: h, nome: 'Últimos 30 dias: ' + fmtDataCurta(somaDias(h, -29)) + ' a ' + fmtData(h), titulo: 'Últimos 30 dias' };
+    case 'ano': return { ini: h.slice(0, 4) + '-01-01', fim: h.slice(0, 4) + '-12-31', nome: 'Ano de ' + h.slice(0, 4), titulo: 'Ano de ' + h.slice(0, 4) };
+    case 'datas': {
+      let i = UI.pIni || h.slice(0, 8) + '01', f = UI.pFim || h;
+      if (f < i) [i, f] = [f, i];
+      return { ini: i, fim: f, nome: 'De ' + fmtData(i) + ' a ' + fmtData(f), titulo: fmtData(i) + ' a ' + fmtData(f) };
+    }
+    default: { const i = h.slice(0, 8) + '01'; return { ini: i, fim: fimMes(i), nome: 'Este mês: ' + nomeMesAno(i), titulo: mai(nomeMesAno(i)) }; }
+  }
+}
 
 /* ====================================================================
    Armazenamento: na conta (db do claude.ai) ou neste aparelho (localStorage)
@@ -872,10 +1069,18 @@ function render() {
     faixa.classList.add('grave');
     $('#aviso-alertas-txt').innerHTML = `<strong>Atenção:</strong> ${esc(graves[0].txt)}${graves.length > 1 ? ` E mais ${graves.length - 1}.` : ''}`;
   }
+  const vencidas = proximasManut().filter(r => r.nivel === 'vencida').length;
+  const cm = $('#cont-man');
+  cm.hidden = !vencidas;
+  cm.textContent = vencidas;
+  cm.title = vencidas ? plural(vencidas, 'manutenção vencida', 'manutenções vencidas') : '';
   if (UI.aba === 'painel') renderPainel(alertas);
   else if (UI.aba === 'agenda') { renderQuadro(); renderListaAgenda(); calcAg(); }
   else if (UI.aba === 'km') { renderListaKm(); calcKm(); }
   else if (UI.aba === 'obras') renderObras();
+  else if (UI.aba === 'mapa') renderMapa();
+  else if (UI.aba === 'manutencao') { renderManut(); calcMan(); }
+  else if (UI.aba === 'relatorio') renderRelatorio();
   else if (UI.aba === 'cadastro') renderCadastro();
 }
 function renderEstado() {
@@ -905,7 +1110,7 @@ function htmlLista(tipo, el) {
       const set = new Set();
       let m = hojeISO().slice(0, 7);
       for (let i = 0; i < 6; i++) { set.add(m); m = mesAnterior(m + '-01').slice(0, 7); }
-      for (const r of D.km.values()) if (r.data) set.add(r.data.slice(0, 7));
+      for (const r of D[el.dataset.col || 'km'].values()) if (r.data) set.add(r.data.slice(0, 7));
       return Array.from(set).sort().reverse().map(v => `<option value="${v}">${esc(nomeMesAno(v).replace(/^./, l => l.toUpperCase()))}</option>`).join('') + '<option value="todos">Todos os meses</option>';
     }
   }
@@ -946,7 +1151,8 @@ function atualizarDatalists() {
   const ord = l => l.filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   preencherDatalist('lista-servicos', ord(todos('agenda').map(a => a.servico)));
   preencherDatalist('lista-clientes', ord(todos('obras').map(o => o.cliente)));
-  preencherDatalist('lista-cidades', ord(todos('obras').map(o => o.cidade)));
+  preencherDatalist('lista-cidades', [...ord(todos('obras').map(o => o.cidade)), ...(Mapa.dados ? Mapa.dados.cidades.filter(c => c[1] === 'SC').map(c => c[0] + '/' + c[1]) : [])]);
+  preencherDatalist('lista-oficinas', ord(todos('manutencoes').map(m => m.oficina)));
   atualizarEtapas($('#f-ag'));
   atualizarEtapas($('#f-km'));
 }
@@ -1038,6 +1244,11 @@ function calcAlertas() {
       if (d < 0) out.push({ nivel: 'grave', ordem: m[campo], txt: `${nome} de ${m.nome} venceu em ${fmtData(m[campo])}.`, acao: { acao: 'editar', alvo: 'motoristas:' + m.id, txt: 'Atualizar' } });
       else if (d <= 30) out.push({ nivel: 'breve', ordem: m[campo], txt: `${nome} de ${m.nome} vence em ${fmtData(m[campo])} (${d === 0 ? 'hoje' : d === 1 ? 'amanhã' : 'daqui a ' + d + ' dias'}).`, acao: { acao: 'editar', alvo: 'motoristas:' + m.id, txt: 'Atualizar' } });
     }
+  }
+  // manutenção vencida ou perto
+  for (const r of proximasManut()) {
+    if (r.nivel === 'ok') continue;
+    out.push({ nivel: r.nivel === 'vencida' ? 'grave' : 'breve', ordem: r.m.proximaData || r.m.data, txt: `${r.m.tipo} do ${rotuloCam(r.c)}: ${r.txt.toLowerCase()}.`, acao: { acao: 'nova-man', alvo: 'manutencoes:' + r.m.id, txt: 'Lançar manutenção' } });
   }
   // obra em andamento que passou da previsão
   for (const o of todos('obras')) {
@@ -1305,7 +1516,7 @@ function renderObras() {
       ${cams.size ? `<div class="etiquetas">${[...cams].map(id => cam(id)).filter(Boolean).sort(porPlaca).map(c => placaHTML(c.placa, 'p')).join('')}</div>` : ''}
       <p class="obra-sub">${prox ? `Próximo serviço: <strong>${esc(diaSem(prox.data))} ${esc(fmtData(prox.data))}</strong>${prox.hora ? ' às ' + esc(prox.hora) : ''}, ${esc(rotuloCam(cam(prox.caminhaoId)))}` : 'Sem serviço agendado.'}</p>
       ${s.etapas.length ? `<div class="etiquetas">${s.etapas.slice(0, 8).map(e => `<span class="etiqueta">${esc(e.etapa)}${e.km ? ' · ' + esc(fKm(e.km)) : ''}</span>`).join('')}${s.etapas.length > 8 ? `<span class="etiqueta">+${s.etapas.length - 8}</span>` : ''}</div>` : ''}
-      <div class="obra-pe"><button class="btn small" type="button" data-acao="ver-obra" data-obra="${esc(o.id)}">Ver obra</button><button class="btn small ghost" type="button" data-acao="novo-ag" data-obra="${esc(o.id)}">Agendar</button><button class="btn small ghost" type="button" data-acao="editar" data-alvo="obras:${esc(o.id)}">Editar</button></div>
+      <div class="obra-pe"><button class="btn small" type="button" data-acao="ver-obra" data-obra="${esc(o.id)}">Ver obra</button><button class="btn small ghost" type="button" data-acao="novo-ag" data-obra="${esc(o.id)}">Agendar</button><button class="btn small ghost" type="button" data-acao="mapa-ver" data-obra="${esc(o.id)}">Ver no mapa</button><button class="btn small ghost" type="button" data-acao="editar" data-alvo="obras:${esc(o.id)}">Editar</button></div>
     </article>`;
   }).join('');
 }
@@ -1327,6 +1538,7 @@ function renderObraDet(o) {
       <div class="acoes-linha">
         <button class="btn" type="button" data-acao="novo-ag" data-obra="${esc(o.id)}">Agendar</button>
         <button class="btn ghost" type="button" data-acao="novo-km" data-obra="${esc(o.id)}">Lançar km</button>
+        <button class="btn ghost" type="button" data-acao="mapa-ver" data-obra="${esc(o.id)}">Ver no mapa</button>
         <button class="btn ghost" type="button" data-acao="obra-excel" data-obra="${esc(o.id)}">Baixar no Excel</button>
         <button class="btn ghost" type="button" data-acao="editar" data-alvo="obras:${esc(o.id)}">Editar obra</button>
       </div>
@@ -1351,6 +1563,625 @@ function renderObraDet(o) {
   tabela('#t-ob-cams', [['Caminhão'], ['Km', 'n'], ['Horas', 'n'], ['Dias', 'n'], ['Último dia']], s.porCam.map(linhaCam), '', 'Nenhum km lançado nesta obra.');
   tabela('#t-ob-dias', [['Data'], ['Caminhão'], ['Motorista'], ['Etapa'], ['Km inicial', 'n'], ['Km final', 'n'], ['Rodou', 'n'], ['Horas', 'n'], ['', 'n']], [...s.regs].reverse().map(linhaDia), '', 'Nenhum km lançado nesta obra.');
   tabela('#t-ob-agenda', [['Data'], ['Hora'], ['Caminhão'], ['Motorista'], ['Etapa'], ['O que vai fazer'], ['Situação'], ['', 'n']], [...futuros, ...ags.filter(a => !futuros.includes(a)).reverse()].slice(0, 60).map(linhaAg), '', 'Nenhum serviço agendado para esta obra.');
+}
+
+
+/* ====================================================================
+   Gráficos (SVG desenhado aqui, sem biblioteca; os mesmos do DECONT)
+   ==================================================================== */
+const S_KM = { nome: 'Km rodados', cor: 'var(--s-km)' };
+const S_MANUT = { nome: 'Manutenção', cor: 'var(--s-manut)' };
+function passoBonito(bruto) {
+  if (!(bruto > 0)) return 1;
+  const pot = Math.pow(10, Math.floor(Math.log10(bruto)));
+  const f = bruto / pot;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * pot;
+}
+function barraCima(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+function barraDireita(x, y, w, h, r) {
+  r = Math.min(r, h / 2, w);
+  return `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h - r}Q${x + w},${y + h} ${x + w - r},${y + h}H${x}Z`;
+}
+function larguraDe(box) { return Math.max(280, Math.round((box.clientWidth || 680) - 22)); }
+const vazioGraf = (box, txt) => { box.innerHTML = `<p class="vazio-txt">${esc(txt)}</p>`; };
+const r2 = n => Math.round(n * 10) / 10;
+
+/* colunas na vertical, empilhadas quando há mais de uma série */
+function graficoColunas(box, o) {
+  if (!box) return;
+  const series = o.series;
+  const tot = b => b.valores.reduce((t, v) => t + (v || 0), 0);
+  if (!o.baldes.length || !o.baldes.some(b => tot(b) > 0)) return vazioGraf(box, o.vazio || 'Nada lançado neste período.');
+  const W = larguraDe(box), H = W < 520 ? 210 : 240;
+  const fe = o.fmtEixo || (v => nf0.format(v));
+  const max = Math.max(...o.baldes.map(tot), o.meta || 0);
+  const passo = passoBonito(max / 4), topo = Math.max(passo, Math.ceil(max / passo - 1e-9) * passo);
+  const mE = Math.max(40, fe(topo).length * 6.6 + 12), mD = 10, mT = 20, mB = 24;
+  const pw = W - mE - mD, ph = H - mT - mB;
+  const y = v => r2(mT + ph - (v / topo) * ph);
+  const n = o.baldes.length, col = pw / n;
+  const bw = Math.max(2, Math.min(o.larguraMax || 30, col - 3, col * 0.72));
+  const cada = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(pw / 50))));
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(o.titulo || '')}">`;
+  for (let v = 0; v <= topo + 1e-9; v += passo) s += `<line x1="${mE}" x2="${W - mD}" y1="${y(v)}" y2="${y(v)}" class="grade"/><text x="${mE - 6}" y="${y(v) + 4}" text-anchor="end">${esc(fe(v))}</text>`;
+  o.baldes.forEach((b, i) => {
+    const cx = mE + col * i + col / 2, x0 = r2(cx - bw / 2);
+    const ultimo = b.valores.reduce((u, v, k) => (v > 0 ? k : u), -1);
+    let base = 0;
+    s += '<g class="col">';
+    b.valores.forEach((v, k) => {
+      if (!(v > 0)) return;
+      const yT = y(base + v), yB = y(base);
+      const gT = k === ultimo ? 0 : 1, gB = base > 0 ? 1 : 0;
+      const h = Math.max(0.6, yB - yT - gT - gB);
+      s += k === ultimo
+        ? `<path class="marca" fill="${series[k].cor}" d="${barraCima(x0, yT + gT, r2(bw), h, 4)}"/>`
+        : `<rect class="marca" fill="${series[k].cor}" x="${x0}" y="${yT + gT}" width="${r2(bw)}" height="${r2(h)}"/>`;
+      base += v;
+    });
+    const linhas = [b.longo];
+    if (series.length > 1) { series.forEach((se, k) => linhas.push(se.nome + ': ' + o.fmt(b.valores[k] || 0))); linhas.push('Total: ' + o.fmt(tot(b))); }
+    else linhas.push(tot(b) > 0 || !o.textoZero ? o.fmt(tot(b)) : o.textoZero);
+    if (b.extra) linhas.push(b.extra);
+    s += `<rect class="alvo" x="${r2(mE + col * i)}" y="${mT}" width="${r2(col)}" height="${ph + mB}" data-dica="${esc(linhas.join('\n'))}"/></g>`;
+    if (i % cada === 0) s += `<text x="${r2(cx)}" y="${H - 6}" text-anchor="middle">${esc(b.curto)}</text>`;
+  });
+  s += `<line x1="${mE}" x2="${W - mD}" y1="${mT + ph}" y2="${mT + ph}" class="base"/>`;
+  for (const [v, cls, rot] of [[o.media, 'media', o.rotMedia], [o.meta, 'meta', o.rotMeta]]) {
+    if (!v) continue;
+    s += `<line x1="${mE}" x2="${W - mD}" y1="${y(v)}" y2="${y(v)}" class="ref ${cls}"/><text class="ref-rot ${cls}" x="${W - mD}" y="${Math.max(11, y(v) - 5)}" text-anchor="end">${esc(rot)}</text>`;
+  }
+  box.innerHTML = s + '</svg>';
+}
+
+/* barras na horizontal, uma por item, com o valor escrito na ponta */
+function graficoBarras(box, o) {
+  if (!box) return;
+  const series = o.series;
+  const tot = it => it.valores.reduce((t, v) => t + (v || 0), 0);
+  const itens = o.itens.filter(it => tot(it) > 0);
+  if (!itens.length) return vazioGraf(box, o.vazio || 'Nada lançado neste período.');
+  const W = larguraDe(box);
+  const corta = t => (t.length > 25 ? t.slice(0, 24) + '…' : t);
+  const mE = Math.min(176, Math.max(62, Math.max(...itens.map(it => corta(it.rot).length)) * 6.9 + 12));
+  const textos = itens.map(it => { const st = o.status ? o.status(tot(it)) : null; return { v: o.fmt(tot(it)), st }; });
+  const mD = Math.min(190, Math.max(...textos.map(t => t.v.length * 6.7 + (t.st ? t.st.txt.length * 6.2 + 8 : 0))) + 12);
+  const linha = 30, esp = 16, mT = o.meta ? 22 : 6, mB = 6;
+  const H = mT + itens.length * linha + mB;
+  const pw = Math.max(60, W - mE - mD);
+  const max = Math.max(...itens.map(tot), o.meta || 0);
+  const x = v => r2(mE + (v / max) * pw);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(o.titulo || '')}">`;
+  s += `<line x1="${mE}" x2="${mE}" y1="${mT - 2}" y2="${H - mB}" class="base"/>`;
+  if (o.meta) {
+    const xm = x(o.meta);
+    const anc = xm > W - 90 ? 'end' : xm < mE + 60 ? 'start' : 'middle';
+    s += `<line x1="${xm}" x2="${xm}" y1="${mT - 4}" y2="${H - mB}" class="ref meta"/><text class="ref-rot meta" x="${xm}" y="${mT - 8}" text-anchor="${anc}">${esc(o.rotMeta)}</text>`;
+  }
+  itens.forEach((it, i) => {
+    const yc = mT + i * linha + linha / 2, y0 = yc - esp / 2;
+    const ultimo = it.valores.reduce((u, v, k) => (v > 0 ? k : u), -1);
+    let base = 0;
+    s += '<g class="col">';
+    s += `<text class="rot-cat" x="${mE - 8}" y="${yc + 4}" text-anchor="end">${esc(corta(it.rot))}</text>`;
+    it.valores.forEach((v, k) => {
+      if (!(v > 0)) return;
+      const xa = x(base) + (base > 0 ? 1 : 0), xb = x(base + v) - (k === ultimo ? 0 : 1);
+      const w = Math.max(0.6, xb - xa);
+      s += k === ultimo
+        ? `<path class="marca" fill="${series[k].cor}" d="${barraDireita(xa, y0, r2(w), esp, 4)}"/>`
+        : `<rect class="marca" fill="${series[k].cor}" x="${xa}" y="${y0}" width="${r2(w)}" height="${esp}"/>`;
+      base += v;
+    });
+    const t = textos[i];
+    s += `<text class="val" x="${x(tot(it)) + 6}" y="${yc + 4}">${esc(t.v)}${t.st ? `<tspan class="st ${t.st.cls}" dx="8">${esc(t.st.txt)}</tspan>` : ''}</text>`;
+    const linhas = [it.longo || it.rot];
+    if (series.length > 1) series.forEach((se, k) => linhas.push(se.nome + ': ' + o.fmt(it.valores[k] || 0)));
+    linhas.push((series.length > 1 ? 'Total: ' : '') + t.v + (t.st ? ' · ' + t.st.txt.replace(/^[✓▼▲] /, '') : ''));
+    if (it.extra) linhas.push(it.extra);
+    s += `<rect class="alvo" data-eixo="h" x="0" y="${mT + i * linha}" width="${W}" height="${linha}" data-dica="${esc(linhas.join('\n'))}"/></g>`;
+  });
+  box.innerHTML = s + '</svg>';
+}
+
+/* linha no tempo (um ponto por lançamento) */
+function dicaGrafico(e) {
+  const alvo = e.target && e.target.closest ? e.target.closest('.grafico-box [data-dica]') : null;
+  $$('.grafico-box .col.ativa').forEach(g => { if (!alvo || !g.contains(alvo)) g.classList.remove('ativa'); });
+  $$('.grafico-box .dica-graf').forEach(d => { if (!alvo || !d.parentNode.contains(alvo)) d.hidden = true; });
+  if (!alvo) return;
+  const box = alvo.closest('.grafico-box');
+  let dica = box.querySelector('.dica-graf');
+  if (!dica) { dica = document.createElement('div'); dica.className = 'dica-graf'; box.appendChild(dica); }
+  const g = alvo.closest('.col');
+  if (g) g.classList.add('ativa');
+  const linhas = alvo.getAttribute('data-dica').split('\n');
+  dica.innerHTML = '<b>' + esc(linhas[0]) + '</b>' + linhas.slice(1).map(l => '<br>' + esc(l)).join('');
+  dica.hidden = false;
+  const rb = box.getBoundingClientRect();
+  const marca = g && g.querySelector('.marca');
+  const rm = (marca || alvo).getBoundingClientRect();
+  const cx = alvo.dataset.eixo === 'h' ? (e.clientX || rm.right) - rb.left : rm.left + rm.width / 2 - rb.left;
+  const larg = dica.offsetWidth;
+  dica.style.left = Math.min(Math.max(cx, larg / 2 + 4), rb.width - larg / 2 - 4) + 'px';
+  dica.style.top = Math.max(rm.top - rb.top, 8) + 'px';
+}
+
+
+function figura(id, titulo, sub) {
+  return `<figure class="graf"><figcaption><strong>${esc(titulo)}</strong>${sub ? `<span>${esc(sub)}</span>` : ''}</figcaption><div class="grafico-box" id="${id}"></div></figure>`;
+}
+
+/* ====================================================================
+   MANUTENÇÃO
+   ==================================================================== */
+/* a última de cada serviço em cada caminhão, com o que falta para a próxima */
+function proximasManut() {
+  const ult = new Map();
+  for (const m of D.manutencoes.values()) {
+    const k = m.caminhaoId + '|' + m.tipo;
+    const u = ult.get(k);
+    if (!u || m.data > u.data || (m.data === u.data && (m.km || 0) > (u.km || 0))) ult.set(k, m);
+  }
+  const h = hojeISO(), out = [];
+  for (const m of ult.values()) {
+    if (!m.proximaKm && !m.proximaData) continue;
+    const c = cam(m.caminhaoId);
+    if (!c || c.situacao === 'fora') continue;
+    const faltaKm = m.proximaKm ? m.proximaKm - kmAtual(c.id) : null;
+    const faltaDias = m.proximaData ? difDias(h, m.proximaData) : null;
+    const venceuKm = faltaKm != null && faltaKm <= 0, venceuDia = faltaDias != null && faltaDias < 0;
+    const nivel = venceuKm || venceuDia ? 'vencida' : (faltaKm != null && faltaKm <= 1000) || (faltaDias != null && faltaDias <= 15) ? 'perto' : 'ok';
+    const partes = [];
+    if (faltaKm != null) partes.push(venceuKm ? 'passou ' + fKm(-faltaKm) : 'faltam ' + fKm(faltaKm));
+    if (faltaDias != null) partes.push(venceuDia ? 'venceu há ' + plural(-faltaDias, 'dia', 'dias') : faltaDias === 0 ? 'vence hoje' : 'faltam ' + plural(faltaDias, 'dia', 'dias'));
+    const txt = partes.join(' · ').replace(/^./, l => l.toUpperCase());
+    out.push({ m, c, faltaKm, faltaDias, nivel, txt, ordem: Math.min(faltaKm != null ? faltaKm / 100 : 1e9, faltaDias != null ? faltaDias : 1e9) });
+  }
+  return out.sort((a, b) => a.ordem - b.ordem);
+}
+function calcMan() {
+  const f = $('#f-man');
+  const o = lerForm(f), out = [];
+  const c = cam(o.caminhaoId);
+  if (c) {
+    const km = kmAtual(c.id);
+    if (km) { out.push(`<span class="info">Hodômetro conhecido: ${esc(nf0.format(km))} km.</span>`); $('#man-km').placeholder = nf0.format(km); }
+    const ult = todos('manutencoes').filter(m => m.caminhaoId === c.id && m.tipo === o.tipo && m.id !== f.dataset.editando).sort((a, b) => b.data.localeCompare(a.data))[0];
+    if (ult) out.push(`<span class="info">Última “${esc(o.tipo)}”: ${esc(fmtData(ult.data))}${ult.km ? ', aos ' + esc(fKm(ult.km)) : ''}.</span>`);
+  } else $('#man-km').placeholder = '';
+  if (o.km != null && !isNaN(o.km) && o.proximaKm != null && !isNaN(o.proximaKm) && o.proximaKm > o.km) out.push(`<span class="info">Próxima daqui a ${esc(fKm(o.proximaKm - o.km))}.</span>`);
+  $('#man-calc').innerHTML = out.join('');
+}
+function renderManut() {
+  const prox = proximasManut();
+  $('#bloco-proximas').hidden = !prox.length;
+  const cls = { vencida: 'bad', perto: 'warn', ok: 'ok' };
+  tabela('#t-proximas', [['Caminhão'], ['Serviço'], ['Feita em'], ['Próxima'], ['Situação'], ['', 'n']], prox.map(r => `<tr>
+    <td>${celCam(r.c)}</td><td class="forte">${esc(r.m.tipo)}</td>
+    <td class="d">${esc(fmtData(r.m.data))}${r.m.km ? `<div class="fraco">${esc(fKm(r.m.km))}</div>` : ''}</td>
+    <td>${esc([r.m.proximaKm ? 'aos ' + fKm(r.m.proximaKm) : '', r.m.proximaData ? 'em ' + fmtData(r.m.proximaData) : ''].filter(Boolean).join(' ou '))}</td>
+    <td><span class="pill ${cls[r.nivel]}">${esc(r.txt)}</span></td>
+    <td class="acoes"><button class="lnk" type="button" data-acao="nova-man" data-alvo="manutencoes:${esc(r.m.id)}">Lançar a próxima</button></td></tr>`), '', '');
+  const fc = $('#fm-cam').value, mes = $('#fm-mes').value;
+  const lista = todos('manutencoes').filter(m => (!fc || m.caminhaoId === fc) && (mes === 'todos' || !mes || m.data.slice(0, 7) === mes)).sort((a, b) => b.data.localeCompare(a.data));
+  const total = soma(lista, m => m.valor);
+  $('#man-resumo').textContent = lista.length ? `${plural(lista.length, 'serviço', 'serviços')}, ${fR(total)}.` : '';
+  tabela('#t-man', [['Data'], ['Caminhão'], ['Serviço'], ['O que foi feito'], ['Oficina'], ['Km', 'n'], ['Valor', 'n'], ['', 'n']], lista.map(m => `<tr>
+    <td class="d">${esc(fmtData(m.data))}</td><td>${celCam(cam(m.caminhaoId))}</td><td class="forte">${esc(m.tipo)}</td>
+    <td>${esc(m.descricao || '')}${m.obs ? `<div class="fraco">${esc(m.obs)}</div>` : ''}</td><td>${esc(m.oficina || '')}</td>
+    <td class="n">${m.km ? esc(nf0.format(m.km)) : '—'}</td><td class="n forte">${esc(fR(m.valor))}</td>
+    <td class="acoes">${acoesHTML('manutencoes', m.id)}</td></tr>`),
+    lista.length > 1 ? `<tr><td colspan="6">Total</td><td class="n">${esc(fR(total))}</td><td></td></tr>` : '',
+    'Nenhuma manutenção lançada com esses filtros.');
+}
+
+/* ====================================================================
+   RELATÓRIO
+   ==================================================================== */
+function dadosRel(per, camId) {
+  const h = hojeISO();
+  const ate = per.fim < h ? per.fim : h;
+  const noP = d => d >= per.ini && d <= per.fim;
+  const doCam = x => !camId || x.caminhaoId === camId;
+  const km = todos('km').filter(r => noP(r.data) && doCam(r)).sort((a, b) => a.data.localeCompare(b.data) || (a.kmInicial || 0) - (b.kmInicial || 0));
+  const mans = todos('manutencoes').filter(m => noP(m.data) && doCam(m)).sort((a, b) => a.data.localeCompare(b.data));
+  const ags = todos('agenda').filter(a => agValido(a) && a.data <= per.fim && fimDe(a) >= per.ini && doCam(a)).sort(porDataHora);
+  // dias trabalhados: dias do período com km lançado ou com serviço feito
+  const diasCam = new Map();
+  const marca = (cid, d) => { if (d < per.ini || d > ate) return; if (!diasCam.has(cid)) diasCam.set(cid, new Set()); diasCam.get(cid).add(d); };
+  for (const r of todos('km')) if (doCam(r) && r.data <= per.fim && fimDe(r) >= per.ini) diasDe(r).forEach(d => marca(r.caminhaoId, d));
+  for (const a of ags) if (a.situacao === 'feito') diasDe(a).forEach(d => marca(a.caminhaoId, d));
+  let uteis = 0;
+  for (let d = per.ini, i = 0; d <= ate && i < 800; d = somaDias(d, 1), i++) { const w = dataDe(d).getDay(); if (w >= 1 && w <= 5) uteis++; }
+  return { km, mans, ags, diasCam, uteis, ate };
+}
+function porCaminhaoRel(R) {
+  const ids = new Set([...camAtivos().map(c => c.id), ...R.km.map(r => r.caminhaoId), ...R.mans.map(m => m.caminhaoId)]);
+  return [...ids].map(id => {
+    const km = R.km.filter(r => r.caminhaoId === id), mans = R.mans.filter(m => m.caminhaoId === id);
+    const k = soma(km, kmDe), man = soma(mans, m => m.valor), dias = (R.diasCam.get(id) || new Set()).size;
+    return { c: cam(id), id, km: k, horas: soma(km, r => r.horas), dias, uso: R.uteis ? dias / R.uteis : null, obras: new Set(km.map(r => r.obraId)).size, manut: man, nMan: mans.length, porKm: k ? man / k : null };
+  }).sort((a, b) => b.km - a.km || b.manut - a.manut);
+}
+function porObraRel(R) {
+  const mapa = new Map();
+  for (const r of R.km) {
+    if (!mapa.has(r.obraId)) mapa.set(r.obraId, { id: r.obraId, o: obra(r.obraId), km: 0, horas: 0, dias: new Set(), cams: new Set(), etapas: new Set(), n: 0 });
+    const x = mapa.get(r.obraId);
+    x.km += kmDe(r); x.horas += r.horas || 0; x.n++; x.cams.add(r.caminhaoId); if (r.etapa) x.etapas.add(r.etapa);
+    diasDe(r).forEach(d => { if (d >= P.ini && d <= R.ate) x.dias.add(d); });
+  }
+  return [...mapa.values()].sort((a, b) => b.km - a.km);
+}
+/* km por dia (ou por mês, em períodos longos); a etapa é dividida pelos dias dela */
+function baldesKm(R) {
+  const fim = R.ate;
+  if (fim < P.ini) return [];
+  if (difDias(P.ini, fim) > 62) {
+    const meses = new Map();
+    for (let m = P.ini.slice(0, 7); m <= fim.slice(0, 7); m = (() => { const d = dataDe(m + '-01'); d.setMonth(d.getMonth() + 1); return iso(d).slice(0, 7); })()) meses.set(m, 0);
+    R.km.forEach(r => { const m = r.data.slice(0, 7); if (meses.has(m)) meses.set(m, meses.get(m) + kmDe(r)); });
+    return [...meses].map(([m, v]) => ({ curto: MESES[Number(m.slice(5)) - 1].slice(0, 3), longo: nomeMesAno(m), valores: [v] }));
+  }
+  const dias = new Map();
+  for (let d = P.ini; d <= fim; d = somaDias(d, 1)) dias.set(d, 0);
+  R.km.forEach(r => { const ds = diasDe(r); ds.forEach(d => { if (dias.has(d)) dias.set(d, dias.get(d) + kmDe(r) / ds.length); }); });
+  return [...dias].map(([d, v]) => ({ curto: fmtDataCurta(d), longo: diaSem(d) + ', ' + fmtData(d), valores: [Math.round(v)] }));
+}
+function renderRelatorio() {
+  P = calcPeriodo();
+  $$('[data-periodo]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.periodo === UI.periodo)));
+  $('#datas-livres').hidden = UI.periodo !== 'datas';
+  const camId = $('#rel-cam').value;
+  const c = camId ? cam(camId) : null;
+  const R = dadosRel(P, camId);
+  const kmT = soma(R.km, kmDe), horas = soma(R.km, r => r.horas), manut = soma(R.mans, m => m.valor);
+  const diasT = [...R.diasCam.values()].reduce((t, x) => t + x.size, 0);
+  const feitos = R.ags.filter(a => a.situacao === 'feito').length;
+  const kpi = (rot, val, sub) => `<div class="kpi"><span class="kpi-rot">${esc(rot)}</span><span class="kpi-val">${val}</span><span class="kpi-sub">${esc(sub)}</span></div>`;
+  const cab = `<div class="rel-cab"><div><span class="rel-eyebrow">${c ? 'Relatório do caminhão' : 'Relatório dos caminhões munck'}</span><div class="rel-titulo">${c ? placaHTML(c.placa, 'g') + `<span>${esc(c.apelido || '')}</span>` : esc(P.titulo)}</div><span class="hint">${esc(P.nome)}${c && descCam(c) ? ' · ' + esc(descCam(c)) : ''}</span></div><span class="hint">${esc(emitido())}</span></div>`;
+  const kpis = `<div class="kpis">
+    ${kpi('Km rodados', `${nf0.format(kmT)}<small>km</small>`, plural(R.km.length, 'lançamento', 'lançamentos'))}
+    ${kpi('Horas de munck', horas ? `${nf1.format(horas)}<small>h</small>` : '—', horas ? 'nos lançamentos com horas' : 'nenhuma lançada')}
+    ${kpi('Dias trabalhados', nf0.format(diasT), c ? `de ${plural(R.uteis, 'dia útil', 'dias úteis')} (${fPct(R.uteis ? diasT / R.uteis : null)})` : `${plural(R.diasCam.size, 'caminhão', 'caminhões')} · ${plural(R.uteis, 'dia útil', 'dias úteis')}`)}
+    ${kpi('Serviços feitos', nf0.format(feitos), `de ${plural(R.ags.length, 'agendado', 'agendados')}`)}
+    ${kpi('Manutenção', esc(fR(manut)), plural(R.mans.length, 'serviço', 'serviços'))}
+    ${kpi('Manutenção por km', kmT && manut ? esc(fR(manut / kmT)) : '—', 'manutenção ÷ km rodados')}
+  </div>`;
+  const el = $('#rel-conteudo');
+  if (!c) {
+    const pc = porCaminhaoRel(R), po = porObraRel(R);
+    el.innerHTML = cab + kpis + `<div class="graficos">${figura('g-km-cam', 'Km por caminhão', P.nome)}${figura('g-km-obra', 'Km por obra', po.length > 10 ? 'As 10 obras com mais km' : P.nome)}${figura('g-km-dia', difDias(P.ini, R.ate) > 62 ? 'Km por mês' : 'Km por dia', 'Todos os caminhões; a etapa entra dividida pelos dias dela')}${figura('g-man-cam', 'Manutenção por caminhão', P.nome)}</div>
+      <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Por caminhão</h2><p class="hint">Uso = dias trabalhados ÷ dias úteis (segunda a sexta) do período, até hoje.</p></div></div><div class="tabela-box"><table class="tabela" id="t-rel-cam"></table></div></section>
+      <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Por obra</h2></div></div><div class="tabela-box"><table class="tabela" id="t-rel-obra"></table></div></section>
+      <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Manutenções no período</h2></div></div><div class="tabela-box"><table class="tabela" id="t-rel-man"></table></div></section>`;
+    graficoBarras($('#g-km-cam'), { titulo: 'Km por caminhão', series: [S_KM], fmt: fKm, vazio: 'Nenhum km lançado neste período.', itens: pc.filter(x => x.km).map(x => ({ rot: x.c ? mostraPlaca(x.c.placa) + (x.c.apelido ? ' ' + x.c.apelido : '') : '(apagado)', valores: [x.km], extra: plural(x.dias, 'dia trabalhado', 'dias trabalhados') })) });
+    const top = po.slice(0, 10);
+    graficoBarras($('#g-km-obra'), { titulo: 'Km por obra', series: [S_KM], fmt: fKm, vazio: 'Nenhum km lançado neste período.', itens: top.map(x => ({ rot: x.o ? x.o.nome : '(obra apagada)', valores: [x.km], extra: plural(x.cams.size, 'caminhão', 'caminhões') })) });
+    graficoColunas($('#g-km-dia'), { titulo: 'Km por dia', series: [S_KM], baldes: baldesKm(R), fmt: fKm, vazio: 'Nenhum km lançado neste período.' });
+    graficoBarras($('#g-man-cam'), { titulo: 'Manutenção por caminhão', series: [S_MANUT], fmt: fR, vazio: 'Nenhuma manutenção neste período.', itens: pc.filter(x => x.manut).map(x => ({ rot: x.c ? mostraPlaca(x.c.placa) + (x.c.apelido ? ' ' + x.c.apelido : '') : '(apagado)', valores: [x.manut], extra: plural(x.nMan, 'serviço', 'serviços') })) });
+    tabela('#t-rel-cam', [['Caminhão'], ['Km', 'n'], ['Horas', 'n'], ['Dias trabalhados', 'n'], ['Uso', 'n'], ['Obras', 'n'], ['Manutenção', 'n'], ['Manutenção por km', 'n'], ['', 'n']], pc.map(x => `<tr><td>${celCam(x.c)}</td><td class="n forte">${esc(fKm(x.km))}</td><td class="n">${esc(fH(x.horas))}</td><td class="n">${nf0.format(x.dias)}</td><td class="n">${esc(fPct(x.uso))}</td><td class="n">${nf0.format(x.obras)}</td><td class="n">${esc(fR(x.manut))}</td><td class="n">${x.porKm != null && x.manut ? esc(fR(x.porKm)) : '—'}</td><td class="acoes"><button class="lnk" type="button" data-acao="rel-ver-cam" data-cam="${esc(x.id)}">Extrato</button></td></tr>`),
+      pc.length > 1 ? `<tr><td>Total</td><td class="n">${esc(fKm(kmT))}</td><td class="n">${esc(fH(horas))}</td><td class="n">${nf0.format(diasT)}</td><td></td><td></td><td class="n">${esc(fR(manut))}</td><td class="n">${kmT && manut ? esc(fR(manut / kmT)) : '—'}</td><td></td></tr>` : '', 'Nenhum caminhão cadastrado.');
+    tabela('#t-rel-obra', [['Obra'], ['Situação'], ['Km', 'n'], ['Horas', 'n'], ['Dias', 'n'], ['Caminhões'], ['Etapas']], po.map(x => `<tr><td class="forte">${esc(x.o ? x.o.nome : '(obra apagada)')}${x.o && descObra(x.o) ? `<div class="fraco">${esc(descObra(x.o))}</div>` : ''}</td><td>${x.o ? pill(SIT_OBRA, x.o.situacao) : ''}</td><td class="n forte">${esc(fKm(x.km))}</td><td class="n">${esc(fH(x.horas))}</td><td class="n">${nf0.format(x.dias.size)}</td><td>${[...x.cams].map(id => cam(id)).filter(Boolean).map(k => placaHTML(k.placa, 'p')).join(' ')}</td><td>${esc([...x.etapas].join(', '))}</td></tr>`), '', 'Nenhum km lançado neste período.');
+    tabela('#t-rel-man', [['Data'], ['Caminhão'], ['Serviço'], ['O que foi feito'], ['Oficina'], ['Valor', 'n']], R.mans.slice().reverse().map(m => `<tr><td class="d">${esc(fmtData(m.data))}</td><td>${celCam(cam(m.caminhaoId))}</td><td class="forte">${esc(m.tipo)}</td><td>${esc(m.descricao || '')}</td><td>${esc(m.oficina || '')}</td><td class="n forte">${esc(fR(m.valor))}</td></tr>`),
+      R.mans.length > 1 ? `<tr><td colspan="5">Total</td><td class="n">${esc(fR(manut))}</td></tr>` : '', 'Nenhuma manutenção neste período.');
+    return;
+  }
+  // extrato do caminhão
+  const po = porObraRel(R);
+  const linhas = [
+    ...R.km.map(r => ({ data: r.data, ordem: 1, html: `<td class="d"><strong>${esc(diaSem(r.data))}</strong> ${esc(periodoTxt(r))}</td><td><span class="pill t-km">Km</span></td><td class="forte">${esc(nomeObra(r.obraId))}${r.etapa ? `<div class="fraco">${esc(r.etapa)}</div>` : ''}</td><td>${esc(nf0.format(r.kmInicial || 0))} → ${esc(nf0.format(r.kmFinal || 0))}${r.horas ? ' · ' + esc(fH(r.horas)) : ''}${r.motoristaId ? `<div class="fraco">${esc(nomeMot(r.motoristaId))}</div>` : ''}</td><td class="n forte">${esc(fKm(kmDe(r)))}</td><td class="n"></td>` })),
+    ...R.mans.map(m => ({ data: m.data, ordem: 2, html: `<td class="d"><strong>${esc(diaSem(m.data))}</strong> ${esc(fmtData(m.data))}</td><td><span class="pill t-man">Manutenção</span></td><td class="forte">${esc(m.tipo)}</td><td>${esc([m.descricao, m.oficina].filter(Boolean).join(' · '))}${m.km ? `<div class="fraco">${esc(fKm(m.km))}</div>` : ''}</td><td class="n"></td><td class="n forte">${esc(fR(m.valor))}</td>` })),
+    ...R.ags.filter(a => a.situacao !== 'feito' || !R.km.some(r => r.obraId === a.obraId && diasDe(a).some(d => cobre(r, d)))).map(a => ({ data: a.data, ordem: 0, html: `<td class="d"><strong>${esc(diaSem(a.data))}</strong> ${esc(periodoTxt(a))}</td><td><span class="pill t-ag">Agenda</span></td><td class="forte">${esc(nomeObra(a.obraId))}${a.etapa ? `<div class="fraco">${esc(a.etapa)}</div>` : ''}</td><td>${esc([a.hora, a.servico].filter(Boolean).join(' · '))} ${pill(SIT_AG, a.situacao)}</td><td class="n"></td><td class="n"></td>` })),
+  ].sort((a, b) => a.data.localeCompare(b.data) || a.ordem - b.ordem);
+  el.innerHTML = cab + kpis + `<div class="graficos">${figura('g-km-dia', difDias(P.ini, R.ate) > 62 ? 'Km por mês' : 'Km por dia', 'A etapa entra dividida pelos dias dela')}${figura('g-km-obra', 'Km por obra', P.nome)}</div>
+    <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Extrato</h2><p class="hint">Km, manutenções e serviços agendados do caminhão, em ordem de data.</p></div><button class="lnk" type="button" data-acao="rel-ver-cam" data-cam="">← Todos os caminhões</button></div><div class="tabela-box"><table class="tabela" id="t-extrato"></table></div></section>`;
+  graficoColunas($('#g-km-dia'), { titulo: 'Km por dia', series: [S_KM], baldes: baldesKm(R), fmt: fKm, vazio: 'Nenhum km lançado neste período.' });
+  graficoBarras($('#g-km-obra'), { titulo: 'Km por obra', series: [S_KM], fmt: fKm, vazio: 'Nenhum km lançado neste período.', itens: po.slice(0, 10).map(x => ({ rot: x.o ? x.o.nome : '(obra apagada)', valores: [x.km], extra: plural(x.dias.size, 'dia', 'dias') })) });
+  tabela('#t-extrato', [['Data'], ['Lançamento'], ['Obra ou serviço'], ['Detalhe'], ['Km', 'n'], ['Valor', 'n']], linhas.map(l => `<tr>${l.html}</tr>`),
+    linhas.length ? `<tr><td colspan="4">Total no período</td><td class="n">${esc(fKm(kmT))}</td><td class="n">${esc(fR(manut))}</td></tr>` : '', 'Nada lançado para este caminhão no período.');
+}
+
+/* ====================================================================
+   MAPA DAS OBRAS (desenhado aqui: o mapa vem no arquivo mapa-sul.json,
+   sem serviço de mapas de fora)
+   ==================================================================== */
+const ESTADOS_OBRA = [['atividade', 'Em atividade hoje'], ['andamento', 'Em andamento'], ['futura', 'Futuras'], ['atrasada', 'Atrasadas'], ['concluida', 'Concluídas']];
+const NOME_ESTADO = Object.fromEntries(ESTADOS_OBRA);
+const ORDEM_ESTADO = { concluida: 0, futura: 1, andamento: 2, atividade: 3, atrasada: 4 };
+const CIDADES_REF = [['Florianópolis', 'SC'], ['Chapecó', 'SC'], ['Joinville', 'SC'], ['Blumenau', 'SC'], ['Lages', 'SC'], ['Criciúma', 'SC'], ['Joaçaba', 'SC'], ['São Miguel do Oeste', 'SC'], ['Xanxerê', 'SC'], ['Curitiba', 'PR'], ['Cascavel', 'PR'], ['Pato Branco', 'PR'], ['Porto Alegre', 'RS'], ['Passo Fundo', 'RS'], ['Erechim', 'RS'], ['Caxias do Sul', 'RS']];
+const Mapa = { dados: null, estado: 'nada', porNome: null, vb: null, sel: '', centrar: '', marcando: '', arrasto: null, toques: new Map(), pinca: null,
+  mostrar: { atividade: true, andamento: true, futura: true, atrasada: true, concluida: false } };
+const semAcento = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+async function carregarMapa() {
+  if (Mapa.estado !== 'nada') return;
+  Mapa.estado = 'carregando';
+  try {
+    const r = await fetch('mapa-sul.json');
+    if (!r.ok) throw new Error('http ' + r.status);
+    const d = await r.json();
+    Mapa.porNome = new Map();
+    for (const c of d.cidades) { const k = semAcento(c[0]); if (!Mapa.porNome.has(k)) Mapa.porNome.set(k, []); Mapa.porNome.get(k).push(c); }
+    Mapa.dados = d;
+    Mapa.estado = 'pronto';
+  } catch (e) { Mapa.estado = 'erro'; }
+  agendarRender();
+}
+function projetar(lat, lon) { const p = Mapa.dados.proj; return [(lon - p.lon0) * p.cos * p.k, (p.lat0 - lat) * p.k]; }
+function desprojetar(x, y) { const p = Mapa.dados.proj; return [p.lat0 - y / p.k, p.lon0 + x / (p.cos * p.k)]; }
+/* "Chapecó", "Chapecó/SC", "Chapecó - SC" ou "Chapecó SC"; sem estado, vale SC */
+function acharCidade(txt) {
+  if (!Mapa.porNome || !txt) return null;
+  const m = String(txt).trim().match(/^(.*?)(?:\s*[\/,–-]\s*|\s+)(PR|SC|RS)$/i);
+  const lista = Mapa.porNome.get(semAcento(m ? m[1] : txt));
+  if (!lista) return null;
+  const uf = m ? m[2].toUpperCase() : '';
+  return lista.find(c => c[1] === uf) || lista.find(c => c[1] === 'SC') || lista[0];
+}
+function lerCoord(txt) {
+  const t = String(txt || '').trim().replace(/[°º]/g, '');
+  let m = t.match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,;]\s*(-?\d{1,3}(?:\.\d+)?)$/) || t.match(/^(-?\d{1,2}(?:\.\d+)?)\s+(-?\d{1,3}(?:\.\d+)?)$/);
+  if (!m) { const n = t.match(/^(-?\d{1,2}(?:,\d+)?)\s*[;\s]\s*(-?\d{1,3}(?:,\d+)?)$/); if (n) m = [n[0], n[1].replace(',', '.'), n[2].replace(',', '.')]; }
+  if (!m) return null;
+  const lat = Number(m[1]), lon = Number(m[2]);
+  if (!(lat >= -34 && lat <= 6 && lon >= -75 && lon <= -28)) return null;
+  return [Math.round(lat * 1e5) / 1e5, Math.round(lon * 1e5) / 1e5];
+}
+function posObra(o) {
+  if (typeof o.lat === 'number' && typeof o.lon === 'number') return { lat: o.lat, lon: o.lon, como: 'ponto' };
+  const c = acharCidade(o.cidade);
+  return c ? { lat: c[2], lon: c[3], como: 'cidade', cidade: c[0] + '/' + c[1] } : null;
+}
+function estadoObra(o, h) {
+  if (o.situacao === 'concluida') return { estado: 'concluida', hoje: false };
+  const hoje = todos('agenda').some(a => a.obraId === o.id && agValido(a) && cobre(a, h)) || todos('km').some(r => r.obraId === o.id && cobre(r, h));
+  if (o.previsao && o.previsao < h) return { estado: 'atrasada', hoje };
+  if (hoje) return { estado: 'atividade', hoje };
+  if (o.situacao === 'planejada' || (o.inicio && o.inicio > h)) return { estado: 'futura', hoje };
+  return { estado: 'andamento', hoje };
+}
+/* forma de cada situação: a cor nunca vem sozinha (anel = caminhão hoje; losango com ! = atrasada; vazado = futura) */
+function formaMarca(estado, hoje) {
+  const cor = { atividade: 'var(--m-atividade)', andamento: 'var(--m-andamento)', atrasada: 'var(--m-atrasada)', futura: 'var(--m-futura)', concluida: 'var(--muted)' }[estado];
+  let t = hoje ? `<circle class="anel" r="13" stroke="${cor}"/>` : '';
+  if (estado === 'atrasada') t += `<path class="forma" fill="${cor}" d="M0,-10.5L10.5,0L0,10.5L-10.5,0Z"/><path d="M0,-5V1M0,4.4V4.6" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round"/>`;
+  else if (estado === 'futura') t += `<circle class="forma" r="7"/>`;
+  else if (estado === 'concluida') t += `<rect class="forma" x="-6" y="-6" width="12" height="12" rx="2" fill="${cor}"/>`;
+  else t += `<circle class="forma" r="8" fill="${cor}"/>`;
+  return t;
+}
+const iconeEstado = (estado, hoje) => `<svg class="mk ${estado}" viewBox="-14 -14 28 28" aria-hidden="true">${formaMarca(estado, hoje)}</svg>`;
+const r1 = n => Math.round(n * 10) / 10;
+function criarSvgMapa(area) {
+  const d = Mapa.dados;
+  const [cx, cy, cw, ch] = d.caixa;
+  const rotUF = [['PR', -24.45, -51.6], ['SC', -27.3, -50.55], ['RS', -29.9, -53.3]].map(([uf, la, lo]) => { const [x, y] = projetar(la, lo); return `<text class="uf-rot" x="${r1(x)}" y="${r1(y)}" text-anchor="middle">${uf}</text>`; }).join('');
+  area.innerHTML = `<svg id="mapa-svg" viewBox="${cx} ${cy} ${cw} ${ch}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa das obras no Paraná, Santa Catarina e Rio Grande do Sul">
+    <rect x="${cx - cw * 3}" y="${cy - ch * 3}" width="${cw * 7}" height="${ch * 7}" fill="var(--mapa-mar)"/>
+    <g>${d.estados.map(e => `<path class="uf ${e.uf.toLowerCase()}" d="${e.d}"/>`).join('')}${d.municipios.map(m => `<path class="mun" d="${m.d}"/>`).join('')}${d.estados.map(e => `<path class="uf-borda" d="${e.d}"/>`).join('')}</g>
+    ${rotUF}<g id="mapa-ref"></g><g id="mapa-obras"></g></svg>`;
+  $('#mapa-ref').innerHTML = CIDADES_REF.map(([n, uf]) => acharCidade(n + '/' + uf)).filter(Boolean).map(c => { const [x, y] = projetar(c[2], c[3]); return `<g class="ref" data-x="${r1(x)}" data-y="${r1(y)}"><circle r="2.6"/><text x="5" y="4">${esc(c[0])}</text></g>`; }).join('');
+  ligarMapa($('#mapa-svg'));
+}
+function aplicarVista() {
+  const svg = $('#mapa-svg');
+  if (!svg || !Mapa.vb || !svg.clientWidth) return;
+  svg.setAttribute('viewBox', Mapa.vb.map(v => v.toFixed(2)).join(' '));
+  const ctm = svg.getScreenCTM();
+  const k = ctm && ctm.a ? 1 / ctm.a : Mapa.vb[2] / svg.clientWidth;
+  const larg = svg.clientWidth;
+  $$('#mapa-svg [data-x]').forEach(g => {
+    g.setAttribute('transform', `translate(${g.dataset.x},${g.dataset.y}) scale(${k.toFixed(4)})${g.dataset.dx ? ` translate(${g.dataset.dx},${g.dataset.dy})` : ''}`);
+    // perto da borda direita, o nome vai para a esquerda do ponto
+    const t = g.querySelector('.mk-rot');
+    if (t) {
+      const sx = ctm ? (Number(g.dataset.x) - Mapa.vb[0]) * ctm.a + Number(g.dataset.dx || 0) : 0;
+      const esq = sx > larg - 170;
+      const dist = Math.abs(Number(t.dataset.dist || t.getAttribute('x')));
+      t.dataset.dist = dist;
+      t.setAttribute('x', esq ? -dist : dist);
+      t.setAttribute('text-anchor', esq ? 'end' : 'start');
+    }
+  });
+  // a cidade de referência some quando bate no ponto ou no nome de uma obra (medido na tela)
+  if (!ctm) return;
+  const tela = g => [(Number(g.dataset.x) - Mapa.vb[0]) * ctm.a + Number(g.dataset.dx || 0), (Number(g.dataset.y) - Mapa.vb[1]) * ctm.d + Number(g.dataset.dy || 0)];
+  // nomes das obras: a selecionada e as mais importantes primeiro; o nome que bater em outro some (fica na dica e na lista)
+  const caixas = [];
+  const bate = (a, lista) => lista.some(c => a[0] < c[2] && a[2] > c[0] && a[1] < c[3] && a[3] > c[1]);
+  const marcas = $$('#mapa-obras .mk').reverse().sort((a, b) => b.classList.contains('sel') - a.classList.contains('sel'));
+  for (const g of marcas) {
+    const [x, y] = tela(g), t = g.querySelector('.mk-rot');
+    if (t) {
+      const w = t.textContent.length * 6.8 + 4, esq = t.getAttribute('text-anchor') === 'end', d = Number(t.dataset.dist || 13);
+      const caixa = esq ? [x - d - w, y - 9, x - d, y + 7] : [x + d, y - 9, x + d + w, y + 7];
+      const some = !g.classList.contains('sel') && bate(caixa, caixas);
+      t.style.display = some ? 'none' : '';
+      if (!some) caixas.push(caixa);
+    }
+    caixas.push([x - 12, y - 12, x + 12, y + 12]);
+  }
+  $$('#mapa-ref .ref').forEach(g => {
+    const [x, y] = tela(g), w = g.textContent.length * 6.2 + 8;
+    g.style.display = bate([x - 4, y - 8, x + w, y + 8], caixas) ? 'none' : '';
+  });
+}
+function enquadrar(pontos) {
+  const svg = $('#mapa-svg');
+  const asp = svg && svg.clientHeight ? svg.clientWidth / svg.clientHeight : 1.6;
+  let x0, y0, x1, y1;
+  if (pontos.length) {
+    const xs = pontos.map(p => p.xy[0]), ys = pontos.map(p => p.xy[1]);
+    [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  } else { [x0, y0] = projetar(-25.95, -53.85); [x1, y1] = projetar(-29.4, -48.3); }
+  let w = Math.max(x1 - x0, 70) * 1.35, h = Math.max(y1 - y0, 45) * 1.35;
+  if (w / h < asp) w = h * asp; else h = w / asp;
+  return [(x0 + x1) / 2 - w / 2, (y0 + y1) / 2 - h / 2, w, h];
+}
+function zoomMapa(f, px, py) {
+  if (!Mapa.vb || !Mapa.dados) return;
+  const [x, y, w, h] = Mapa.vb;
+  const nw = Math.min(Math.max(w / f, 10), Mapa.dados.caixa[2] * 1.6);
+  const k = nw / w;
+  if (px == null) { px = x + w / 2; py = y + h / 2; }
+  Mapa.vb = [px - (px - x) * k, py - (py - y) * k, w * k, h * k];
+  aplicarVista();
+}
+function pontoMapa(e) {
+  const svg = $('#mapa-svg');
+  const p = svg.createSVGPoint();
+  p.x = e.clientX; p.y = e.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+function esconderDicaMapa() { const d = $('#mapa-dica'); if (d) d.hidden = true; }
+function dicaMapa(e) {
+  const mk = e.target && e.target.closest ? e.target.closest('#mapa-obras .mk') : null;
+  const dica = $('#mapa-dica');
+  if (!mk) { dica.hidden = true; return; }
+  const o = obra(mk.dataset.obra);
+  if (!o) return;
+  const est = estadoObra(o, hojeISO());
+  dica.innerHTML = `<b>${esc(o.nome)}</b><br>${esc(NOME_ESTADO[est.estado])}${est.hoje && est.estado !== 'atividade' ? ' · caminhão hoje' : ''}${descObra(o) ? '<br>' + esc(descObra(o)) : ''}`;
+  dica.hidden = false;
+  const rb = $('#mapa-box').getBoundingClientRect(), rm = mk.getBoundingClientRect();
+  const larg = dica.offsetWidth;
+  dica.style.left = Math.min(Math.max(rm.left + rm.width / 2 - rb.left, larg / 2 + 4), rb.width - larg / 2 - 4) + 'px';
+  dica.style.top = Math.max(rm.top - rb.top, 8) + 'px';
+}
+function ligarMapa(svg) {
+  const box = $('#mapa-box');
+  const dist = () => { const [a, b] = [...Mapa.toques.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  svg.addEventListener('wheel', e => { e.preventDefault(); const p = pontoMapa(e); zoomMapa(Math.exp(-e.deltaY * 0.0015), p.x, p.y); }, { passive: false });
+  svg.addEventListener('pointerdown', e => {
+    Mapa.toques.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { svg.setPointerCapture(e.pointerId); } catch (er) { /* sem captura */ }
+    if (Mapa.toques.size === 1) Mapa.arrasto = { x: e.clientX, y: e.clientY, vb: Mapa.vb.slice(), k: 1 / svg.getScreenCTM().a, moveu: false, mk: e.target.closest('.mk') };
+    else { Mapa.arrasto = null; Mapa.pinca = dist(); }
+  });
+  svg.addEventListener('pointermove', e => {
+    if (Mapa.toques.has(e.pointerId)) Mapa.toques.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (Mapa.toques.size === 2) {
+      const d = dist(), [a, b] = [...Mapa.toques.values()];
+      if (Mapa.pinca) { const p = pontoMapa({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }); zoomMapa(d / Mapa.pinca, p.x, p.y); }
+      Mapa.pinca = d;
+      return;
+    }
+    const a = Mapa.arrasto;
+    if (a) {
+      const dx = e.clientX - a.x, dy = e.clientY - a.y;
+      if (!a.moveu && Math.hypot(dx, dy) > 5) { a.moveu = true; box.classList.add('arrastando'); esconderDicaMapa(); }
+      if (a.moveu) { Mapa.vb = [a.vb[0] - dx * a.k, a.vb[1] - dy * a.k, a.vb[2], a.vb[3]]; aplicarVista(); }
+      return;
+    }
+    if (e.pointerType === 'mouse') dicaMapa(e);
+  });
+  const fim = e => {
+    const a = Mapa.arrasto;
+    Mapa.toques.delete(e.pointerId);
+    if (Mapa.toques.size < 2) Mapa.pinca = null;
+    if (Mapa.toques.size) return;
+    Mapa.arrasto = null;
+    box.classList.remove('arrastando');
+    if (!a || a.moveu || e.type === 'pointercancel') return;
+    cliqueMapa(e, a.mk);
+  };
+  svg.addEventListener('pointerup', fim);
+  svg.addEventListener('pointercancel', fim);
+  svg.addEventListener('pointerleave', esconderDicaMapa);
+  svg.addEventListener('keydown', e => {
+    const mk = e.target.closest && e.target.closest('.mk');
+    if (mk && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); Mapa.sel = mk.dataset.obra; render(); }
+  });
+}
+async function cliqueMapa(e, mk) {
+  if (Mapa.marcando) {
+    const o = obra(Mapa.marcando);
+    const p = pontoMapa(e);
+    const [lat, lon] = desprojetar(p.x, p.y);
+    Mapa.marcando = '';
+    if (!o) { render(); return; }
+    try {
+      await gravar('obras', Object.assign({}, o, { lat: Math.round(lat * 1e5) / 1e5, lon: Math.round(lon * 1e5) / 1e5, alteradoEm: new Date().toISOString() }));
+      Mapa.sel = o.id;
+      toast(`Ponto da obra ${o.nome} marcado no mapa.`);
+    } catch (er) { toast(msgErro(er), true); }
+    render();
+    return;
+  }
+  Mapa.sel = mk ? mk.dataset.obra : '';
+  esconderDicaMapa();
+  render();
+}
+function renderMapa() {
+  carregarMapa();
+  const h = hojeISO();
+  const box = $('#mapa-box'), area = $('#mapa-area');
+  const obras = todos('obras').map(o => Object.assign({ o }, estadoObra(o, h)));
+  const cont = Object.fromEntries(ESTADOS_OBRA.map(([k]) => [k, 0]));
+  obras.forEach(x => { cont[x.estado]++; });
+  $('#mapa-legenda').innerHTML = ESTADOS_OBRA.map(([k, nome]) => `<button class="leg" type="button" data-acao="mapa-filtro" data-estado="${k}" aria-pressed="${Mapa.mostrar[k]}">${iconeEstado(k, k === 'atividade')}${esc(nome)} <span class="leg-n">${nf0.format(cont[k])}</span></button>`).join('');
+  box.classList.toggle('marcando', !!Mapa.marcando);
+  const faixa = $('#mapa-faixa');
+  faixa.hidden = !Mapa.marcando;
+  if (Mapa.marcando) faixa.innerHTML = `<span>Clique no mapa onde fica a obra <strong>${esc(nomeObra(Mapa.marcando))}</strong>. Aproxime antes para acertar o ponto.</span><button class="btn small ghost" type="button" data-acao="mapa-cancelar">Cancelar</button>`;
+  if (Mapa.estado !== 'pronto') {
+    area.innerHTML = `<div class="mapa-msg">${Mapa.estado === 'erro' ? 'Não consegui abrir o mapa aqui. Ele abre pelo link do sistema no claude.ai.' : 'Carregando o mapa…'}</div>`;
+    renderListaMapa(obras);
+    $('#mapa-sel').innerHTML = '';
+    return;
+  }
+  if (!$('#mapa-svg')) criarSvgMapa(area);
+  obras.forEach(x => { x.pos = posObra(x.o); if (x.pos) x.xy = projetar(x.pos.lat, x.pos.lon); });
+  if (Mapa.centrar) { const x = obras.find(i => i.o.id === Mapa.centrar); if (x) Mapa.mostrar[x.estado] = true; }
+  const vis = obras.filter(x => x.pos && Mapa.mostrar[x.estado]);
+  if (!Mapa.vb) Mapa.vb = enquadrar(vis);
+  if (Mapa.centrar) {
+    const x = obras.find(i => i.o.id === Mapa.centrar && i.xy);
+    if (x) { const w = Math.min(Mapa.vb[2], 140), hh = w * Mapa.vb[3] / Mapa.vb[2]; Mapa.vb = [x.xy[0] - w / 2, x.xy[1] - hh / 2, w, hh]; }
+    Mapa.centrar = '';
+  }
+  // obras no mesmo lugar ficam em roda
+  const grupos = new Map();
+  vis.forEach(x => { const k = Math.round(x.xy[0] / 2) + ':' + Math.round(x.xy[1] / 2); if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(x); });
+  for (const lista of grupos.values()) if (lista.length > 1) lista.forEach((x, i) => { const ang = (2 * Math.PI * i) / lista.length - Math.PI / 2; x.dx = r1(Math.cos(ang) * 16); x.dy = r1(Math.sin(ang) * 16); });
+  const rotulos = vis.length <= 15;
+  $('#mapa-obras').innerHTML = vis.slice().sort((a, b) => ORDEM_ESTADO[a.estado] - ORDEM_ESTADO[b.estado]).map(x => `<g class="mk ${x.estado}${Mapa.sel === x.o.id ? ' sel' : ''}" data-obra="${esc(x.o.id)}" data-x="${r1(x.xy[0])}" data-y="${r1(x.xy[1])}"${x.dx != null ? ` data-dx="${x.dx}" data-dy="${x.dy}"` : ''} tabindex="0" role="button" aria-label="${esc(x.o.nome + ': ' + NOME_ESTADO[x.estado])}">${formaMarca(x.estado, x.hoje)}${rotulos || Mapa.sel === x.o.id ? `<text class="mk-rot" x="${x.hoje ? 17 : 13}" y="4">${esc(x.o.nome)}</text>` : ''}</g>`).join('');
+  aplicarVista();
+  renderListaMapa(obras);
+  renderSelMapa(obras);
+}
+function renderSelMapa(obras) {
+  const box = $('#mapa-sel');
+  const x = Mapa.sel && obras.find(i => i.o.id === Mapa.sel);
+  if (!x) { box.innerHTML = ''; return; }
+  const o = x.o, h = hojeISO();
+  const hojeAgs = todos('agenda').filter(a => a.obraId === o.id && agValido(a) && cobre(a, h)).sort(porHora);
+  const prox = todos('agenda').filter(a => a.obraId === o.id && agValido(a) && a.data > h).sort(porDataHora)[0];
+  const local = x.pos ? (x.pos.como === 'ponto' ? 'ponto marcado no mapa' : 'no centro de ' + x.pos.cidade) : 'sem localização: confira a cidade ou marque o ponto';
+  const linha3 = [hojeAgs.length ? 'Hoje: ' + hojeAgs.map(a => { const c = cam(a.caminhaoId); return (c ? mostraPlaca(c.placa) : '') + (a.hora ? ' às ' + a.hora : ''); }).join(', ') : 'Nenhum caminhão hoje',
+    prox ? `próximo serviço ${diaSem(prox.data)} ${fmtData(prox.data)}` : '', o.previsao ? 'previsão de término ' + fmtData(o.previsao) : ''].filter(Boolean).join(' · ');
+  box.innerHTML = `<div class="mapa-sel"><div>
+      <span class="ico-est">${iconeEstado(x.estado, x.hoje)}${esc(NOME_ESTADO[x.estado])}${x.hoje && x.estado !== 'atividade' ? ' · com caminhão hoje' : ''}</span>
+      <strong class="obra-nome">${esc(o.nome)}</strong>
+      <span class="obra-sub">${esc([descObra(o), local].filter(Boolean).join(' · '))}</span>
+      <span class="obra-sub">${esc(linha3)}</span></div>
+    <div class="acoes-linha"><button class="btn small" type="button" data-acao="ver-obra" data-obra="${esc(o.id)}">Ver obra</button><button class="btn small ghost" type="button" data-acao="mapa-marcar" data-obra="${esc(o.id)}">${x.pos && x.pos.como === 'ponto' ? 'Mudar o ponto' : 'Marcar o ponto no mapa'}</button>${x.pos && x.pos.como === 'ponto' ? `<button class="lnk" type="button" data-acao="mapa-desmarcar" data-obra="${esc(o.id)}">Usar o centro da cidade</button>` : ''}<button class="lnk" type="button" data-acao="mapa-fechar">Fechar</button></div></div>`;
+}
+function renderListaMapa(obras) {
+  const h = hojeISO();
+  const lista = obras.filter(x => Mapa.mostrar[x.estado]).sort((a, b) => ORDEM_ESTADO[b.estado] - ORDEM_ESTADO[a.estado] || porNome(a.o, b.o));
+  const sem = Mapa.estado === 'pronto' ? lista.filter(x => !x.pos).length : 0;
+  $('#mapa-resumo').textContent = obras.length ? `${plural(lista.length, 'obra mostrada', 'obras mostradas')}${sem ? `, ${plural(sem, 'sem localização', 'sem localização')} (confira a cidade no cadastro ou marque o ponto)` : ''}.` : '';
+  tabela('#t-mapa', [['Situação'], ['Obra'], ['Cliente e cidade'], ['Caminhões hoje'], ['Previsão'], ['No mapa'], ['', 'n']], lista.map(x => {
+    const cams = todos('agenda').filter(a => a.obraId === x.o.id && agValido(a) && cobre(a, h)).map(a => cam(a.caminhaoId)).filter(Boolean);
+    const local = Mapa.estado !== 'pronto' ? '' : x.pos ? (x.pos.como === 'ponto' ? 'Ponto marcado' : 'Centro de ' + x.pos.cidade) : '<span class="pill warn">Sem localização</span>';
+    return `<tr><td><span class="ico-est">${iconeEstado(x.estado, x.hoje)}${esc(NOME_ESTADO[x.estado])}</span></td><td class="forte">${esc(x.o.nome)}</td><td>${esc(descObra(x.o))}</td><td>${cams.map(c => placaHTML(c.placa, 'p')).join(' ') || '<span class="sem">—</span>'}</td><td class="d">${x.o.previsao ? esc(fmtData(x.o.previsao)) : '—'}</td><td>${local}</td>
+      <td class="acoes">${x.pos ? `<button class="lnk" type="button" data-acao="mapa-ver" data-obra="${esc(x.o.id)}">Ver no mapa</button>` : `<button class="lnk" type="button" data-acao="mapa-marcar" data-obra="${esc(x.o.id)}">Marcar no mapa</button>`}</td></tr>`;
+  }), '', obras.length ? 'Nenhuma obra com as situações escolhidas.' : 'Nenhuma obra cadastrada. Cadastre na aba Obras.');
 }
 
 /* ====================================================================
@@ -1422,6 +2253,7 @@ const PADROES = {
   'f-obra': () => ({ situacao: 'andamento', inicio: hojeISO() }),
   'f-cam': () => ({ situacao: 'ativo' }),
   'f-mot': () => ({ categoria: 'E', situacao: 'ativo' }),
+  'f-man': () => ({ data: hojeISO(), tipo: TIPOS_MANUT[0] }),
 };
 function limparForm(f, manter) {
   const base = PADROES[f.id]();
@@ -1435,6 +2267,7 @@ function limparForm(f, manter) {
 function aposPreencher(f) {
   if (f.id === 'f-km') { ajustarModoKm(); ajustarObraNova(f); atualizarEtapas(f); calcKm(); }
   if (f.id === 'f-ag') { ajustarObraNova(f); atualizarEtapas(f); calcAg(); }
+  if (f.id === 'f-man') calcMan();
 }
 function msgForm(f, txt, tipo) { const m = $('.f-msg', f); m.textContent = txt; m.className = 'f-msg ' + (tipo || ''); }
 function marcarErro(f, nome, txt) {
@@ -1464,7 +2297,9 @@ function editar(col, id) {
   const formId = FORM_DA_COL[col];
   if (!reg || !formId) return;
   const f = abrirForm(formId, null);
-  preencherForm(f, Object.assign({}, reg));
+  const dados = Object.assign({}, reg);
+  if (col === 'obras') dados.coord = typeof reg.lat === 'number' ? reg.lat + ', ' + reg.lon : '';
+  preencherForm(f, dados);
   modoForm(f, id);
   aposPreencher(f);
 }
@@ -1537,6 +2372,12 @@ async function salvarForm(f) {
     if (!o.nome) return marcarErro(f, 'nome', 'Escreva o nome da obra.');
     if (todos('obras').some(x => x.id !== editando && (x.nome || '').toLowerCase() === o.nome.toLowerCase())) return marcarErro(f, 'nome', 'Já existe uma obra com esse nome.');
     if (o.inicio && o.previsao && o.previsao < o.inicio) return marcarErro(f, 'previsao', 'A previsão de término é antes do início.');
+    if (o.coord) {
+      const c = lerCoord(o.coord);
+      if (!c) return marcarErro(f, 'coord', 'Não entendi as coordenadas. Copie do Google Maps, como -27.0964, -52.6182.');
+      o.lat = c[0]; o.lon = c[1];
+    } else { o.lat = null; o.lon = null; }
+    delete o.coord;
     const vistas = new Set();
     o.etapas = o.etapas.filter(e => { const k = e.toLowerCase(); if (vistas.has(k)) return false; vistas.add(k); return true; });
     aviso = `Obra ${o.nome} salva.`;
@@ -1553,13 +2394,24 @@ async function salvarForm(f) {
       if (outro) ops.push(['set', 'caminhoes', Object.assign({}, outro, { motoristaId: '' })]);
     }
     aviso = `Caminhão ${mostraPlaca(o.placa)} salvo.`;
+  } else if (col === 'manutencoes') {
+    if (!o.data) return marcarErro(f, 'data', 'Escolha a data.');
+    if (!o.caminhaoId) return marcarErro(f, 'caminhaoId', 'Escolha o caminhão.');
+    if (o.km != null && isNaN(o.km)) return marcarErro(f, 'km', 'O km tem que ser só números.');
+    if (o.valor == null || isNaN(o.valor) || o.valor < 0) return marcarErro(f, 'valor', 'Escreva o valor (0 se foi na garantia).');
+    if (o.proximaKm != null && isNaN(o.proximaKm)) return marcarErro(f, 'proximaKm', 'O km da próxima tem que ser só números.');
+    if (o.proximaKm && o.km && o.proximaKm <= o.km) return marcarErro(f, 'proximaKm', 'A próxima precisa ser com mais km do que agora.');
+    if (o.proximaData && o.proximaData <= o.data) return marcarErro(f, 'proximaData', 'A data da próxima precisa ser depois desta.');
+    const c = cam(o.caminhaoId);
+    aviso = `Manutenção salva: ${o.tipo}, ${c ? mostraPlaca(c.placa) : ''}, ${fR(o.valor)}.`;
+    manter = ['data'];
   } else if (col === 'motoristas') {
     if (!o.nome) return marcarErro(f, 'nome', 'Escreva o nome do motorista.');
     if (o.situacao === 'desligado') { const c = todos('caminhoes').find(x => x.motoristaId === editando); if (c) ops.push(['set', 'caminhoes', Object.assign({}, c, { motoristaId: '' })]); }
     aviso = `Motorista ${o.nome} salvo.`;
   }
 
-  const prefixo = { agenda: 'ag', km: 'km', obras: 'ob', caminhoes: 'cam', motoristas: 'mot' }[col];
+  const prefixo = { agenda: 'ag', km: 'km', obras: 'ob', caminhoes: 'cam', motoristas: 'mot', manutencoes: 'man' }[col];
   const reg = Object.assign({}, antigo || {}, o, { id: editando || novoId(prefixo), criadoEm: (antigo && antigo.criadoEm) || agora, alteradoEm: agora });
   ops.push(['set', col, reg]);
   f.dataset.salvando = '1';
@@ -1567,8 +2419,8 @@ async function salvarForm(f) {
   try {
     await gravarVarios(ops);
     limparForm(f, manter);
-    if (f.id !== 'f-km') f.hidden = true;
-    else sugerirKm();
+    if (f.id !== 'f-km' && f.id !== 'f-man') f.hidden = true;
+    if (f.id === 'f-km') sugerirKm();
     toast(aviso);
   } catch (e) { msgForm(f, msgErro(e), 'erro'); }
   finally { delete f.dataset.salvando; render(); }
@@ -1578,7 +2430,7 @@ async function apagarRegistro(col, id) {
   const reg = D[col].get(id);
   UI.confirmar = null;
   if (!reg) { agendarRender(); return; }
-  const usa = campo => todos('agenda').filter(a => a[campo] === id).length + todos('km').filter(r => r[campo] === id).length;
+  const usa = campo => todos('agenda').filter(a => a[campo] === id).length + todos('km').filter(r => r[campo] === id).length + todos('manutencoes').filter(m => m[campo] === id).length;
   if (col === 'caminhoes' && usa('caminhaoId')) { toast(`O ${mostraPlaca(reg.placa)} tem agendamentos ou km lançado. Para tirar da lista, edite e mude a situação para Fora da frota.`, true); agendarRender(); return; }
   if (col === 'motoristas' && usa('motoristaId')) { toast(`${reg.nome} aparece em agendamentos ou km. Para tirar da lista, edite e mude a situação para Desligado.`, true); agendarRender(); return; }
   if (col === 'obras' && usa('obraId')) { toast(`A obra ${reg.nome} tem agendamentos ou km lançado. Para tirar da lista, edite e mude a situação para Concluída.`, true); agendarRender(); return; }
@@ -1588,7 +2440,7 @@ async function apagarRegistro(col, id) {
     await gravarVarios(ops);
     if (col === 'obras' && UI.obraSel === id) UI.obraSel = '';
     const f = document.getElementById(FORM_DA_COL[col]);
-    if (f && f.dataset.editando === id) { limparForm(f); if (f.id !== 'f-km') f.hidden = true; }
+    if (f && f.dataset.editando === id) { limparForm(f); if (f.id !== 'f-km' && f.id !== 'f-man') f.hidden = true; }
     toast('Apagado.');
   } catch (e) { toast(msgErro(e), true); }
 }
@@ -1764,6 +2616,9 @@ const linhaKmX = r => { const c = cam(r.caminhaoId); return [xD(r.data), xD(r.mo
 const COLS_KM = ['Data ou início', 'Fim da etapa', 'Lançado', 'Placa', 'Apelido', 'Motorista', 'Obra', 'Etapa', 'Km inicial', 'Km final', 'Km rodados', 'Horas de munck', 'Observação'];
 const LARG_KM = [13, 13, 11, 11, 16, 22, 28, 24, 11, 11, 11, 10, 40];
 const linhaAgX = a => { const c = cam(a.caminhaoId); return [xD(a.data), xD(a.dataFim), xT(a.hora), xF(c ? mostraPlaca(c.placa) : ''), xT(c ? c.apelido : ''), xT(nomeMot(a.motoristaId)), xT(nomeObra(a.obraId)), xT(a.etapa), xT(a.servico), xSit(SIT_AG, a.situacao), xT(a.obs)]; };
+const linhaManX = m => { const c = cam(m.caminhaoId); return [xD(m.data), xF(c ? mostraPlaca(c.placa) : ''), xT(c ? c.apelido : ''), xT(m.tipo), xT(m.descricao), xT(m.oficina), xN(m.km), { v: m.valor == null ? '' : m.valor, s: XS.moeda }, xN(m.proximaKm), xD(m.proximaData), xT(m.obs)]; };
+const COLS_MAN = ['Data', 'Placa', 'Apelido', 'Serviço', 'O que foi feito', 'Oficina', 'Km', 'Valor', 'Próxima (km)', 'Próxima (data)', 'Observação'];
+const LARG_MAN = [12, 11, 16, 30, 34, 22, 11, 13, 12, 13, 40];
 const COLS_AG = ['Data', 'Até', 'Hora', 'Placa', 'Apelido', 'Motorista', 'Obra', 'Etapa', 'O que vai fazer', 'Situação', 'Observação'];
 const LARG_AG = [12, 12, 8, 11, 16, 22, 28, 24, 30, 13, 40];
 
@@ -1800,7 +2655,27 @@ function planilhaTudo() {
     abaSimples('Km por obra', 'Km por obra, etapa e caminhão', sub, ['Obra', 'Etapa', 'Placa', 'Km rodados', 'Horas de munck', 'Lançamentos', 'De', 'Até'], [28, 26, 11, 11, 10, 11, 12, 12], resumo),
     abaSimples('Km', 'Km lançados', sub, COLS_KM, LARG_KM, todos('km').sort(porData).map(linhaKmX)),
     abaSimples('Agenda', 'Agenda', sub, COLS_AG, LARG_AG, todos('agenda').sort(porData).map(linhaAgX)),
+    abaSimples('Manutenções', 'Manutenções', sub, COLS_MAN, LARG_MAN, todos('manutencoes').sort((a, b) => a.data.localeCompare(b.data)).map(linhaManX)),
   ]);
+}
+function planilhaRel() {
+  P = calcPeriodo();
+  const camId = $('#rel-cam').value, c = camId ? cam(camId) : null;
+  const R = dadosRel(P, camId);
+  const sub = NOME_APP + ' · ' + P.nome + (c ? ' · ' + rotuloCam(c) : '') + ' · ' + emitido().toLowerCase();
+  const kmT = soma(R.km, kmDe), horas = soma(R.km, r => r.horas), manut = soma(R.mans, m => m.valor);
+  const diasT = [...R.diasCam.values()].reduce((t, x) => t + x.size, 0);
+  const res = [['Km rodados', kmT, XS.intForte], ['Horas de munck', horas || '', XS.txt], ['Dias trabalhados', diasT, XS.inteiro], ['Dias úteis no período (segunda a sexta, até hoje)', R.uteis, XS.inteiro],
+    ['Serviços feitos', R.ags.filter(a => a.situacao === 'feito').length, XS.inteiro], ['Serviços agendados', R.ags.length, XS.inteiro], ['Manutenção', manut, XS.moeda], ['Manutenção por km', kmT && manut ? Math.round(manut / kmT * 100) / 100 : '', XS.moeda]];
+  const abas = [{ nome: 'Resumo', larguras: [44, 16], linhas: [[{ v: c ? 'Relatório do caminhão ' + rotuloCam(c) : 'Relatório dos caminhões munck', s: XS.titulo }], [{ v: sub, s: XS.fraco }], [], ...res.map(([k, v, st]) => [{ v: k, s: XS.forte }, { v, s: st }])] }];
+  if (!c) abas.push(abaSimples('Por caminhão', 'Por caminhão', sub, ['Placa', 'Apelido', 'Km rodados', 'Horas de munck', 'Dias trabalhados', 'Uso (%)', 'Obras', 'Manutenção', 'Manutenção por km'], [11, 16, 11, 10, 11, 9, 8, 13, 13],
+    porCaminhaoRel(R).map(x => [xF(x.c ? mostraPlaca(x.c.placa) : ''), xT(x.c ? x.c.apelido : ''), { v: x.km, s: XS.intForte }, xNum(x.horas), xN(x.dias), { v: x.uso != null ? Math.round(x.uso * 100) : '', s: XS.inteiro }, xN(x.obras), { v: x.manut, s: XS.moeda }, { v: x.porKm != null && x.manut ? Math.round(x.porKm * 100) / 100 : '', s: XS.moeda }])));
+  abas.push(abaSimples('Por obra', 'Por obra', sub, ['Obra', 'Cliente', 'Cidade', 'Situação', 'Km rodados', 'Horas de munck', 'Dias', 'Caminhões', 'Etapas'], [28, 22, 16, 14, 11, 10, 8, 22, 40],
+    porObraRel(R).map(x => [xF(x.o ? x.o.nome : '(obra apagada)'), xT(x.o ? x.o.cliente : ''), xT(x.o ? x.o.cidade : ''), x.o ? xSit(SIT_OBRA, x.o.situacao) : xT(''), { v: x.km, s: XS.intForte }, xNum(x.horas), xN(x.dias.size), xT([...x.cams].map(id => cam(id)).filter(Boolean).map(k => mostraPlaca(k.placa)).join(', ')), xT([...x.etapas].join(', '))])));
+  abas.push(abaSimples('Km', 'Km no período', sub, COLS_KM, LARG_KM, R.km.map(linhaKmX)));
+  abas.push(abaSimples('Manutenções', 'Manutenções no período', sub, COLS_MAN, LARG_MAN, R.mans.map(linhaManX)));
+  abas.push(abaSimples('Agenda', 'Agenda no período', sub, COLS_AG, LARG_AG, R.ags.map(linhaAgX)));
+  return montarXlsx(abas);
 }
 function planilhaObra(id) {
   const o = obra(id);
@@ -1819,11 +2694,12 @@ function planilhaObra(id) {
     abaSimples('Agenda', o.nome + ': agenda', sub, COLS_AG, LARG_AG, todos('agenda').filter(a => a.obraId === id).sort(porDataHora).map(linhaAgX)),
   ]);
 }
-const nomeArq = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
+const nomeArq = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
 async function baixarExcel(qual, id) {
   let arq, nome;
   try {
     if (qual === 'obra') { arq = planilhaObra(id); nome = 'obra-' + nomeArq(nomeObra(id)) + '-' + hojeISO() + '.xlsx'; }
+    else if (qual === 'rel') { arq = planilhaRel(); const c = cam($('#rel-cam').value); nome = 'relatorio-munck-' + (c ? c.placa.toLowerCase() + '-' : '') + P.ini + '-a-' + P.fim + '.xlsx'; }
     else { arq = planilhaTudo(); nome = 'controle-munck-' + hojeISO() + '.xlsx'; }
   } catch (e) { toast('Não consegui montar a planilha.', true); return; }
   if (await baixar(nome, arq, XLSX_TIPO)) toast('Planilha salva.');
@@ -1901,7 +2777,8 @@ function montarListasFixas() {
   preencher('#cam-sit', Object.entries(SIT_CAM));
   preencher('#mot-sit', Object.entries(SIT_MOT));
   preencher('#mot-cat', CATEGORIAS_CNH.map(c => [c, c]));
-  ['f-ag', 'f-km', 'f-obra', 'f-cam', 'f-mot'].forEach(id => limparForm(document.getElementById(id)));
+  preencher('#man-tipo', TIPOS_MANUT.map(t => [t, t]));
+  ['f-ag', 'f-km', 'f-obra', 'f-cam', 'f-mot', 'f-man'].forEach(id => limparForm(document.getElementById(id)));
 }
 function ligarEventos() {
   window.addEventListener('hashchange', () => {
@@ -1910,7 +2787,17 @@ function ligarEventos() {
     rotear();
     window.scrollTo(0, 0);
   });
+  document.addEventListener('pointermove', dicaGrafico);
+  document.addEventListener('pointerdown', dicaGrafico);
+  window.addEventListener('resize', () => { if (UI.aba === 'mapa') aplicarVista(); });
   document.addEventListener('click', e => {
+    const per = e.target.closest('[data-periodo]');
+    if (per) {
+      UI.periodo = per.dataset.periodo;
+      if (UI.periodo === 'datas') { const q = calcPeriodo(); $('#p-ini').value = UI.pIni || P.ini; $('#p-fim').value = UI.pFim || (P.fim > hojeISO() ? hojeISO() : P.fim); UI.pIni = $('#p-ini').value; UI.pFim = $('#p-fim').value; void q; }
+      render();
+      return;
+    }
     const b = e.target.closest('[data-acao]');
     if (!b) return;
     const acao = b.dataset.acao;
@@ -1921,7 +2808,7 @@ function ligarEventos() {
       case 'apagar': UI.confirmar = b.dataset.alvo; render(); { const s = $('[data-acao="apagar-nao"]'); if (s) s.focus(); } break;
       case 'apagar-nao': UI.confirmar = null; render(); break;
       case 'apagar-sim': apagarRegistro(alvo[0], alvo[1]); break;
-      case 'cancelar-edicao': { const f = b.closest('form'); limparForm(f); if (f.id !== 'f-km') f.hidden = true; render(); break; }
+      case 'cancelar-edicao': { const f = b.closest('form'); limparForm(f); if (f.id !== 'f-km' && f.id !== 'f-man') f.hidden = true; render(); break; }
       case 'fechar-form': { const f = b.closest('form'); limparForm(f); f.hidden = true; break; }
       case 'abrir-form': abrirForm(b.dataset.form); break;
       case 'novo-ag': abrirForm('f-ag', { caminhaoId: b.dataset.cam || '', data: b.dataset.dia || h, obraId: b.dataset.obra || '' }); break;
@@ -1947,6 +2834,25 @@ function ligarEventos() {
       case 'ver-obra': UI.obraSel = b.dataset.obra; irPara('obras'); render(); window.scrollTo(0, 0); break;
       case 'obras-voltar': UI.obraSel = ''; render(); window.scrollTo(0, 0); break;
       case 'obra-excel': baixarExcel('obra', b.dataset.obra); break;
+      case 'rel-excel': baixarExcel('rel'); break;
+      case 'rel-ver-cam': $('#rel-cam').value = b.dataset.cam; render(); window.scrollTo(0, 0); break;
+      case 'nova-man': {
+        const m = D.manutencoes.get(alvo[1]);
+        abrirForm('f-man', m ? { caminhaoId: m.caminhaoId, tipo: m.tipo, oficina: m.oficina || '' } : null);
+        break;
+      }
+      case 'mapa-filtro': Mapa.mostrar[b.dataset.estado] = !Mapa.mostrar[b.dataset.estado]; render(); break;
+      case 'mapa-zoom': zoomMapa(Number(b.dataset.z) > 0 ? 1.6 : 1 / 1.6); break;
+      case 'mapa-enquadrar': Mapa.vb = null; render(); break;
+      case 'mapa-ver': Mapa.sel = b.dataset.obra; Mapa.centrar = b.dataset.obra; irPara('mapa'); render(); window.scrollTo(0, 0); break;
+      case 'mapa-marcar': Mapa.marcando = b.dataset.obra; Mapa.sel = b.dataset.obra; irPara('mapa'); render(); $('#mapa-box').scrollIntoView({ block: 'center' }); break;
+      case 'mapa-cancelar': Mapa.marcando = ''; render(); break;
+      case 'mapa-fechar': Mapa.sel = ''; render(); break;
+      case 'mapa-desmarcar': {
+        const o = obra(b.dataset.obra);
+        if (o) gravar('obras', Object.assign({}, o, { lat: null, lon: null, alteradoEm: new Date().toISOString() })).then(() => toast('A obra voltou para o centro da cidade.'), er => toast(msgErro(er), true));
+        break;
+      }
       case 'tudo-excel': baixarExcel('tudo'); break;
       case 'backup': salvarCopia(); break;
       case 'restaurar': $('#arquivo-copia').click(); break;
@@ -1966,7 +2872,9 @@ function ligarEventos() {
       }
       return;
     }
-    if (['fa-quando', 'fa-cam', 'fa-obra', 'fk-cam', 'fk-obra', 'fk-mes', 'fo-sit'].includes(el.id)) { UI.confirmar = null; render(); }
+    if (f && f.id === 'f-man') { calcMan(); return; }
+    if (['fa-quando', 'fa-cam', 'fa-obra', 'fk-cam', 'fk-obra', 'fk-mes', 'fo-sit', 'fm-cam', 'fm-mes', 'rel-cam'].includes(el.id)) { UI.confirmar = null; render(); }
+    else if (el.id === 'p-ini' || el.id === 'p-fim') { UI.pIni = $('#p-ini').value; UI.pFim = $('#p-fim').value; render(); }
     else if (el.id === 'arquivo-copia') { const a = el.files && el.files[0]; el.value = ''; if (a) carregarCopia(a); }
   });
   document.addEventListener('input', e => {
@@ -1976,6 +2884,7 @@ function ligarEventos() {
     delete el.dataset.auto;
     if (f.id === 'f-km') calcKm();
     else if (f.id === 'f-ag') calcAg();
+    else if (f.id === 'f-man') calcMan();
   });
   document.addEventListener('focusout', e => {
     const el = e.target;
