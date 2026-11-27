@@ -14,6 +14,16 @@ encontra os sistemas da empresa. Hoje são dois, feitos neste projeto:
 
 Outros sistemas vão ser criados depois e entram no mesmo painel.
 
+**A primeira tela** (pedido do usuário): depois do login, a tela inicial é o painel, com os
+sistemas em cartões; ele escolhe qual usar. Para começar, sobe o DECONT (o "painel de ontem") e,
+já pronto, o Controle de Operação.
+
+**Segmentos e CNPJs (depois)**: o grupo tem vários CNPJs, e cada segmento da operação vai ter os
+seus sistemas. Isso ainda vai ser definido (quais segmentos, qual CNPJ, o que cada um faz). Quando
+estiver, cada segmento entra no painel como mais cartões, com dados separados, e a frota do DECONT
+(hoje com veículos de Deconto Soluções Elétricas, Prestadora de Serviços GP e de pessoas físicas)
+pode ser dividida. Nada disso entra agora.
+
 ## Objetivos
 
 - Um login só para todos os sistemas. Depois de entrar, a pessoa vê a página do painel com os
