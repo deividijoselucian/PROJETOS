@@ -1,4 +1,4 @@
-<title>Controle Munck</title>
+<title>Controle de Operação</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,7 +73,8 @@ p { margin: 0; }
 .barra-dir { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .quem { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--barra-muted); white-space: nowrap; }
 .quem button { font: 600 0.85rem var(--body); color: var(--barra-ink); background: transparent; border: 1px solid var(--barra-line); border-radius: 8px; padding: 5px 10px; min-height: 34px; cursor: pointer; }
-.quem button:hover { border-color: var(--guindaste); }
+.quem button:hover, .quem a:hover { border-color: var(--guindaste); }
+.quem a { color: var(--barra-ink); font-weight: 600; text-decoration: none; border: 1px solid var(--barra-line); border-radius: 8px; padding: 5px 10px; min-height: 34px; display: inline-flex; align-items: center; }
 @media (max-width: 520px) { .quem span { display: none; } }
 .abas { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
 .abas::-webkit-scrollbar { display: none; }
@@ -360,10 +361,10 @@ button.seg { border: 0; background: transparent; }
         <path d="M23.1 12.3a1.4 1.4 0 1 0 2.8 0" stroke="#FFFFFF" stroke-width="1.3" fill="none"/>
         <circle cx="9.5" cy="25.5" r="2.5" fill="#F2C230"/><circle cx="24.5" cy="25.5" r="2.5" fill="#F2C230"/>
       </svg>
-      <div><div class="marca-nome">Controle Munck</div><div class="marca-sub">Obras e agenda dos caminhões munck</div></div>
+      <div><div class="marca-nome">Controle de Operação</div><div class="marca-sub">Obras e agenda dos caminhões munck</div></div>
     </div>
     <div class="barra-dir">
-      <span class="quem" id="quem" hidden><span id="quem-nome"></span><button type="button" data-acao="sair">Sair</button></span>
+      <span class="quem" id="quem" hidden><a href="/" id="voltar-painel" hidden>← Painel Deconto</a><span id="quem-nome"></span><button type="button" data-acao="sair">Sair</button></span>
       <span class="estado" id="estado" data-modo="carregando" role="status">Carregando…</span>
     </div>
   </div>
@@ -758,7 +759,7 @@ button.seg { border: 0; background: transparent; }
 <script>
 'use strict';
 /* ====================================================================
-   Controle Munck: onde cada caminhão munck está trabalhando, a agenda das
+   Controle de Operação (antigo Controle Munck): onde cada caminhão munck está trabalhando, a agenda das
    obras e o km inicial e final de cada obra, por dia ou por etapa.
    Sistema separado, com dados próprios. Aberto pelo link do claude.ai, os
    dados ficam na conta (capability db); aberto como arquivo, no navegador.
@@ -784,7 +785,7 @@ const VISTA_DO_FORM = { 'f-cam': 'cadastro', 'f-mot': 'cadastro', 'f-obra': 'obr
 const TIPOS_MANUT = ['Troca de óleo e filtros', 'Revisão preventiva', 'Pneus', 'Freios', 'Suspensão', 'Elétrica', 'Motor', 'Câmbio e embreagem', 'Funilaria e pintura',
   'Munck: sistema hidráulico', 'Munck: cabo de aço e gancho', 'Munck: lubrificação e graxa', 'Munck: inspeção e laudo (NR-11/NR-12)', 'Munck: reparo na estrutura', 'Corretiva (quebra)', 'Outro'];
 const NOVA = '__nova__';
-const NOME_APP = 'Controle Munck';
+const NOME_APP = 'Controle de Operação';
 const CHAVE_LOCAL = 'controle-munck:dados:v1';
 
 /* ---------- utilidades ---------- */
@@ -1000,13 +1001,15 @@ function limpo(o) { const x = JSON.parse(JSON.stringify(o)); delete x.id; return
 
 /* No servidor (instalado com instalar-no-servidor.sh): os dados ficam lá, e o servidor avisa
    os outros navegadores abertos quando alguém muda alguma coisa. */
-const SERVIDOR = window.MUNCK_SERVIDOR || null;
+const SERVIDOR = window.PAINEL || window.MUNCK_SERVIDOR || null;
+const NO_PAINEL = !!window.PAINEL;
 async function api(metodo, caminho, corpo) {
   let r;
   try {
     r = await fetch(caminho, { method: metodo, credentials: 'same-origin', headers: corpo !== undefined ? { 'Content-Type': 'application/json' } : {}, body: corpo !== undefined ? JSON.stringify(corpo) : undefined });
   } catch (e) { throw { code: 'servidor' }; }
-  if (r.status === 401) { location.href = 'entrar'; throw { code: 'sessao' }; }
+  if (r.status === 401) { location.href = NO_PAINEL ? '/entrar' : 'entrar'; throw { code: 'sessao' }; }
+  if (r.status === 403 && NO_PAINEL) { location.href = '/'; throw { code: 'proibido' }; }
   let dados = null;
   try { dados = await r.json(); } catch (e) { dados = null; }
   if (!r.ok) throw { code: r.status === 413 ? 'grande' : r.status === 403 ? 'proibido' : 'servidor', message: dados && dados.erro };
@@ -1021,6 +1024,7 @@ function iniciarServidor() {
   const quem = $('#quem');
   quem.hidden = false;
   $('#quem-nome').textContent = SERVIDOR.nome || SERVIDOR.usuario || '';
+  $('#voltar-painel').hidden = !NO_PAINEL;
   const tentar = () => baixarDoServidor().then(() => { Armazem.modo = 'servidor'; Armazem.semConexao = false; ouvirServidor(); agendarRender(); })
     .catch(e => { if (e && e.code === 'sessao') return; Armazem.semConexao = true; agendarRender(); setTimeout(tentar, 5000); });
   tentar();
@@ -2319,8 +2323,8 @@ function renderCadastro() {
 let usuariosServidor = null;
 function renderAcesso() {
   const bloco = $('#bloco-acesso');
-  bloco.hidden = !SERVIDOR;
-  if (!SERVIDOR) return;
+  bloco.hidden = !SERVIDOR || NO_PAINEL;
+  if (!SERVIDOR || NO_PAINEL) return;
   const admin = !!SERVIDOR.admin;
   $('#usuarios-box').hidden = !admin;
   $('#f-usuario').hidden = !admin;
@@ -2851,7 +2855,7 @@ async function baixarExcel(qual, id) {
   try {
     if (qual === 'obra') { arq = planilhaObra(id); nome = 'obra-' + nomeArq(nomeObra(id)) + '-' + hojeISO() + '.xlsx'; }
     else if (qual === 'rel') { arq = planilhaRel(); const c = cam($('#rel-cam').value); nome = 'relatorio-munck-' + (c ? c.placa.toLowerCase() + '-' : '') + P.ini + '-a-' + P.fim + '.xlsx'; }
-    else { arq = planilhaTudo(); nome = 'controle-munck-' + hojeISO() + '.xlsx'; }
+    else { arq = planilhaTudo(); nome = 'controle-operacao-' + hojeISO() + '.xlsx'; }
   } catch (e) { toast('Não consegui montar a planilha.', true); return; }
   if (await baixar(nome, arq, XLSX_TIPO)) toast('Planilha salva.');
 }
@@ -2880,13 +2884,13 @@ async function baixar(nome, conteudo, tipo) {
 async function salvarCopia() {
   const dados = {};
   COLS.forEach(c => { dados[c] = todos(c); });
-  const json = JSON.stringify({ app: 'controle-munck', versao: 1, salvoEm: new Date().toISOString(), dados }, null, 1);
-  if (await baixar('controle-munck-copia-' + hojeISO() + '.json', json, 'application/json')) toast('Cópia salva.');
+  const json = JSON.stringify({ app: 'controle-operacao', versao: 1, salvoEm: new Date().toISOString(), dados }, null, 1);
+  if (await baixar('controle-operacao-copia-' + hojeISO() + '.json', json, 'application/json')) toast('Cópia salva.');
 }
 async function carregarCopia(arquivo) {
   let obj;
   try { obj = JSON.parse(await arquivo.text()); } catch (e) { obj = null; }
-  if (!obj || obj.app !== 'controle-munck' || !obj.dados || typeof obj.dados !== 'object') { toast('Este arquivo não é uma cópia do Controle Munck.', true); return; }
+  if (!obj || !['controle-operacao', 'controle-munck'].includes(obj.app) || !obj.dados || typeof obj.dados !== 'object') { toast('Este arquivo não é uma cópia do Controle de Operação.', true); return; }
   const ops = [];
   for (const c of COLS) for (const x of (Array.isArray(obj.dados[c]) ? obj.dados[c] : [])) if (x && typeof x.id === 'string' && /^[A-Za-z0-9_.~:@+-]{1,120}$/.test(x.id)) ops.push(['set', c, x]);
   if (!ops.length) { toast('A cópia está vazia.', true); return; }
@@ -3006,7 +3010,7 @@ function ligarEventos() {
       }
       case 'tudo-excel': baixarExcel('tudo'); break;
       case 'backup': salvarCopia(); break;
-      case 'sair': api('POST', 'api/sair', {}).catch(() => {}).then(() => { location.href = 'entrar'; }); break;
+      case 'sair': api('POST', NO_PAINEL ? '/api/sair' : 'api/sair', {}).catch(() => {}).then(() => { location.href = NO_PAINEL ? '/entrar' : 'entrar'; }); break;
       case 'usuario-confirmar': UI.confirmar = 'usuario:' + b.dataset.usuario; render(); break;
       case 'usuario-tirar':
         UI.confirmar = null;

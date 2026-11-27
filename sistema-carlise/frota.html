@@ -68,6 +68,11 @@ p { margin: 0; }
 .estado[data-modo="erro"]::before, .estado[data-modo="leitura"]::before { background: #FF8F87; }
 @media (max-width: 520px) { .estado { font-size: 0; gap: 0; padding: 7px; } .marca-sub { display: none; } }
 .barra-dir { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.quem { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--asfalto-muted); white-space: nowrap; }
+.quem a { color: var(--asfalto-ink); font-weight: 600; text-decoration: none; border: 1px solid var(--asfalto-line); border-radius: 8px; padding: 5px 10px; min-height: 34px; display: inline-flex; align-items: center; }
+.quem button { font: 600 0.85rem var(--body); color: var(--asfalto-ink); background: transparent; border: 1px solid var(--asfalto-line); border-radius: 8px; padding: 5px 10px; min-height: 34px; cursor: pointer; }
+.quem a:hover, .quem button:hover { border-color: var(--faixa); }
+@media (max-width: 720px) { .quem #quem-nome { display: none; } }
 .cat-global { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--asfalto-muted); }
 .cat-global select { width: auto; min-height: 36px; padding: 5px 8px; font-size: 0.9rem; font-weight: 600; color: var(--asfalto-ink); background: var(--asfalto); border: 1px solid var(--asfalto-line); border-radius: 8px; }
 .cat-global select:focus { background: var(--asfalto); }
@@ -378,6 +383,7 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
       <div><div class="marca-nome">DECONT</div><div class="marca-sub">Controle da frota</div></div>
     </div>
     <div class="barra-dir">
+      <span class="quem" id="quem" hidden><a href="/">← Painel Deconto</a><span id="quem-nome"></span><button type="button" data-acao="sair">Sair</button></span>
       <label class="cat-global" for="cat-global"><span>Categoria</span><select id="cat-global"></select></label>
       <span class="estado" id="estado" data-modo="carregando" role="status">Carregando…</span>
     </div>
@@ -1112,6 +1118,56 @@ function iniciarNuvem(db) {
 }
 function limpo(o) { const x = JSON.parse(JSON.stringify(o)); delete x.id; return x; }
 
+/* No servidor do Painel Deconto (a página chega com window.PAINEL): os dados e os arquivos ficam
+   no servidor, e o servidor avisa os outros navegadores abertos quando alguém muda alguma coisa. */
+const PAINEL = window.PAINEL || null;
+async function api(metodo, caminho, corpo, cabecalhos) {
+  let r;
+  const ehArquivo = corpo instanceof Blob;
+  try {
+    r = await fetch(caminho, { method: metodo, credentials: 'same-origin', headers: Object.assign(corpo !== undefined && !ehArquivo ? { 'Content-Type': 'application/json' } : {}, cabecalhos || {}), body: corpo === undefined ? undefined : ehArquivo ? corpo : JSON.stringify(corpo) });
+  } catch (e) { throw { code: 'servidor' }; }
+  if (r.status === 401) { location.href = '/entrar'; throw { code: 'sessao' }; }
+  if (r.status === 403) { location.href = '/'; throw { code: 'proibido' }; }
+  let dados = null;
+  try { dados = await r.json(); } catch (e) { dados = null; }
+  if (!r.ok) throw { code: r.status === 413 ? 'too_large' : r.status === 415 ? 'unsupported_type' : 'servidor', message: dados && dados.erro };
+  return dados;
+}
+async function baixarDoServidor() {
+  const d = await api('GET', 'api/dados');
+  COLS.forEach(c => { D[c] = new Map((d[c] || []).filter(x => x && x.id).map(x => [x.id, x])); });
+  cacheKm = new Map(); cacheConsumo = null;
+}
+function iniciarServidor() {
+  Armazem.modo = 'carregando';
+  $('#quem').hidden = false;
+  $('#quem-nome').textContent = PAINEL.nome || PAINEL.usuario || '';
+  const tentar = () => baixarDoServidor().then(() => { Armazem.modo = 'servidor'; Armazem.semConexao = false; ouvirServidor(); agendarRender(); })
+    .catch(e => { if (e && (e.code === 'sessao' || e.code === 'proibido')) return; Armazem.semConexao = true; agendarRender(); setTimeout(tentar, 5000); });
+  tentar();
+}
+function ouvirServidor() {
+  const es = new EventSource('api/eventos');
+  let caiu = false;
+  es.onmessage = ev => {
+    let m = null;
+    try { m = JSON.parse(ev.data); } catch (e) { return; }
+    for (const op of (m.tipo === 'lote' ? m.ops : [m])) {
+      if (!op || !COLS.includes(op.col)) continue;
+      if (op.tipo === 'set' && op.obj && op.obj.id) D[op.col].set(op.obj.id, op.obj);
+      else if (op.tipo === 'del') D[op.col].delete(op.id);
+    }
+    cacheKm = new Map(); cacheConsumo = null;
+    agendarRender();
+  };
+  es.onerror = () => { caiu = true; Armazem.semConexao = true; agendarRender(); };
+  es.onopen = () => {
+    if (caiu) { caiu = false; baixarDoServidor().then(() => { Armazem.semConexao = false; agendarRender(); }).catch(() => {}); }
+    else { Armazem.semConexao = false; agendarRender(); }
+  };
+}
+
 async function gravar(col, obj) {
   if (UI.somenteLeitura) throw { code: 'invalid_argument' };
   const antes = D[col].get(obj.id);
@@ -1119,6 +1175,12 @@ async function gravar(col, obj) {
   cacheKm = new Map(); cacheConsumo = null;
   if (Armazem.modo === 'local') {
     if (!gravarLocal()) { if (antes) D[col].set(obj.id, antes); else D[col].delete(obj.id); throw { code: 'local' }; }
+    agendarRender();
+    return;
+  }
+  if (Armazem.modo === 'servidor') {
+    try { await api('PUT', 'api/dados/' + col + '/' + encodeURIComponent(obj.id), obj); }
+    catch (e) { if (antes) D[col].set(obj.id, antes); else D[col].delete(obj.id); agendarRender(); throw e; }
     agendarRender();
     return;
   }
@@ -1144,6 +1206,12 @@ async function apagar(col, id) {
     agendarRender();
     return;
   }
+  if (Armazem.modo === 'servidor') {
+    try { await api('DELETE', 'api/dados/' + col + '/' + encodeURIComponent(id)); }
+    catch (e) { if (antes) D[col].set(id, antes); agendarRender(); throw e; }
+    agendarRender();
+    return;
+  }
   try { await Armazem.db.collection(col).doc(id).delete(); }
   catch (e) {
     if (antes) D[col].set(id, antes);
@@ -1162,6 +1230,16 @@ async function gravarVarios(ops, aoAvancar) {
     for (const [tipo, col, x] of ops) { if (tipo === 'set') D[col].set(x.id, x); else D[col].delete(x); }
     cacheKm = new Map(); cacheConsumo = null;
     if (!gravarLocal()) { COLS.forEach(c => { D[c] = copia[c]; }); throw { code: 'local' }; }
+    agendarRender();
+    return;
+  }
+  if (Armazem.modo === 'servidor') {
+    const copia = {};
+    COLS.forEach(c => { copia[c] = new Map(D[c]); });
+    for (const [tipo, col, x] of ops) { if (tipo === 'set') D[col].set(x.id, x); else D[col].delete(x); }
+    cacheKm = new Map(); cacheConsumo = null;
+    try { await api('POST', 'api/lote', { ops: ops.map(([tipo, col, x]) => (tipo === 'set' ? { tipo: 'set', col, obj: x } : { tipo: 'del', col, id: x })) }); }
+    catch (e) { COLS.forEach(c => { D[c] = copia[c]; }); agendarRender(); throw e; }
     agendarRender();
     return;
   }
@@ -1185,6 +1263,9 @@ function msgErro(e) {
     case 'resource_exhausted': return 'Muitas gravações de uma vez. Espere alguns segundos e tente de novo.';
     case 'local': return 'Não consegui salvar neste computador: o armazenamento do navegador está cheio ou bloqueado.';
     case 'revoked': return 'O acesso a estes dados foi retirado.';
+    case 'servidor': return 'O servidor não respondeu. Confira a internet e tente de novo.';
+    case 'sessao': return 'Sua entrada no painel venceu. Entre de novo.';
+    case 'proibido': return 'Você não tem acesso a este sistema.';
     default: return 'Não consegui salvar agora. Confira a internet e tente de novo.';
   }
 }
@@ -1247,6 +1328,9 @@ function renderEstado() {
   else if (modo === 'nuvem' && Armazem.semConexao) { modo = 'erro'; txt = 'Sem conexão: pode estar desatualizado'; }
   else if (modo === 'nuvem') txt = 'Salvo na sua conta';
   else if (modo === 'local') txt = 'Salvo neste computador';
+  else if (modo === 'servidor' && Armazem.semConexao) { modo = 'erro'; txt = 'Sem conexão com o servidor'; }
+  else if (modo === 'servidor') { modo = 'nuvem'; txt = 'Salvo no servidor'; }
+  else if (modo === 'carregando' && Armazem.semConexao) { modo = 'erro'; txt = 'Tentando falar com o servidor…'; }
   el.dataset.modo = modo;
   el.textContent = txt;
   el.title = txt;
@@ -2112,6 +2196,10 @@ const Arquivos = {
     if (!tipo) throw { code: 'unsupported_type' };
     if (file.size > LIMITE_ARQ) throw { code: 'too_large' };
     const base = { nome: file.name || 'documento', tipo, tamanho: file.size };
+    if (Armazem.modo === 'servidor') {
+      const blob = file.type === tipo ? file : new Blob([file], { type: tipo });
+      return await api('POST', 'api/arquivos', blob, { 'Content-Type': tipo, 'X-Nome-Arquivo': encodeURIComponent(base.nome) });
+    }
     if (Armazem.modo === 'nuvem') {
       const a = await this.nuvem();
       if (!a) throw { code: 'sem_assets' };
@@ -2128,11 +2216,13 @@ const Arquivos = {
     if (!a || !a.id) return;
     try {
       if (a.onde === 'nuvem') { const n = await this.nuvem(); if (n) await n.delete(a.id); }
+      else if (a.onde === 'servidor') { if (Armazem.modo === 'servidor') await api('DELETE', 'api/arquivos/' + encodeURIComponent(a.id)); }
       else await this.op('readwrite', st => st.delete(a.id));
     } catch (e) { /* o registro já saiu; um arquivo sobrando não atrapalha */ }
   },
   async ler(a) {
     if (a.onde === 'nuvem') { const r = await fetch('/_blob/' + a.id); if (!r.ok) throw new Error('arquivo'); return r.blob(); }
+    if (a.onde === 'servidor') { const r = await fetch('api/arquivos/' + encodeURIComponent(a.id), { credentials: 'same-origin' }); if (!r.ok) throw new Error('arquivo'); return r.blob(); }
     const b = await this.op('readonly', st => st.get(a.id));
     if (!b) throw new Error('arquivo');
     return b;
@@ -2319,7 +2409,7 @@ async function arquivosDaCopia() {
   const saida = {};
   for (const d of D.documentos.values()) {
     const a = d.arquivo;
-    if (!a || a.onde !== 'local' || saida[a.id]) continue;
+    if (!a || (a.onde !== 'local' && a.onde !== 'servidor') || saida[a.id]) continue;
     try { saida[a.id] = { tipo: a.tipo, nome: a.nome, dados: await blobParaBase64(await Arquivos.ler(a)) }; } catch (e) { /* arquivo sumiu: segue sem ele */ }
   }
   return saida;
@@ -2343,7 +2433,7 @@ async function restaurarArquivo(doc, arquivos, novos) {
     // na conta: se este documento já tem o mesmo arquivo de uma restauração anterior, aproveita
     const atual = D.documentos.get(doc.id);
     const ja = atual && atual.arquivo;
-    if (ja && ja.onde === 'nuvem' && ja.nome === a.nome && ja.tamanho === a.tamanho) return { doc: Object.assign({}, doc, { arquivo: ja }), ok: true };
+    if (ja && ja.onde === Armazem.modo && ja.nome === a.nome && ja.tamanho === a.tamanho) return { doc: Object.assign({}, doc, { arquivo: ja }), ok: true };
     if (!emb) return { doc: Object.assign({}, doc, { arquivo: null }), ok: false };
     const b = base64ParaBlob(emb.dados, a.tipo || emb.tipo);
     const novo = await Arquivos.guardar(new File([b], a.nome || 'documento', { type: b.type }));
@@ -3338,7 +3428,9 @@ function renderFrota() {
   // dados
   $('#dados-onde').textContent = Armazem.modo === 'local'
     ? 'Os dados ficam salvos neste computador, dentro do navegador. Salve uma cópia de vez em quando e guarde num pendrive ou no e-mail.'
-    : 'Os dados ficam salvos na sua conta do claude.ai e aparecem em qualquer aparelho em que você abrir este link.';
+    : Armazem.modo === 'servidor'
+      ? 'Os dados e os arquivos ficam no servidor do Painel Deconto, com uma cópia automática por dia, e aparecem para todos que entram no painel.'
+      : 'Os dados ficam salvos na sua conta do claude.ai e aparecem em qualquer aparelho em que você abrir este link.';
   let ultima = null;
   try { ultima = localStorage.getItem(CHAVE_COPIA); } catch (e) { /* sem armazenamento */ }
   $('#dados-ultima').textContent = ultima ? 'Última cópia salva neste aparelho: ' + fmtData(ultima) + '.' : (Armazem.modo === 'local' ? 'Nenhuma cópia salva ainda neste aparelho.' : '');
@@ -3721,7 +3813,7 @@ function planilha(tipo) {
 async function salvarCopia() {
   const dados = {};
   COLS.forEach(c => { dados[c] = todos(c); });
-  const arquivos = Armazem.modo === 'local' ? await arquivosDaCopia() : {};
+  const arquivos = Armazem.modo === 'local' || Armazem.modo === 'servidor' ? await arquivosDaCopia() : {};
   const json = JSON.stringify({ app: 'sistema-carlise', versao: 1, salvoEm: new Date().toISOString(), dados, arquivos }, null, 1);
   const ok = await baixar('sistema-carlise-copia-' + hojeISO() + '.json', json, 'application/json');
   if (ok) { try { localStorage.setItem(CHAVE_COPIA, hojeISO()); } catch (e) { /* sem armazenamento */ } toast('Cópia salva.'); agendarRender(); }
@@ -3973,6 +4065,7 @@ function ligarEventos() {
       case 'salvar-troca': salvarTroca(b.dataset.cam); break;
       case 'desfazer-troca': delete UI.pendTroca[b.dataset.cam]; render(); break;
       case 'backup': salvarCopia(); break;
+      case 'sair': api('POST', '/api/sair', {}).catch(() => {}).then(() => { location.href = '/entrar'; }); break;
       case 'restaurar': $('#arquivo-copia').click(); break;
       case 'carregar-exemplo': carregarExemplo(); break;
       case 'pedir-apagar-exemplo': UI.pedirApagarExemplo = true; window.scrollTo(0, 0); render(); break;
@@ -4117,6 +4210,7 @@ async function iniciar() {
   montarListasFixas();
   ligarEventos();
   rotear();
+  if (PAINEL) { iniciarServidor(); return; }
   if (window.claude && typeof window.claude.use === 'function') {
     let db = null;
     try { db = await window.claude.use('db'); } catch (e) { db = null; }
