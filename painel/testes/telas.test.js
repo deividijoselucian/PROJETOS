@@ -52,6 +52,8 @@ function subir() {
   });
 }
 function descer() { return new Promise(ok => { if (!proc) return ok(); proc.removeAllListeners('exit'); proc.on('exit', () => ok()); proc.kill('SIGTERM'); }); }
+/* reinício do Node (como numa atualização): os dados e as sessões ficam no disco */
+async function reiniciar() { await descer(); proc = null; await subir(); }
 
 before(async () => {
   await subir();
@@ -383,6 +385,58 @@ teste('gravação feita por outro navegador enquanto a página abre aparece sem 
     assert.strictEqual(r.status(), 200);
     const viu = await p.waitForFunction(([c, k]) => D[c].has(k), [col, chave], { timeout: 6000 }).then(() => true, () => false);
     assert.ok(viu, `${sis}: o registro gravado durante a abertura apareceu`);
+  }
+});
+
+// ---------- 12. avisos ao vivo depois de um 502 (nginx enquanto o Node reinicia) ----------
+teste('avisos ao vivo: com 502 enquanto o servidor reinicia (nginx), a página reconecta sozinha e vê o que outro gravou (DECONTO e Controle)', async () => {
+  const outro = await logado();
+  for (const [sis, col, obj, chave] of [['frota', 'caminhoes', { placa: 'RNC1A00' }, 'cam-reinicio'], ['operacao', 'obras', { nome: 'Obra do reinício', situacao: 'andamento', etapas: [] }, 'ob-reinicio']]) {
+    const ctx = await logado();
+    // o "nginx": enquanto quebrado, tudo da API deste sistema volta 502
+    let quebrado = false, falhas = 0, passaram = 0;
+    await ctx.route(`**/${sis}/api/**`, async r => {
+      const ehEventos = new URL(r.request().url()).pathname.endsWith('/api/eventos');
+      if (quebrado) { if (ehEventos) falhas++; await r.fulfill({ status: 502, contentType: 'text/html', body: '<h1>502 Bad Gateway</h1>' }); return; }
+      if (ehEventos) passaram++;
+      await r.fallback();
+    });
+    const p = await abrir(ctx, `/${sis}/`);
+    await esperarServidor(p);
+    // o Node reinicia: a conexão cai e a reconexão do navegador (3 s depois) recebe 502
+    quebrado = true;
+    await reiniciar();
+    await p.waitForTimeout(4000);
+    assert.ok(falhas >= 1, `${sis}: a reconexão recebeu 502 (${falhas})`);
+    // outra pessoa grava com a página ainda sem conexão
+    const r = await outro.request.put(`${BASE}/${sis}/api/dados/${col}/${chave}`, { data: obj });
+    assert.strictEqual(r.status(), 200);
+    await p.waitForTimeout(2000);
+    // o nginx volta a passar os pedidos para o Node
+    quebrado = false;
+    const passaramAntes = passaram;
+    const viu = await p.waitForFunction(([c, k]) => D[c].has(k), [col, chave], { timeout: 15000 }).then(() => true, () => false);
+    assert.ok(viu, `${sis}: depois do 502 a página reconectou e viu a gravação nova (estado: ${await p.textContent('#estado')})`);
+    await esperarServidor(p, 5000);
+    await p.waitForTimeout(1500);
+    assert.strictEqual(passaram - passaramAntes, 1, `${sis}: uma conexão de avisos só, depois que o servidor voltou`);
+    assert.ok(falhas <= 4, `${sis}: sem laço apertado, ${falhas} tentativas durante o 502`);
+    assert.strictEqual((await p.textContent('#estado')).trim(), 'Salvo no servidor');
+  }
+});
+
+// ---------- 13. sessão encerrada enquanto a conexão de avisos estava caída ----------
+teste('avisos ao vivo: se a sessão acabou enquanto a conexão caiu, a página vai para /entrar (DECONTO e Controle)', async () => {
+  for (const sis of ['frota', 'operacao']) {
+    const ctx = await logado();
+    const p = await abrir(ctx, `/${sis}/`);
+    await esperarServidor(p);
+    // saiu por outra aba (a sessão some do servidor) e o Node reinicia: a reconexão recebe 401
+    const r = await ctx.request.post(BASE + '/api/sair', { data: {} });
+    assert.strictEqual(r.status(), 200);
+    await reiniciar();
+    const foi = await p.waitForURL(BASE + '/entrar', { timeout: 15000 }).then(() => true, () => false);
+    assert.ok(foi, `${sis}: foi para /entrar (está em ${p.url()}, estado: ${await p.textContent('#estado').catch(() => '?')})`);
   }
 });
 

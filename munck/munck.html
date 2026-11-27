@@ -1027,8 +1027,15 @@ function iniciarServidor() {
   $('#voltar-painel').hidden = !NO_PAINEL;
   ouvirServidor();
 }
+/* Atrás do nginx, enquanto o Node reinicia, a reconexão recebe 502 e o navegador desiste dela de vez
+   (readyState CLOSED). Aí abrimos outra daqui a 3 s, e ela sincroniza tudo de novo quando abrir.
+   Uma conexão só por vez, e no máximo uma reabertura marcada. */
+let avisosAoVivo = null, reabrirAvisos = null;
 function ouvirServidor() {
-  const es = new EventSource('api/eventos');
+  clearTimeout(reabrirAvisos);
+  reabrirAvisos = null;
+  if (avisosAoVivo) avisosAoVivo.close();
+  const es = avisosAoVivo = new EventSource('api/eventos');
   let fila = null, abriu = false, conferindo = false;
   const aplicarAviso = m => {
     for (const op of (m.tipo === 'lote' ? m.ops : [m])) {
@@ -1049,7 +1056,7 @@ function ouvirServidor() {
       agendarRender();
     }).catch(e => {
       fila = null;
-      if (e && (e.code === 'sessao' || e.code === 'proibido')) { es.close(); return; }
+      if (e && (e.code === 'sessao' || e.code === 'proibido')) { es.close(); clearTimeout(reabrirAvisos); return; }
       Armazem.semConexao = true;
       agendarRender();
       setTimeout(() => { if (es.readyState === 1) sincronizar(); }, 5000);
@@ -1067,6 +1074,8 @@ function ouvirServidor() {
     agendarRender();
     // se nunca abriu, pode ser a entrada que venceu: a API leva para o login
     if (!abriu && !conferindo) { conferindo = true; api('GET', 'api/dados').catch(() => {}).then(() => { conferindo = false; }); }
+    // o navegador desistiu (resposta que não é 200, como o 502 do nginx): abre outra daqui a pouco
+    if (es.readyState === EventSource.CLOSED && es === avisosAoVivo && !reabrirAvisos) reabrirAvisos = setTimeout(ouvirServidor, 3000);
   };
 }
 async function gravar(col, obj) {
