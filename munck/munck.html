@@ -1,0 +1,2005 @@
+<title>Controle Munck</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+:root {
+  /* Layout: barra escura fixa com as abas (Painel, Agenda, Km das obras, Obras, Caminhões e motoristas).
+     O quadro da semana é a peça central: caminhões nas linhas, dias nas colunas. Placas no padrão Mercosul. */
+  --bg: #F1F0F6; --surface: #FFFFFF; --sunk: #E7E5EF; --ink: #17151F; --muted: #575366; --line: #D8D5E3;
+  --accent: #5B3FD6; --accent-hover: #4A30B8; --accent-ink: #FFFFFF; --accent-soft: #ECE8FC;
+  --ok: #0B7550; --ok-soft: #DBF2E7; --warn: #8A5300; --warn-soft: #FBEDD3; --bad: #BA2E29; --bad-soft: #FBE2E0;
+  --hoje: #F6F4FF; --fds: #F7F6FA;
+  /* barra, guindaste e placa: iguais nos dois temas */
+  --barra: #1B1824; --barra-ink: #F4F3F8; --barra-muted: #ADA8BD; --barra-line: #312C40; --guindaste: #F2C230;
+  --placa-fundo: #FFFFFF; --placa-borda: #2A2E36; --placa-faixa: #1F3E9C; --placa-tinta: #101216;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sombra: 0 1px 2px rgba(23, 21, 31, 0.06), 0 6px 18px rgba(23, 21, 31, 0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #100F15; --surface: #18161F; --sunk: #211E2B; --ink: #ECEAF2; --muted: #A39EB3; --line: #2F2B3B;
+    --accent: #B3A4FF; --accent-hover: #CCC2FF; --accent-ink: #100F15; --accent-soft: #2A2348;
+    --ok: #4FCB96; --ok-soft: #12372A; --warn: #F1B65C; --warn-soft: #3A2A0F; --bad: #FF8F87; --bad-soft: #421D1C;
+    --hoje: #1E1A30; --fds: #15131C;
+    --barra: #0B0A10; --barra-line: #26222F;
+    --sombra: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #100F15; --surface: #18161F; --sunk: #211E2B; --ink: #ECEAF2; --muted: #A39EB3; --line: #2F2B3B;
+  --accent: #B3A4FF; --accent-hover: #CCC2FF; --accent-ink: #100F15; --accent-soft: #2A2348;
+  --ok: #4FCB96; --ok-soft: #12372A; --warn: #F1B65C; --warn-soft: #3A2A0F; --bad: #FF8F87; --bad-soft: #421D1C;
+  --hoje: #1E1A30; --fds: #15131C;
+  --barra: #0B0A10; --barra-line: #26222F;
+  --sombra: none; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; min-height: 100vh; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--barra); }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Barra de cima */
+.barra { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--barra); color: var(--barra-ink); border-bottom: 1px solid var(--barra-line); }
+.barra-in, .abas { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.barra-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 10px 4px; }
+.marca { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.marca svg { width: 34px; height: 34px; flex: none; }
+.marca-nome { font-family: var(--display); font-weight: 700; font-size: 1.35rem; letter-spacing: 0.01em; line-height: 1.1; }
+.marca-sub { font-size: 0.8rem; color: var(--barra-muted); line-height: 1.2; }
+.estado { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--barra-muted); border: 1px solid var(--barra-line); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+.estado::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--barra-muted); }
+.estado[data-modo="nuvem"]::before { background: #4FCB96; }
+.estado[data-modo="local"]::before { background: var(--guindaste); }
+.estado[data-modo="erro"]::before, .estado[data-modo="leitura"]::before { background: #FF8F87; }
+@media (max-width: 520px) { .estado { font-size: 0; gap: 0; padding: 7px; } .marca-sub { display: none; } }
+.abas { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.abas::-webkit-scrollbar { display: none; }
+.aba { flex: none; position: relative; color: var(--barra-muted); text-decoration: none; font-weight: 600; font-size: 0.98rem; padding: 12px 12px 14px; min-height: 44px; display: inline-flex; align-items: center; gap: 6px; }
+.aba:hover, .aba[aria-selected="true"] { color: var(--barra-ink); }
+.aba[aria-selected="true"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 4px; height: 3px; background: repeating-linear-gradient(135deg, var(--guindaste) 0 6px, var(--barra) 6px 10px); }
+.aba .cont { font-size: 0.72rem; font-weight: 700; background: var(--guindaste); color: #1B1824; border-radius: 999px; padding: 0 6px; line-height: 1.5; font-variant-numeric: tabular-nums; }
+
+/* Página */
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 20px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 18px; }
+.vista, .vista-int { display: flex; flex-direction: column; gap: 22px; }
+.h1 { font-family: var(--display); font-weight: 700; font-size: 1.9rem; line-height: 1.1; }
+.h2 { font-family: var(--display); font-weight: 600; font-size: 1.35rem; line-height: 1.15; }
+.hint { color: var(--muted); font-size: 0.92rem; }
+.cab { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: end; justify-content: space-between; }
+.cab > * { min-width: 0; }
+.bloco { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.bloco-cab { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: end; justify-content: space-between; }
+.bloco-cab > div:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.carregando { color: var(--muted); padding: 28px 0; }
+
+/* Faixas de aviso */
+.faixa-aviso { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; border-radius: 10px; padding: 12px 14px; background: var(--warn-soft); }
+.faixa-aviso p { min-width: 0; flex: 1 1 280px; }
+.faixa-aviso.leitura, .faixa-aviso.grave { background: var(--bad-soft); }
+
+/* Números */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; container-type: inline-size; }
+.kpi-rot { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.kpi-val { font-family: var(--display); font-weight: 700; font-size: 2rem; font-size: min(2rem, 15cqi); line-height: 1.05; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi-val small { font-size: 1.05rem; font-weight: 600; color: var(--muted); margin-left: 4px; }
+.kpi-sub { font-size: 0.86rem; color: var(--muted); }
+
+/* Alertas */
+.alertas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.alertas li { display: flex; gap: 8px 12px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.alertas li:first-child { border-top: 0; }
+.alertas li .txt { min-width: 0; flex: 1 1 260px; }
+
+/* Selos */
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; background: var(--sunk); color: var(--muted); line-height: 1.5; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.pill.info { background: var(--accent-soft); color: var(--accent); }
+
+/* Placa Mercosul */
+.placa { display: inline-flex; flex-direction: column; align-items: stretch; vertical-align: middle; flex: none; background: var(--placa-fundo); color: var(--placa-tinta); border: 1.5px solid var(--placa-borda); border-radius: 4px; overflow: hidden; line-height: 1; }
+.placa-faixa { background: var(--placa-faixa); color: #FFFFFF; font: 700 0.46rem/1 var(--body); letter-spacing: 0.16em; text-align: center; padding: 1px 4px; }
+.placa-n { font: 700 1.02rem/1 var(--display); letter-spacing: 0.08em; padding: 2px 6px 2px 7px; text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.placa.g .placa-faixa { font-size: 0.58rem; padding: 2px 4px; }
+.placa.g .placa-n { font-size: 1.4rem; padding: 3px 9px 3px 10px; }
+.placa.p .placa-faixa { display: none; }
+.placa.p .placa-n { font-size: 0.86rem; padding: 2px 5px; }
+.sem { color: var(--muted); }
+.veic { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.veic-txt { font-size: 0.84rem; color: var(--muted); line-height: 1.25; min-width: 0; overflow-wrap: anywhere; }
+
+/* Tabelas */
+.tabela-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.tabela { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+.tabela th, .tabela td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tabela th { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); background: var(--sunk); white-space: nowrap; }
+.tabela td.n, .tabela th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tabela td.d { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tabela tbody tr:last-child td { border-bottom: 0; }
+.tabela tfoot td { font-weight: 700; background: var(--sunk); border-bottom: 0; border-top: 1px solid var(--line); }
+.tabela td.acoes { white-space: nowrap; text-align: right; }
+.tabela .fraco { color: var(--muted); font-size: 0.86rem; }
+.tabela .forte { font-weight: 700; }
+.tabela tr.apagado td { color: var(--muted); }
+.tabela tr.apagado td.riscar { text-decoration: line-through; }
+.vazio-txt { color: var(--muted); padding: 18px; text-align: center; }
+
+/* Botões */
+.btn { font: 700 0.98rem var(--body); border-radius: 9px; padding: 10px 18px; min-height: 44px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.ghost:hover { background: var(--accent-soft); }
+.btn.small { font-size: 0.88rem; padding: 7px 12px; min-height: 40px; }
+.btn.perigo { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.lnk { font: 600 0.9rem var(--body); background: none; border: 0; color: var(--accent); cursor: pointer; padding: 8px 6px; min-height: 36px; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.lnk:hover { text-decoration-thickness: 2px; }
+.lnk.perigo { color: var(--bad); }
+.conf { display: inline-flex; gap: 4px; align-items: center; font-size: 0.88rem; font-weight: 600; }
+.acoes-linha { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+/* Formulários */
+.ficha { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--sombra); scroll-margin-top: 120px; }
+.ficha.editando { border: 2px dashed var(--accent); }
+.ficha-cab { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 14px; }
+.campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.campo.largo { grid-column: 1 / -1; }
+.campo > label { font-weight: 600; font-size: 0.9rem; }
+.campo .dica { font-size: 0.82rem; color: var(--muted); }
+input[type="text"], input[type="date"], input[type="time"], input:not([type]), select, textarea {
+  font: inherit; font-size: 1rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 11px; min-height: 44px; width: 100%; min-width: 0;
+}
+textarea { min-height: 96px; resize: vertical; line-height: 1.4; }
+select { cursor: pointer; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); background: var(--surface); }
+[aria-invalid="true"] { border-color: var(--bad) !important; }
+.obra-nova { grid-column: 1 / -1; border: 1.5px dashed var(--accent); border-radius: 10px; padding: 12px 14px 14px; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; background: var(--accent-soft); }
+.obra-nova legend { font-weight: 700; font-size: 0.9rem; padding: 0 6px; }
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filtros select { width: auto; max-width: 100%; min-height: 40px; padding: 7px 10px; font-size: 0.92rem; background: var(--surface); }
+.calc { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.calc:empty { display: none; }
+.calc .grande { font-family: var(--display); font-weight: 700; font-size: 1.6rem; }
+.calc .aviso { color: var(--warn); font-weight: 600; font-size: 0.92rem; }
+.calc .erro { color: var(--bad); font-weight: 600; font-size: 0.92rem; }
+.calc .info { color: var(--muted); font-size: 0.92rem; }
+.f-msg { font-weight: 600; font-size: 0.95rem; }
+.f-msg.erro { color: var(--bad); }
+.f-msg.ok { color: var(--ok); }
+/* por dia / por etapa */
+.modos { display: inline-flex; gap: 4px; background: var(--sunk); border-radius: 10px; padding: 4px; }
+.seg { font: 600 0.95rem var(--body); color: var(--ink); border-radius: 7px; padding: 8px 14px; min-height: 40px; cursor: pointer; display: inline-flex; align-items: center; }
+.seg:hover { background: var(--surface); }
+.seg:has(input:checked) { background: var(--surface); color: var(--accent); box-shadow: var(--sombra); outline: 1px solid var(--line); }
+.seg:has(input:focus-visible) { outline: 3px solid var(--accent); }
+
+/* Painel: um cartão por caminhão */
+.munks { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px; }
+.munk { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.munk-cab { display: flex; gap: 10px; align-items: center; padding: 12px 14px; }
+.munk-cab .veic-txt { flex: 1; }
+.onde { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 2px; border-left: 4px solid var(--line); background: var(--sunk); }
+.onde.trabalhando { border-left-color: var(--ok); background: var(--ok-soft); }
+.onde.oficina { border-left-color: var(--warn); background: var(--warn-soft); }
+.onde-rot { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.onde-obra { font-family: var(--display); font-weight: 700; font-size: 1.4rem; line-height: 1.15; overflow-wrap: anywhere; }
+.onde-det { font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
+.prox { list-style: none; margin: 0; padding: 10px 14px; display: flex; flex-direction: column; gap: 5px; font-size: 0.92rem; }
+.prox-rot { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.prox li { display: grid; grid-template-columns: 6.4em 1fr; gap: 8px; }
+.prox .quando { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.prox .oque { min-width: 0; overflow-wrap: anywhere; }
+.prox li.nada { display: block; color: var(--muted); }
+.munk-pe { margin-top: auto; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; padding: 10px 14px; border-top: 1px solid var(--line); }
+.munk-pe .km { font-size: 0.88rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Quadro da semana */
+.semana-nav { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.quadro-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.quadro { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1020px; table-layout: fixed; }
+.quadro th, .quadro td { border-bottom: 1px solid var(--line); border-left: 1px solid var(--line); padding: 6px; vertical-align: top; text-align: left; }
+.quadro tr > :first-child { border-left: 0; }
+.quadro tbody tr:last-child > * { border-bottom: 0; }
+.quadro thead th { background: var(--sunk); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); padding: 8px; white-space: nowrap; }
+.quadro thead th.hoje { color: var(--accent); box-shadow: inset 0 -3px 0 var(--accent); }
+.quadro .col-cam { width: 190px; }
+.quadro tbody th { font-weight: 600; background: var(--surface); position: sticky; left: 0; z-index: 1; box-shadow: 1px 0 0 var(--line); }
+.quadro td.fds { background: var(--fds); }
+.quadro td.hoje { background: var(--hoje); }
+.quadro td.conflito { box-shadow: inset 0 0 0 2px var(--bad); }
+.celula { display: flex; flex-direction: column; gap: 4px; min-height: 58px; }
+.chip { display: block; width: 100%; text-align: left; font: inherit; font-size: 0.8rem; line-height: 1.3; border: 0; border-left: 3px solid var(--accent); background: var(--accent-soft); color: var(--ink); border-radius: 6px; padding: 5px 7px; cursor: pointer; }
+.chip:hover { filter: brightness(0.97); }
+.chip strong { display: block; font-size: 0.86rem; overflow-wrap: anywhere; }
+.chip span { display: block; color: var(--muted); overflow-wrap: anywhere; }
+.chip.confirmado { border-left-color: var(--ok); background: var(--ok-soft); }
+.chip.feito { border-left-color: var(--muted); background: var(--sunk); }
+.chip.feito strong { color: var(--muted); }
+.add { font: 700 1rem var(--body); color: var(--muted); background: none; border: 1px dashed var(--line); border-radius: 6px; cursor: pointer; min-height: 30px; width: 100%; opacity: 0.45; }
+.add:hover, .add:focus-visible { opacity: 1; color: var(--accent); border-color: var(--accent); }
+.celula:has(.chip) .add { min-height: 24px; font-size: 0.85rem; }
+
+/* Obras */
+.obras { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; }
+.obra { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.obra-topo { display: flex; gap: 8px 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.obra-nome { font-family: var(--display); font-weight: 700; font-size: 1.35rem; line-height: 1.15; overflow-wrap: anywhere; }
+.obra-sub { font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
+.numeros { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.numeros strong { color: var(--ink); font-size: 1rem; }
+.etiquetas { display: flex; flex-wrap: wrap; gap: 6px; }
+.etiqueta { font-size: 0.8rem; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
+.obra-pe { margin-top: auto; display: flex; flex-wrap: wrap; gap: 8px; }
+.ficha-obra { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.ficha-obra div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ficha-obra dt { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.ficha-obra dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.titulo-obra { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+
+/* Vazio */
+.vazio-grande { background: var(--surface); border: 1px dashed var(--line); border-radius: 14px; padding: 24px 22px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+
+/* Aviso rápido */
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 20; background: var(--ink); color: var(--bg); font-weight: 600; padding: 11px 18px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.22); max-width: calc(100% - 32px); width: max-content; }
+.toast.erro { background: var(--bad); color: #FFFFFF; }
+@media (prefers-reduced-motion: no-preference) { .toast { animation: sobe 0.18s ease-out; } @keyframes sobe { from { opacity: 0; transform: translate(-50%, 8px); } } }
+@media (pointer: coarse) { .lnk { min-height: 44px; padding: 10px 8px; } .btn.small, .filtros select { min-height: 44px; } .add { opacity: 0.7; } }
+@media (max-width: 560px) { .h1 { font-size: 1.6rem; } .ficha { padding: 14px; } .tabela th, .tabela td { padding: 8px; } }
+</style>
+
+<header class="barra">
+  <div class="barra-in">
+    <div class="marca">
+      <svg viewBox="0 0 34 34" aria-hidden="true">
+        <rect x="0.5" y="0.5" width="33" height="33" rx="7" fill="#5B3FD6"/>
+        <rect x="4" y="18" width="16" height="5" rx="1" fill="#FFFFFF"/>
+        <path d="M21 14.5h4.4l3.6 4.2v4.3h-8z" fill="#FFFFFF"/>
+        <path d="M8 18V14.5L24.5 7" stroke="#F2C230" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M24.5 7v5" stroke="#FFFFFF" stroke-width="1.3"/>
+        <path d="M23.1 12.3a1.4 1.4 0 1 0 2.8 0" stroke="#FFFFFF" stroke-width="1.3" fill="none"/>
+        <circle cx="9.5" cy="25.5" r="2.5" fill="#F2C230"/><circle cx="24.5" cy="25.5" r="2.5" fill="#F2C230"/>
+      </svg>
+      <div><div class="marca-nome">Controle Munck</div><div class="marca-sub">Obras e agenda dos caminhões munck</div></div>
+    </div>
+    <span class="estado" id="estado" data-modo="carregando" role="status">Carregando…</span>
+  </div>
+  <nav class="abas" aria-label="Seções do sistema" role="tablist">
+    <a class="aba" role="tab" href="#painel" data-aba="painel">Painel <span class="cont" id="cont-alertas" hidden></span></a>
+    <a class="aba" role="tab" href="#agenda" data-aba="agenda">Agenda</a>
+    <a class="aba" role="tab" href="#km" data-aba="km">Km das obras</a>
+    <a class="aba" role="tab" href="#obras" data-aba="obras">Obras</a>
+    <a class="aba" role="tab" href="#cadastro" data-aba="cadastro">Caminhões e motoristas</a>
+  </nav>
+</header>
+
+<main class="wrap">
+  <div class="faixa-aviso leitura" id="aviso-leitura" hidden>
+    <p><strong>Só leitura.</strong> Você pode ver tudo, mas não pode salvar. Peça acesso de edição a quem compartilhou.</p>
+  </div>
+  <div class="faixa-aviso" id="aviso-alertas" hidden>
+    <p id="aviso-alertas-txt"></p>
+    <a class="btn small" href="#painel">Ver no Painel</a>
+  </div>
+  <p class="carregando" id="carregando">Carregando os dados…</p>
+
+  <!-- PAINEL -->
+  <section class="vista" id="v-painel" data-vista="painel" hidden>
+    <div class="cab">
+      <div><h1 class="h1">Onde está cada munck</h1><p class="hint" id="painel-data"></p></div>
+      <div class="acoes-linha">
+        <button class="btn" type="button" data-acao="novo-ag">Agendar serviço</button>
+        <button class="btn ghost" type="button" data-acao="novo-km">Lançar km</button>
+      </div>
+    </div>
+    <div class="kpis" id="painel-kpis"></div>
+    <section class="bloco" id="bloco-alertas" hidden>
+      <div class="bloco-cab"><div><h2 class="h2">Precisa de atenção</h2><p class="hint">Serviços marcados no mesmo horário, km que falta lançar e validade dos documentos dos motoristas.</p></div></div>
+      <ul class="alertas" id="painel-alertas"></ul>
+    </section>
+    <section class="bloco">
+      <div class="bloco-cab"><div><h2 class="h2">Caminhões</h2><p class="hint">Onde cada um trabalha hoje e os próximos serviços.</p></div></div>
+      <div class="munks" id="painel-cams"></div>
+    </section>
+  </section>
+
+  <!-- AGENDA -->
+  <section class="vista" id="v-agenda" data-vista="agenda" hidden>
+    <div class="cab">
+      <div><h1 class="h1">Agenda</h1><p class="hint">Qual caminhão vai para qual obra, em que dia e com qual motorista.</p></div>
+      <button class="btn" type="button" data-acao="novo-ag">Novo agendamento</button>
+    </div>
+    <form class="ficha" id="f-ag" data-col="agenda" novalidate hidden>
+      <div class="ficha-cab">
+        <h2 class="h2" data-novo="Novo agendamento" data-editar="Editando agendamento">Novo agendamento</h2>
+        <button class="lnk" type="button" data-acao="fechar-form">Fechar</button>
+      </div>
+      <div class="campos">
+        <div class="campo"><label for="ag-data">Data</label><input type="date" id="ag-data" name="data"></div>
+        <div class="campo"><label for="ag-fim">Até</label><input type="date" id="ag-fim" name="dataFim"><span class="dica">Só se for mais de um dia.</span></div>
+        <div class="campo"><label for="ag-hora">Hora</label><input type="time" id="ag-hora" name="hora"></div>
+        <div class="campo"><label for="ag-cam">Caminhão</label><select id="ag-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
+        <div class="campo"><label for="ag-mot">Motorista</label><select id="ag-mot" name="motoristaId" data-lista="mot-opc"></select></div>
+        <div class="campo"><label for="ag-obra">Obra</label><select id="ag-obra" name="obraId" data-lista="obras-form"></select></div>
+        <fieldset class="obra-nova" data-obra-nova hidden>
+          <legend>Obra nova</legend>
+          <div class="campo"><label for="ag-on-nome">Nome da obra</label><input id="ag-on-nome" name="obraNovaNome" autocomplete="off" placeholder="Ex.: Loteamento Jardim Primavera"></div>
+          <div class="campo"><label for="ag-on-cli">Cliente</label><input id="ag-on-cli" name="obraNovaCliente" list="lista-clientes" autocomplete="off"></div>
+          <div class="campo"><label for="ag-on-cid">Cidade</label><input id="ag-on-cid" name="obraNovaCidade" list="lista-cidades" autocomplete="off"></div>
+        </fieldset>
+        <div class="campo"><label for="ag-etapa">Etapa</label><input id="ag-etapa" name="etapa" list="lista-etapas-ag" autocomplete="off" placeholder="Ex.: Implantação de postes"></div>
+        <div class="campo"><label for="ag-serv">O que vai fazer</label><input id="ag-serv" name="servico" list="lista-servicos" autocomplete="off" placeholder="Ex.: Içar transformador"></div>
+        <div class="campo"><label for="ag-sit">Situação</label><select id="ag-sit" name="situacao"></select></div>
+        <div class="campo largo"><label for="ag-obs">Observação</label><input id="ag-obs" name="obs" autocomplete="off"></div>
+      </div>
+      <div class="calc" id="ag-calc" aria-live="polite"></div>
+      <div class="acoes-linha">
+        <button class="btn" type="submit" data-novo="Salvar agendamento" data-editar="Salvar alteração">Salvar agendamento</button>
+        <button class="btn ghost" type="button" data-acao="cancelar-edicao" hidden>Cancelar edição</button>
+        <span class="f-msg" role="status"></span>
+      </div>
+    </form>
+    <section class="bloco">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Quadro da semana</h2><p class="hint" id="semana-txt"></p></div>
+        <div class="semana-nav">
+          <button class="btn small ghost" type="button" data-acao="semana" data-passo="-7">← Anterior</button>
+          <button class="btn small ghost" type="button" data-acao="semana" data-passo="0">Esta semana</button>
+          <button class="btn small ghost" type="button" data-acao="semana" data-passo="7">Próxima →</button>
+        </div>
+      </div>
+      <div class="quadro-box"><table class="quadro" id="quadro"></table></div>
+      <p class="hint">Clique no <strong>+</strong> para agendar aquele caminhão naquele dia, ou num serviço para mudar. Borda vermelha: dois serviços sem horário diferente no mesmo dia.</p>
+    </section>
+    <section class="bloco">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Lista de agendamentos</h2></div>
+        <div class="filtros">
+          <select id="fa-quando" aria-label="Quais agendamentos"><option value="proximos">De hoje em diante</option><option value="passados">Últimos 30 dias</option><option value="todos">Todos</option></select>
+          <select id="fa-cam" data-lista="filtro-caminhoes" data-vazio="Todos os caminhões" aria-label="Caminhão"></select>
+          <select id="fa-obra" data-lista="filtro-obras" data-vazio="Todas as obras" aria-label="Obra"></select>
+        </div>
+      </div>
+      <div class="tabela-box"><table class="tabela" id="t-agenda"></table></div>
+    </section>
+  </section>
+
+  <!-- KM DAS OBRAS -->
+  <section class="vista" id="v-km" data-vista="km" hidden>
+    <div class="cab">
+      <div><h1 class="h1">Km das obras</h1><p class="hint">Km inicial e final de cada caminhão na obra, por dia ou por etapa.</p></div>
+    </div>
+    <form class="ficha" id="f-km" data-col="km" novalidate>
+      <div class="ficha-cab">
+        <h2 class="h2" data-novo="Lançar km" data-editar="Editando lançamento">Lançar km</h2>
+        <div class="modos" role="radiogroup" aria-label="Como lançar">
+          <label class="seg"><input class="sr" type="radio" name="modo" value="dia">Por dia</label>
+          <label class="seg"><input class="sr" type="radio" name="modo" value="etapa">Por etapa</label>
+        </div>
+      </div>
+      <div class="campos">
+        <div class="campo"><label for="km-data" id="km-data-rot">Data</label><input type="date" id="km-data" name="data"></div>
+        <div class="campo" id="km-fim-box" hidden><label for="km-fim">Fim da etapa</label><input type="date" id="km-fim" name="dataFim"></div>
+        <div class="campo"><label for="km-cam">Caminhão</label><select id="km-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
+        <div class="campo"><label for="km-mot">Motorista</label><select id="km-mot" name="motoristaId" data-lista="mot-opc"></select></div>
+        <div class="campo"><label for="km-obra">Obra</label><select id="km-obra" name="obraId" data-lista="obras-form"></select></div>
+        <fieldset class="obra-nova" data-obra-nova hidden>
+          <legend>Obra nova</legend>
+          <div class="campo"><label for="km-on-nome">Nome da obra</label><input id="km-on-nome" name="obraNovaNome" autocomplete="off"></div>
+          <div class="campo"><label for="km-on-cli">Cliente</label><input id="km-on-cli" name="obraNovaCliente" list="lista-clientes" autocomplete="off"></div>
+          <div class="campo"><label for="km-on-cid">Cidade</label><input id="km-on-cid" name="obraNovaCidade" list="lista-cidades" autocomplete="off"></div>
+        </fieldset>
+        <div class="campo"><label for="km-etapa" id="km-etapa-rot">Etapa</label><input id="km-etapa" name="etapa" list="lista-etapas-km" autocomplete="off"></div>
+        <div class="campo"><label for="km-ini">Km inicial</label><input id="km-ini" name="kmInicial" data-tipo="int" inputmode="numeric" autocomplete="off"></div>
+        <div class="campo"><label for="km-fin">Km final</label><input id="km-fin" name="kmFinal" data-tipo="int" inputmode="numeric" autocomplete="off"></div>
+        <div class="campo"><label for="km-horas">Horas de munck</label><input id="km-horas" name="horas" data-tipo="dec" inputmode="decimal" autocomplete="off"><span class="dica">Opcional: quantas horas o munck trabalhou.</span></div>
+        <div class="campo largo"><label for="km-obs">Observação</label><input id="km-obs" name="obs" autocomplete="off"></div>
+      </div>
+      <div class="calc" id="km-calc" aria-live="polite"></div>
+      <div class="acoes-linha">
+        <button class="btn" type="submit" data-novo="Salvar km" data-editar="Salvar alteração">Salvar km</button>
+        <button class="btn ghost" type="button" data-acao="cancelar-edicao" hidden>Cancelar edição</button>
+        <span class="f-msg" role="status"></span>
+      </div>
+    </form>
+    <section class="bloco">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Lançamentos</h2><p class="hint" id="km-resumo"></p></div>
+        <div class="filtros">
+          <select id="fk-cam" data-lista="filtro-caminhoes" data-vazio="Todos os caminhões" aria-label="Caminhão"></select>
+          <select id="fk-obra" data-lista="filtro-obras" data-vazio="Todas as obras" aria-label="Obra"></select>
+          <select id="fk-mes" data-lista="meses" aria-label="Mês"></select>
+        </div>
+      </div>
+      <div class="tabela-box"><table class="tabela" id="t-km"></table></div>
+    </section>
+  </section>
+
+  <!-- OBRAS -->
+  <section class="vista" id="v-obras" data-vista="obras" hidden>
+    <div class="vista-int" id="obras-lista">
+      <div class="cab">
+        <div><h1 class="h1">Obras</h1><p class="hint">Cada obra com as etapas, o km de cada caminhão e a agenda.</p></div>
+        <button class="btn" type="button" data-acao="abrir-form" data-form="f-obra">Nova obra</button>
+      </div>
+      <form class="ficha" id="f-obra" data-col="obras" novalidate hidden>
+        <div class="ficha-cab">
+          <h2 class="h2" data-novo="Nova obra" data-editar="Editando obra">Nova obra</h2>
+          <button class="lnk" type="button" data-acao="fechar-form">Fechar</button>
+        </div>
+        <div class="campos">
+          <div class="campo"><label for="ob-nome">Nome da obra</label><input id="ob-nome" name="nome" autocomplete="off"></div>
+          <div class="campo"><label for="ob-cli">Cliente</label><input id="ob-cli" name="cliente" list="lista-clientes" autocomplete="off"></div>
+          <div class="campo"><label for="ob-cid">Cidade</label><input id="ob-cid" name="cidade" list="lista-cidades" autocomplete="off"></div>
+          <div class="campo"><label for="ob-end">Endereço ou local</label><input id="ob-end" name="endereco" autocomplete="off"></div>
+          <div class="campo"><label for="ob-cont">Responsável na obra</label><input id="ob-cont" name="contato" autocomplete="off" placeholder="Nome e telefone"></div>
+          <div class="campo"><label for="ob-ini">Início</label><input type="date" id="ob-ini" name="inicio"></div>
+          <div class="campo"><label for="ob-prev">Previsão de término</label><input type="date" id="ob-prev" name="previsao"></div>
+          <div class="campo"><label for="ob-sit">Situação</label><select id="ob-sit" name="situacao"></select></div>
+          <div class="campo largo"><label for="ob-etapas">Etapas da obra</label><textarea id="ob-etapas" name="etapas" data-tipo="linhas" placeholder="Uma por linha. Ex.:&#10;Implantação de postes&#10;Lançamento de cabos&#10;Montagem de transformador"></textarea><span class="dica">Uma etapa por linha. Etapas novas lançadas na Agenda ou no Km entram aqui sozinhas.</span></div>
+          <div class="campo largo"><label for="ob-obs">Observação</label><input id="ob-obs" name="obs" autocomplete="off"></div>
+        </div>
+        <div class="acoes-linha">
+          <button class="btn" type="submit" data-novo="Salvar obra" data-editar="Salvar alteração">Salvar obra</button>
+          <button class="btn ghost" type="button" data-acao="cancelar-edicao" hidden>Cancelar edição</button>
+          <span class="f-msg" role="status"></span>
+        </div>
+      </form>
+      <section class="bloco">
+        <div class="bloco-cab">
+          <div><p class="hint" id="obras-resumo"></p></div>
+          <div class="filtros"><select id="fo-sit" aria-label="Quais obras"><option value="abertas">Em andamento, planejadas e paradas</option><option value="concluida">Concluídas</option><option value="todas">Todas</option></select></div>
+        </div>
+        <div class="obras" id="obras-cards"></div>
+      </section>
+    </div>
+    <div class="vista-int" id="obra-det" hidden></div>
+  </section>
+
+  <!-- CAMINHÕES E MOTORISTAS -->
+  <section class="vista" id="v-cadastro" data-vista="cadastro" hidden>
+    <div class="cab">
+      <div><h1 class="h1">Caminhões e motoristas</h1><p class="hint">Os caminhões munck, quem dirige cada um e a validade da CNH e do curso de operador.</p></div>
+    </div>
+    <section class="bloco">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Caminhões munck</h2></div>
+        <button class="btn small" type="button" data-acao="abrir-form" data-form="f-cam">Novo caminhão</button>
+      </div>
+      <form class="ficha" id="f-cam" data-col="caminhoes" novalidate hidden>
+        <div class="ficha-cab">
+          <h2 class="h2" data-novo="Novo caminhão" data-editar="Editando caminhão">Novo caminhão</h2>
+          <button class="lnk" type="button" data-acao="fechar-form">Fechar</button>
+        </div>
+        <div class="campos">
+          <div class="campo"><label for="cam-placa">Placa</label><input id="cam-placa" name="placa" autocomplete="off" placeholder="ABC1D23" style="text-transform: uppercase"></div>
+          <div class="campo"><label for="cam-apelido">Apelido</label><input id="cam-apelido" name="apelido" autocomplete="off" placeholder="Ex.: Munck 01"></div>
+          <div class="campo"><label for="cam-marca">Marca</label><input id="cam-marca" name="marca" autocomplete="off"></div>
+          <div class="campo"><label for="cam-modelo">Modelo</label><input id="cam-modelo" name="modelo" autocomplete="off"></div>
+          <div class="campo"><label for="cam-ano">Ano</label><input id="cam-ano" name="ano" data-tipo="ano" inputmode="numeric" autocomplete="off" placeholder="2020/2021"></div>
+          <div class="campo"><label for="cam-munck">Munck (marca e modelo)</label><input id="cam-munck" name="munck" autocomplete="off" placeholder="Ex.: Madal MD 45.000"></div>
+          <div class="campo"><label for="cam-cap">Capacidade (t)</label><input id="cam-cap" name="capacidade" data-tipo="dec" inputmode="decimal" autocomplete="off"></div>
+          <div class="campo"><label for="cam-alc">Alcance máximo (m)</label><input id="cam-alc" name="alcance" data-tipo="dec" inputmode="decimal" autocomplete="off"></div>
+          <div class="campo"><label for="cam-mot">Motorista fixo</label><select id="cam-mot" name="motoristaId" data-lista="mot-opc"></select></div>
+          <div class="campo"><label for="cam-km">Hodômetro hoje</label><input id="cam-km" name="kmInicial" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica">Ponto de partida do km.</span></div>
+          <div class="campo"><label for="cam-sit">Situação</label><select id="cam-sit" name="situacao"></select></div>
+          <div class="campo largo"><label for="cam-obs">Observação</label><input id="cam-obs" name="obs" autocomplete="off"></div>
+        </div>
+        <div class="acoes-linha">
+          <button class="btn" type="submit" data-novo="Salvar caminhão" data-editar="Salvar alteração">Salvar caminhão</button>
+          <button class="btn ghost" type="button" data-acao="cancelar-edicao" hidden>Cancelar edição</button>
+          <span class="f-msg" role="status"></span>
+        </div>
+      </form>
+      <div class="tabela-box"><table class="tabela" id="t-cam"></table></div>
+    </section>
+    <section class="bloco">
+      <div class="bloco-cab">
+        <div><h2 class="h2">Motoristas</h2></div>
+        <button class="btn small" type="button" data-acao="abrir-form" data-form="f-mot">Novo motorista</button>
+      </div>
+      <form class="ficha" id="f-mot" data-col="motoristas" novalidate hidden>
+        <div class="ficha-cab">
+          <h2 class="h2" data-novo="Novo motorista" data-editar="Editando motorista">Novo motorista</h2>
+          <button class="lnk" type="button" data-acao="fechar-form">Fechar</button>
+        </div>
+        <div class="campos">
+          <div class="campo"><label for="mot-nome">Nome</label><input id="mot-nome" name="nome" autocomplete="off"></div>
+          <div class="campo"><label for="mot-tel">Telefone</label><input id="mot-tel" name="telefone" inputmode="tel" autocomplete="off"></div>
+          <div class="campo"><label for="mot-cnh">Nº da CNH</label><input id="mot-cnh" name="cnh" inputmode="numeric" autocomplete="off"></div>
+          <div class="campo"><label for="mot-cat">Categoria</label><select id="mot-cat" name="categoria"></select></div>
+          <div class="campo"><label for="mot-vcnh">Validade da CNH</label><input type="date" id="mot-vcnh" name="validadeCnh"></div>
+          <div class="campo"><label for="mot-vnr">Validade do curso de operador (NR-11)</label><input type="date" id="mot-vnr" name="validadeNr"></div>
+          <div class="campo"><label for="mot-sit">Situação</label><select id="mot-sit" name="situacao"></select></div>
+          <div class="campo largo"><label for="mot-obs">Observação</label><input id="mot-obs" name="obs" autocomplete="off"></div>
+        </div>
+        <div class="acoes-linha">
+          <button class="btn" type="submit" data-novo="Salvar motorista" data-editar="Salvar alteração">Salvar motorista</button>
+          <button class="btn ghost" type="button" data-acao="cancelar-edicao" hidden>Cancelar edição</button>
+          <span class="f-msg" role="status"></span>
+        </div>
+      </form>
+      <div class="tabela-box"><table class="tabela" id="t-mot"></table></div>
+    </section>
+    <section class="bloco">
+      <div class="bloco-cab"><div><h2 class="h2">Planilha e cópia</h2><p class="hint" id="dados-txt"></p></div></div>
+      <div class="acoes-linha">
+        <button class="btn" type="button" data-acao="tudo-excel">Baixar tudo no Excel (.xlsx)</button>
+        <button class="btn ghost" type="button" data-acao="backup">Salvar cópia de tudo (.json)</button>
+        <button class="btn ghost" type="button" data-acao="restaurar">Carregar uma cópia</button>
+        <input type="file" id="arquivo-copia" accept=".json,application/json" hidden>
+      </div>
+    </section>
+  </section>
+
+  <datalist id="lista-etapas-ag"></datalist>
+  <datalist id="lista-etapas-km"></datalist>
+  <datalist id="lista-servicos"></datalist>
+  <datalist id="lista-clientes"></datalist>
+  <datalist id="lista-cidades"></datalist>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+'use strict';
+/* ====================================================================
+   Controle Munck: onde cada caminhão munck está trabalhando, a agenda das
+   obras e o km inicial e final de cada obra, por dia ou por etapa.
+   Sistema separado, com dados próprios. Aberto pelo link do claude.ai, os
+   dados ficam na conta (capability db); aberto como arquivo, no navegador.
+   ==================================================================== */
+
+const COLS = ['caminhoes', 'motoristas', 'obras', 'agenda', 'km', 'config'];
+const D = {};
+COLS.forEach(c => { D[c] = new Map(); });
+
+const SIT_CAM = { ativo: 'Em operação', parado: 'Parado', oficina: 'Na oficina', fora: 'Fora da frota' };
+const SIT_MOT = { ativo: 'Ativo', afastado: 'De férias ou afastado', desligado: 'Desligado' };
+const SIT_OBRA = { andamento: 'Em andamento', planejada: 'Planejada', pausada: 'Parada', concluida: 'Concluída' };
+const SIT_AG = { agendado: 'Agendado', confirmado: 'Confirmado', feito: 'Feito', cancelado: 'Cancelado' };
+const PILL = { ativo: 'ok', parado: '', oficina: 'warn', fora: '', afastado: 'warn', desligado: '', andamento: 'ok', planejada: 'info', pausada: 'warn', concluida: '', agendado: 'info', confirmado: 'ok', feito: '', cancelado: 'bad' };
+const ORDEM_OBRA = { andamento: 0, planejada: 1, pausada: 2, concluida: 3 };
+const CATEGORIAS_CNH = ['B', 'C', 'D', 'E', 'AC', 'AD', 'AE'];
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const SEMANA_LONGA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+const ABAS = ['painel', 'agenda', 'km', 'obras', 'cadastro'];
+const FORM_DA_COL = { caminhoes: 'f-cam', motoristas: 'f-mot', obras: 'f-obra', agenda: 'f-ag', km: 'f-km' };
+const VISTA_DO_FORM = { 'f-cam': 'cadastro', 'f-mot': 'cadastro', 'f-obra': 'obras', 'f-ag': 'agenda', 'f-km': 'km' };
+const NOVA = '__nova__';
+const NOME_APP = 'Controle Munck';
+const CHAVE_LOCAL = 'controle-munck:dados:v1';
+
+/* ---------- utilidades ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const espera = ms => new Promise(r => setTimeout(r, ms));
+function novoId(prefixo) { return prefixo + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function hojeISO() { return iso(new Date()); }
+function dataDe(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function somaDias(s, n) { const d = dataDe(s); d.setDate(d.getDate() + n); return iso(d); }
+function difDias(a, b) { return Math.round((dataDe(b) - dataDe(a)) / 86400000); }
+function inicioSemana(s) { return somaDias(s, -((dataDe(s).getDay() + 6) % 7)); }
+function mesAnterior(s) { const d = dataDe(s.slice(0, 8) + '01'); d.setMonth(d.getMonth() - 1); return iso(d); }
+const fmtData = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '';
+const fmtDataCurta = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '';
+const diaSem = s => SEMANA[dataDe(s).getDay()];
+const nomeMesAno = ym => MESES[Number(ym.slice(5, 7)) - 1] + ' de ' + ym.slice(0, 4);
+const nf0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
+const fKm = n => n == null ? '—' : nf0.format(n) + ' km';
+const fH = n => n == null || !n ? '—' : nf1.format(n) + ' h';
+const soma = (lista, f) => lista.reduce((t, x) => t + (Number(f(x)) || 0), 0);
+const plural = (n, um, varios) => nf0.format(n) + ' ' + (n === 1 ? um : varios);
+const primeiroNome = s => String(s || '').trim().split(/\s+/)[0] || '';
+
+function lerNumero(txt, inteiro) {
+  let s = String(txt ?? '').trim().replace(/\s/g, '');
+  if (!s) return null;
+  if (inteiro) {
+    if (/[^\d.,]/.test(s)) return NaN;
+    s = s.replace(/[.,](?=\d{3}(?:\D|$))/g, '').split(/[.,]/)[0];
+    return s ? parseInt(s, 10) : NaN;
+  }
+  if (/[^\d.,]/.test(s)) return NaN;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+function normPlaca(s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function mostraPlaca(p) { return /^[A-Z]{3}\d{4}$/.test(p) ? p.slice(0, 3) + '-' + p.slice(3) : p; }
+function placaHTML(p, tam) {
+  if (!p) return '<span class="sem">—</span>';
+  return `<span class="placa${tam ? ' ' + tam : ''}" title="Placa ${esc(mostraPlaca(p))}"><span class="placa-faixa" aria-hidden="true">BRASIL</span><span class="placa-n">${esc(mostraPlaca(p))}</span></span>`;
+}
+
+/* ---------- consultas ---------- */
+const todos = col => Array.from(D[col].values());
+const cam = id => D.caminhoes.get(id);
+const mot = id => D.motoristas.get(id);
+const obra = id => D.obras.get(id);
+const porPlaca = (a, b) => (a.placa || '').localeCompare(b.placa || '');
+const porNome = (a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR');
+const porHora = (a, b) => (a.hora || '99').localeCompare(b.hora || '99');
+const porDataHora = (a, b) => a.data.localeCompare(b.data) || porHora(a, b);
+const camAtivos = () => todos('caminhoes').filter(c => c.situacao !== 'fora').sort(porPlaca);
+const motsAtivos = () => todos('motoristas').filter(m => m.situacao !== 'desligado').sort(porNome);
+const obrasAbertas = () => todos('obras').filter(o => o.situacao !== 'concluida').sort(porNome);
+function descCam(c) { if (!c) return ''; const mm = [c.marca, c.modelo].filter(Boolean).join(' '); return [c.apelido, c.munck || mm].filter(Boolean).join(' · '); }
+function rotuloCam(c) { return c ? mostraPlaca(c.placa) + (c.apelido ? ' · ' + c.apelido : '') : '(apagado)'; }
+function nomeMot(id) { const m = mot(id); return m ? m.nome : (id ? '(apagado)' : ''); }
+function nomeObra(id) { const o = obra(id); return o ? o.nome : (id ? '(obra apagada)' : ''); }
+function descObra(o) { return o ? [o.cliente, o.cidade].filter(Boolean).join(' · ') : ''; }
+const fimDe = x => (x.dataFim && x.dataFim > x.data ? x.dataFim : x.data);
+const cobre = (x, dia) => x.data <= dia && dia <= fimDe(x);
+const kmDe = r => Math.max(0, (r.kmFinal || 0) - (r.kmInicial || 0));
+const agValido = a => a.situacao !== 'cancelado';
+function periodoTxt(x) { return fimDe(x) !== x.data ? fmtDataCurta(x.data) + ' a ' + fmtData(fimDe(x)) : fmtData(x.data); }
+function diasDe(x, limite = 400) { const out = []; for (let d = x.data, i = 0; d <= fimDe(x) && i < limite; d = somaDias(d, 1), i++) out.push(d); return out; }
+function agendaDe(camId, dia) { return todos('agenda').filter(a => a.caminhaoId === camId && agValido(a) && cobre(a, dia)).sort(porHora); }
+function kmAtual(camId) {
+  const c = cam(camId);
+  let km = (c && c.kmInicial) || 0;
+  for (const r of D.km.values()) if (r.caminhaoId === camId && r.kmFinal > km) km = r.kmFinal;
+  return km;
+}
+/* último km lançado do caminhão até o dia (sem contar o registro em edição) */
+function ultimoKm(camId, dia, exceto) {
+  let u = null;
+  for (const r of D.km.values()) {
+    if (r.caminhaoId !== camId || r.id === exceto || r.data > dia || r.kmFinal == null) continue;
+    if (!u || fimDe(r) > fimDe(u) || (fimDe(r) === fimDe(u) && r.kmFinal > u.kmFinal)) u = r;
+  }
+  return u;
+}
+/* etapas da obra: as cadastradas, na ordem, e depois as que apareceram na agenda e no km */
+function etapasDaObra(obraId) {
+  const o = obra(obraId);
+  const lista = [...((o && o.etapas) || [])];
+  const tem = new Set(lista.map(e => e.toLowerCase()));
+  for (const r of [...D.km.values(), ...D.agenda.values()]) if (r.obraId === obraId && r.etapa && !tem.has(r.etapa.toLowerCase())) { lista.push(r.etapa); tem.add(r.etapa.toLowerCase()); }
+  return lista;
+}
+/* dois ou mais serviços no mesmo dia batem quando algum não tem hora ou as horas se repetem */
+function conflitam(lista) {
+  if (lista.length < 2) return false;
+  const horas = lista.map(a => a.hora || '');
+  return horas.some(h => !h) || new Set(horas).size < horas.length;
+}
+/* onde o caminhão está no dia: agendado, com km lançado, ou livre (e onde foi o último serviço) */
+function ondeEsta(c, dia) {
+  const ags = agendaDe(c.id, dia);
+  if (ags.length) return { tipo: 'agenda', ag: ags[0], outros: ags.slice(1) };
+  const kmDia = todos('km').filter(r => r.caminhaoId === c.id && cobre(r, dia));
+  if (kmDia.length) return { tipo: 'km', r: kmDia[0] };
+  let ult = null;
+  for (const r of D.km.values()) if (r.caminhaoId === c.id && fimDe(r) < dia && (!ult || fimDe(r) > fimDe(ult))) ult = r;
+  for (const a of D.agenda.values()) if (a.caminhaoId === c.id && agValido(a) && fimDe(a) < dia && (!ult || fimDe(a) > fimDe(ult))) ult = a;
+  return { tipo: 'livre', ult };
+}
+function proximos(camId, dia, n) { return todos('agenda').filter(a => a.caminhaoId === camId && agValido(a) && a.data > dia).sort(porDataHora).slice(0, n); }
+
+/* números de uma obra: por etapa, por caminhão e os dias com km lançado */
+function statsObra(obraId) {
+  const regs = todos('km').filter(r => r.obraId === obraId).sort((a, b) => a.data.localeCompare(b.data) || (a.kmInicial || 0) - (b.kmInicial || 0));
+  const novo = nome => ({ etapa: nome, km: 0, horas: 0, n: 0, cams: new Set(), ini: '', fim: '' });
+  const porEtapa = new Map(etapasDaObra(obraId).map(e => [e, novo(e)]));
+  const semEtapa = novo('Sem etapa');
+  const porCam = new Map();
+  const dias = new Set();
+  for (const r of regs) {
+    const k = kmDe(r);
+    let e = semEtapa;
+    if (r.etapa) { if (!porEtapa.has(r.etapa)) porEtapa.set(r.etapa, novo(r.etapa)); e = porEtapa.get(r.etapa); }
+    e.km += k; e.horas += r.horas || 0; e.n++; e.cams.add(r.caminhaoId);
+    if (!e.ini || r.data < e.ini) e.ini = r.data;
+    if (!e.fim || fimDe(r) > e.fim) e.fim = fimDe(r);
+    if (!porCam.has(r.caminhaoId)) porCam.set(r.caminhaoId, { camId: r.caminhaoId, km: 0, horas: 0, n: 0, dias: new Set(), ult: '' });
+    const c = porCam.get(r.caminhaoId);
+    c.km += k; c.horas += r.horas || 0; c.n++;
+    if (fimDe(r) > c.ult) c.ult = fimDe(r);
+    for (const d of diasDe(r)) { dias.add(d); c.dias.add(d); }
+  }
+  return { regs, etapas: [...porEtapa.values(), ...(semEtapa.n ? [semEtapa] : [])], porCam: [...porCam.values()].sort((a, b) => b.km - a.km), dias, km: soma(regs, kmDe), horas: soma(regs, r => r.horas) };
+}
+
+const UI = { aba: 'painel', semana: '', obraSel: '', confirmar: null, somenteLeitura: false, ignorarHash: false };
+
+/* ====================================================================
+   Armazenamento: na conta (db do claude.ai) ou neste aparelho (localStorage)
+   ==================================================================== */
+const Armazem = { modo: 'carregando', db: null, recebidos: new Set(), confirmados: new Set(), semConexao: false };
+function lerLocal() {
+  try {
+    const o = JSON.parse(localStorage.getItem(CHAVE_LOCAL) || '{}') || {};
+    COLS.forEach(c => { D[c] = new Map(Object.entries(o[c] || {})); });
+  } catch (e) { COLS.forEach(c => { D[c] = new Map(); }); }
+}
+function gravarLocal() {
+  try {
+    const o = {};
+    COLS.forEach(c => { o[c] = Object.fromEntries(D[c]); });
+    localStorage.setItem(CHAVE_LOCAL, JSON.stringify(o));
+    return true;
+  } catch (e) { return false; }
+}
+function iniciarLocal() {
+  Armazem.modo = 'local';
+  lerLocal();
+  window.addEventListener('storage', e => { if (e.key === CHAVE_LOCAL) { lerLocal(); agendarRender(); } });
+  agendarRender();
+}
+function iniciarNuvem(db) {
+  Armazem.db = db;
+  Armazem.modo = 'carregando';
+  const timer = setTimeout(() => { if (Armazem.confirmados.size < COLS.length) { Armazem.semConexao = true; if (Armazem.modo === 'carregando') Armazem.modo = 'nuvem'; agendarRender(); } }, 10000);
+  for (const c of COLS) {
+    db.collection(c).onSnapshot(snap => {
+      const m = new Map();
+      for (const d of snap.docs) { const v = d.data(); if (v) m.set(d.id, Object.assign({}, v, { id: d.id })); }
+      D[c] = m;
+      Armazem.recebidos.add(c);
+      if (!snap.metadata.fromCache) Armazem.confirmados.add(c);
+      if (Armazem.recebidos.size === COLS.length && Armazem.modo === 'carregando') Armazem.modo = 'nuvem';
+      if (Armazem.confirmados.size === COLS.length) { clearTimeout(timer); Armazem.semConexao = false; }
+      agendarRender();
+    }, err => {
+      clearTimeout(timer);
+      Armazem.recebidos.add(c);
+      if (Armazem.modo === 'carregando') Armazem.modo = 'nuvem';
+      Armazem.semConexao = true;
+      if (err && err.code === 'revoked') UI.somenteLeitura = true;
+      agendarRender();
+    });
+  }
+  agendarRender();
+}
+function limpo(o) { const x = JSON.parse(JSON.stringify(o)); delete x.id; return x; }
+async function gravar(col, obj) {
+  if (UI.somenteLeitura) throw { code: 'invalid_argument' };
+  const antes = D[col].get(obj.id);
+  D[col].set(obj.id, obj);
+  if (Armazem.modo === 'local') {
+    if (!gravarLocal()) { if (antes) D[col].set(obj.id, antes); else D[col].delete(obj.id); throw { code: 'local' }; }
+    agendarRender();
+    return;
+  }
+  const ref = Armazem.db.collection(col).doc(obj.id);
+  try {
+    try { await ref.set(limpo(obj)); }
+    catch (e) { if (e && e.code === 'unavailable') { await espera(500 + Math.random() * 900); await ref.set(limpo(obj)); } else throw e; }
+  } catch (e) {
+    if (antes) D[col].set(obj.id, antes); else D[col].delete(obj.id);
+    if (e && e.code === 'invalid_argument') UI.somenteLeitura = true;
+    agendarRender();
+    throw e;
+  }
+  agendarRender();
+}
+async function apagar(col, id) {
+  if (UI.somenteLeitura) throw { code: 'invalid_argument' };
+  const antes = D[col].get(id);
+  D[col].delete(id);
+  if (Armazem.modo === 'local') {
+    if (!gravarLocal()) { if (antes) D[col].set(id, antes); throw { code: 'local' }; }
+    agendarRender();
+    return;
+  }
+  try { await Armazem.db.collection(col).doc(id).delete(); }
+  catch (e) {
+    if (antes) D[col].set(id, antes);
+    if (e && e.code === 'invalid_argument') UI.somenteLeitura = true;
+    agendarRender();
+    throw e;
+  }
+  agendarRender();
+}
+/* várias gravações: no aparelho, de uma vez; na conta, 4 por vez */
+async function gravarVarios(ops) {
+  if (UI.somenteLeitura) throw { code: 'invalid_argument' };
+  if (Armazem.modo === 'local') {
+    const copia = {};
+    COLS.forEach(c => { copia[c] = new Map(D[c]); });
+    for (const [tipo, col, x] of ops) { if (tipo === 'set') D[col].set(x.id, x); else D[col].delete(x); }
+    if (!gravarLocal()) { COLS.forEach(c => { D[c] = copia[c]; }); throw { code: 'local' }; }
+    agendarRender();
+    return;
+  }
+  let i = 0, erro = null;
+  const trabalhador = async () => {
+    while (i < ops.length && !erro) {
+      const [tipo, col, x] = ops[i++];
+      try { if (tipo === 'set') await gravar(col, x); else await apagar(col, x); }
+      catch (e) { erro = e; }
+    }
+  };
+  await Promise.all([trabalhador(), trabalhador(), trabalhador(), trabalhador()]);
+  if (erro) throw erro;
+}
+function msgErro(e) {
+  switch (e && e.code) {
+    case 'invalid_argument': return 'Você não tem permissão para salvar aqui. Peça acesso de edição a quem compartilhou.';
+    case 'quota_exceeded': return 'O espaço de dados está cheio. Salve uma cópia e apague lançamentos antigos.';
+    case 'resource_exhausted': return 'Muitas gravações de uma vez. Espere alguns segundos e tente de novo.';
+    case 'local': return 'Não consegui salvar neste computador: o armazenamento do navegador está cheio ou bloqueado.';
+    case 'revoked': return 'O acesso a estes dados foi retirado.';
+    default: return 'Não consegui salvar agora. Confira a internet e tente de novo.';
+  }
+}
+
+/* ====================================================================
+   Desenho da tela
+   ==================================================================== */
+let renderPendente = false;
+function agendarRender() {
+  if (renderPendente) return;
+  renderPendente = true;
+  requestAnimationFrame(() => { renderPendente = false; render(); });
+}
+function render() {
+  renderEstado();
+  const carregando = Armazem.modo === 'carregando';
+  $('#carregando').hidden = !carregando;
+  $$('.vista[data-vista]').forEach(v => { v.hidden = carregando || v.dataset.vista !== UI.aba; });
+  if (carregando) return;
+  $('#aviso-leitura').hidden = !UI.somenteLeitura;
+  atualizarSelects();
+  atualizarDatalists();
+  const alertas = calcAlertas();
+  const graves = alertas.filter(a => a.nivel === 'grave');
+  const cont = $('#cont-alertas');
+  cont.hidden = !alertas.length;
+  cont.textContent = alertas.length;
+  cont.title = alertas.length ? plural(alertas.length, 'item precisa de atenção', 'itens precisam de atenção') : '';
+  const faixa = $('#aviso-alertas');
+  faixa.hidden = !graves.length || UI.aba === 'painel';
+  if (!faixa.hidden) {
+    faixa.classList.add('grave');
+    $('#aviso-alertas-txt').innerHTML = `<strong>Atenção:</strong> ${esc(graves[0].txt)}${graves.length > 1 ? ` E mais ${graves.length - 1}.` : ''}`;
+  }
+  if (UI.aba === 'painel') renderPainel(alertas);
+  else if (UI.aba === 'agenda') { renderQuadro(); renderListaAgenda(); calcAg(); }
+  else if (UI.aba === 'km') { renderListaKm(); calcKm(); }
+  else if (UI.aba === 'obras') renderObras();
+  else if (UI.aba === 'cadastro') renderCadastro();
+}
+function renderEstado() {
+  const el = $('#estado');
+  let modo = Armazem.modo, txt = 'Carregando…';
+  if (UI.somenteLeitura) { modo = 'leitura'; txt = 'Só leitura'; }
+  else if (modo === 'nuvem' && Armazem.semConexao) { modo = 'erro'; txt = 'Sem conexão: pode estar desatualizado'; }
+  else if (modo === 'nuvem') txt = 'Salvo na sua conta';
+  else if (modo === 'local') txt = 'Salvo neste computador';
+  el.dataset.modo = modo;
+  el.textContent = txt;
+  el.title = txt;
+  $$('form.ficha button[type="submit"]').forEach(b => { b.disabled = UI.somenteLeitura || Armazem.modo === 'carregando' || !!(b.form && b.form.dataset.salvando); });
+}
+
+/* ---------- listas de escolha ---------- */
+function opcoes(lista) { return lista.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join(''); }
+function htmlLista(tipo, el) {
+  const vazio = el.dataset.vazio;
+  switch (tipo) {
+    case 'caminhoes': return '<option value="">Escolha o caminhão</option>' + opcoes(camAtivos().map(c => [c.id, rotuloCam(c)]));
+    case 'mot-opc': return '<option value="">Sem motorista</option>' + opcoes(motsAtivos().map(m => [m.id, m.nome]));
+    case 'obras-form': return '<option value="">Escolha a obra</option>' + opcoes(obrasAbertas().map(o => [o.id, o.nome + (descObra(o) ? ' · ' + descObra(o) : '')])) + `<option value="${NOVA}">+ Cadastrar obra nova</option>`;
+    case 'filtro-caminhoes': return `<option value="">${esc(vazio)}</option>` + opcoes(todos('caminhoes').sort(porPlaca).map(c => [c.id, rotuloCam(c) + (c.situacao === 'fora' ? ' (fora da frota)' : '')]));
+    case 'filtro-obras': return `<option value="">${esc(vazio)}</option>` + opcoes(todos('obras').sort(porNome).map(o => [o.id, o.nome + (o.situacao === 'concluida' ? ' (concluída)' : '')]));
+    case 'meses': {
+      const set = new Set();
+      let m = hojeISO().slice(0, 7);
+      for (let i = 0; i < 6; i++) { set.add(m); m = mesAnterior(m + '-01').slice(0, 7); }
+      for (const r of D.km.values()) if (r.data) set.add(r.data.slice(0, 7));
+      return Array.from(set).sort().reverse().map(v => `<option value="${v}">${esc(nomeMesAno(v).replace(/^./, l => l.toUpperCase()))}</option>`).join('') + '<option value="todos">Todos os meses</option>';
+    }
+  }
+  return '';
+}
+function rotuloDoValor(tipo, v) {
+  if (!v) return '';
+  if (tipo === 'mot-opc') return nomeMot(v);
+  if (tipo === 'obras-form' || tipo === 'filtro-obras') return nomeObra(v);
+  if (tipo === 'caminhoes' || tipo === 'filtro-caminhoes') return rotuloCam(cam(v));
+  return v;
+}
+function garantirOpcao(sel, v) {
+  if (!v || Array.from(sel.options).some(o => o.value === v)) return;
+  const o = document.createElement('option');
+  o.value = v;
+  o.textContent = rotuloDoValor(sel.dataset.lista, v);
+  sel.appendChild(o);
+}
+function atualizarSelects() {
+  for (const sel of $$('select[data-lista]')) {
+    const html = htmlLista(sel.dataset.lista, sel);
+    const v = sel.value;
+    if (sel.dataset.sig !== html) {
+      sel.innerHTML = html;
+      sel.dataset.sig = html;
+      if (v) { garantirOpcao(sel, v); sel.value = v; }
+    }
+    if (sel.dataset.lista === 'meses' && !sel.value) sel.value = hojeISO().slice(0, 7);
+  }
+}
+function preencherDatalist(id, valores) {
+  const html = Array.from(new Set(valores.filter(Boolean).map(v => String(v).trim()).filter(Boolean))).slice(0, 300).map(v => `<option value="${esc(v)}">`).join('');
+  const el = document.getElementById(id);
+  if (el.dataset.sig !== html) { el.innerHTML = html; el.dataset.sig = html; }
+}
+function atualizarDatalists() {
+  const ord = l => l.filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  preencherDatalist('lista-servicos', ord(todos('agenda').map(a => a.servico)));
+  preencherDatalist('lista-clientes', ord(todos('obras').map(o => o.cliente)));
+  preencherDatalist('lista-cidades', ord(todos('obras').map(o => o.cidade)));
+  atualizarEtapas($('#f-ag'));
+  atualizarEtapas($('#f-km'));
+}
+function atualizarEtapas(f) {
+  const id = f.elements.obraId.value;
+  preencherDatalist(f.id === 'f-ag' ? 'lista-etapas-ag' : 'lista-etapas-km', id && id !== NOVA ? etapasDaObra(id) : []);
+}
+
+/* ---------- pedaços reutilizados ---------- */
+function celCam(c, sub) {
+  if (!c) return '<span class="sem">(apagado)</span>';
+  const t = sub === undefined ? c.apelido : sub;
+  return `<div class="veic">${placaHTML(c.placa)}${t ? `<span class="veic-txt">${esc(t)}</span>` : ''}</div>`;
+}
+function pill(mapa, sit) { return `<span class="pill ${PILL[sit] || ''}">${esc(mapa[sit] || '')}</span>`; }
+function acoesHTML(col, id, extra) {
+  const chave = col + ':' + id;
+  if (UI.confirmar === chave) return `<span class="conf">Apagar? <button class="lnk perigo" type="button" data-acao="apagar-sim" data-alvo="${esc(chave)}">Sim, apagar</button><button class="lnk" type="button" data-acao="apagar-nao">Não</button></span>`;
+  return (extra || '') + `<button class="lnk" type="button" data-acao="editar" data-alvo="${esc(chave)}">Editar</button><button class="lnk" type="button" data-acao="apagar" data-alvo="${esc(chave)}">Apagar</button>`;
+}
+function tabela(el, cab, linhas, rodape, vazio) {
+  const t = typeof el === 'string' ? $(el) : el;
+  if (!linhas.length) { t.innerHTML = `<tbody><tr><td class="vazio-txt">${vazio}</td></tr></tbody>`; return; }
+  const th = cab.map(([txt, cls]) => `<th scope="col"${cls ? ` class="${cls}"` : ''}>${txt}</th>`).join('');
+  t.innerHTML = `<thead><tr>${th}</tr></thead><tbody>${linhas.join('')}</tbody>${rodape ? `<tfoot>${rodape}</tfoot>` : ''}`;
+}
+function validade(data, nome) {
+  if (!data) return '<span class="sem">—</span>';
+  const d = difDias(hojeISO(), data);
+  const cls = d < 0 ? 'bad' : d <= 30 ? 'warn' : 'ok';
+  const txt = d < 0 ? 'Vencida em ' + fmtData(data) : fmtData(data);
+  return `<span class="pill ${cls}" title="${esc(nome)}">${esc(txt)}</span>`;
+}
+
+/* ====================================================================
+   PAINEL
+   ==================================================================== */
+function calcAlertas() {
+  const h = hojeISO(), out = [];
+  const ini = somaDias(h, -7), fim = somaDias(h, 60);
+  // serviços que batem: o mesmo caminhão, ou o mesmo motorista em caminhões diferentes, no mesmo dia
+  const porCam = new Map(), porMot = new Map();
+  const junta = (mapa, k, a) => { if (!mapa.has(k)) mapa.set(k, []); mapa.get(k).push(a); };
+  for (const a of D.agenda.values()) {
+    if (!agValido(a) || fimDe(a) < ini || a.data > fim) continue;
+    for (const d of diasDe(a, 120)) {
+      if (d < ini || d > fim) continue;
+      junta(porCam, a.caminhaoId + '|' + d, a);
+      if (a.motoristaId) junta(porMot, a.motoristaId + '|' + d, a);
+    }
+  }
+  const vistos = new Set();
+  for (const [k, lista] of porCam) {
+    if (!conflitam(lista)) continue;
+    const chave = 'c' + lista.map(a => a.id).sort().join('|');
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    const [camId, d] = k.split('|');
+    out.push({ nivel: 'grave', ordem: d, txt: `${rotuloCam(cam(camId))} tem ${lista.length} serviços em ${diaSem(d)} ${fmtData(d)} sem horários diferentes: ${lista.map(a => nomeObra(a.obraId)).join(' e ')}.`, acao: { acao: 'editar', alvo: 'agenda:' + lista[1].id, txt: 'Ver agendamento' } });
+  }
+  for (const [k, lista] of porMot) {
+    if (new Set(lista.map(a => a.caminhaoId)).size < 2 || !conflitam(lista)) continue;
+    const chave = 'm' + lista.map(a => a.id).sort().join('|');
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    const [motId, d] = k.split('|');
+    out.push({ nivel: 'grave', ordem: d, txt: `${nomeMot(motId)} está em ${lista.length} caminhões em ${diaSem(d)} ${fmtData(d)}: ${lista.map(a => mostraPlaca((cam(a.caminhaoId) || {}).placa || '')).join(' e ')}.`, acao: { acao: 'editar', alvo: 'agenda:' + lista[1].id, txt: 'Ver agendamento' } });
+  }
+  // dias agendados que já passaram sem km lançado
+  const desde = somaDias(h, -30), ontem = somaDias(h, -1);
+  for (const a of D.agenda.values()) {
+    if (!agValido(a) || a.data > ontem || fimDe(a) < desde) continue;
+    const falta = diasDe(a, 120).filter(d => d >= desde && d <= ontem && !todos('km').some(r => r.caminhaoId === a.caminhaoId && cobre(r, d)));
+    if (!falta.length) continue;
+    const c = cam(a.caminhaoId);
+    out.push({ nivel: 'breve', ordem: falta[0], txt: `Falta o km de ${c ? mostraPlaca(c.placa) : 'um caminhão'} na obra ${nomeObra(a.obraId)}: ${falta.length === 1 ? diaSem(falta[0]) + ' ' + fmtData(falta[0]) : plural(falta.length, 'dia', 'dias') + ' (' + fmtDataCurta(falta[0]) + ' a ' + fmtDataCurta(falta[falta.length - 1]) + ')'}.`, acao: { acao: 'lancar-km', alvo: 'agenda:' + a.id, dia: falta[0], txt: 'Lançar km' } });
+  }
+  // caminhão parado ou na oficina com serviço marcado
+  for (const c of camAtivos()) {
+    if (c.situacao !== 'oficina' && c.situacao !== 'parado') continue;
+    const a = todos('agenda').filter(x => x.caminhaoId === c.id && agValido(x) && fimDe(x) >= h).sort(porDataHora)[0];
+    if (a) out.push({ nivel: 'breve', ordem: a.data, txt: `${rotuloCam(c)} está ${c.situacao === 'oficina' ? 'na oficina' : 'parado'} e tem serviço em ${fmtData(a.data)} na obra ${nomeObra(a.obraId)}.`, acao: { acao: 'editar', alvo: 'agenda:' + a.id, txt: 'Ver agendamento' } });
+  }
+  // CNH e curso de operador
+  for (const m of motsAtivos()) {
+    for (const [campo, nome] of [['validadeCnh', 'A CNH'], ['validadeNr', 'O curso de operador (NR-11)']]) {
+      if (!m[campo]) continue;
+      const d = difDias(h, m[campo]);
+      if (d < 0) out.push({ nivel: 'grave', ordem: m[campo], txt: `${nome} de ${m.nome} venceu em ${fmtData(m[campo])}.`, acao: { acao: 'editar', alvo: 'motoristas:' + m.id, txt: 'Atualizar' } });
+      else if (d <= 30) out.push({ nivel: 'breve', ordem: m[campo], txt: `${nome} de ${m.nome} vence em ${fmtData(m[campo])} (${d === 0 ? 'hoje' : d === 1 ? 'amanhã' : 'daqui a ' + d + ' dias'}).`, acao: { acao: 'editar', alvo: 'motoristas:' + m.id, txt: 'Atualizar' } });
+    }
+  }
+  // obra em andamento que passou da previsão
+  for (const o of todos('obras')) {
+    if (o.situacao !== 'andamento' || !o.previsao || o.previsao >= h) continue;
+    out.push({ nivel: 'info', ordem: o.previsao, txt: `A obra ${o.nome} passou da previsão de término (${fmtData(o.previsao)}). Se acabou, marque como concluída.`, acao: { acao: 'editar', alvo: 'obras:' + o.id, txt: 'Editar obra' } });
+  }
+  const peso = { grave: 0, breve: 1, info: 2 };
+  return out.sort((a, b) => peso[a.nivel] - peso[b.nivel] || String(a.ordem).localeCompare(String(b.ordem)));
+}
+
+function renderPainel(alertas) {
+  const h = hojeISO();
+  $('#painel-data').textContent = 'Hoje, ' + SEMANA_LONGA[dataDe(h).getDay()] + ', ' + fmtData(h) + '.';
+  const cams = camAtivos();
+  const onde = new Map(cams.map(c => [c.id, ondeEsta(c, h)]));
+  const trabalhando = cams.filter(c => onde.get(c.id).tipo !== 'livre').length;
+  const semana = todos('agenda').filter(a => agValido(a) && a.data > h && a.data <= somaDias(h, 7));
+  const mesIni = h.slice(0, 8) + '01';
+  const kmMes = soma(todos('km').filter(r => r.data >= mesIni && r.data <= h), kmDe);
+  const andamento = todos('obras').filter(o => o.situacao === 'andamento');
+  $('#painel-kpis').innerHTML = [
+    ['Trabalhando hoje', `${nf0.format(trabalhando)}<small>de ${nf0.format(cams.length)}</small>`, cams.length ? plural(cams.length - trabalhando, 'livre', 'livres') + ' hoje' : 'Cadastre os caminhões'],
+    ['Próximos 7 dias', nf0.format(semana.length), plural(new Set(semana.map(a => a.caminhaoId)).size, 'caminhão agendado', 'caminhões agendados')],
+    ['Km em ' + MESES[Number(h.slice(5, 7)) - 1], `${nf0.format(kmMes)}<small>km</small>`, 'nas obras, até hoje'],
+    ['Obras em andamento', nf0.format(andamento.length), plural(todos('obras').filter(o => o.situacao === 'planejada').length, 'planejada', 'planejadas')],
+  ].map(([r, v, s]) => `<div class="kpi"><span class="kpi-rot">${esc(r)}</span><span class="kpi-val">${v}</span><span class="kpi-sub">${esc(s)}</span></div>`).join('');
+
+  $('#bloco-alertas').hidden = !alertas.length;
+  const rotNivel = { grave: ['bad', 'Urgente'], breve: ['warn', 'Atenção'], info: ['info', 'Aviso'] };
+  $('#painel-alertas').innerHTML = alertas.slice(0, 15).map(a => `<li><span class="pill ${rotNivel[a.nivel][0]}">${rotNivel[a.nivel][1]}</span><span class="txt">${esc(a.txt)}</span>${a.acao ? `<button class="btn small ghost" type="button" data-acao="${a.acao.acao}" data-alvo="${esc(a.acao.alvo)}"${a.acao.dia ? ` data-dia="${a.acao.dia}"` : ''}>${esc(a.acao.txt)}</button>` : ''}</li>`).join('')
+    + (alertas.length > 15 ? `<li><span class="txt">E mais ${alertas.length - 15}.</span></li>` : '');
+
+  const box = $('#painel-cams');
+  if (!cams.length) {
+    box.innerHTML = `<div class="vazio-grande"><strong>Nenhum caminhão cadastrado.</strong><p class="hint">Cadastre os caminhões munck e os motoristas. Depois cadastre as obras e agende os serviços.</p><button class="btn" type="button" data-acao="abrir-form" data-form="f-cam">Cadastrar caminhão</button></div>`;
+    return;
+  }
+  box.innerHTML = cams.map(c => cartaoMunck(c, onde.get(c.id), h)).join('');
+}
+function cartaoMunck(c, o, h) {
+  let cls = 'trabalhando', rot = 'Hoje', titulo = '', det = [];
+  if (o.tipo === 'agenda') {
+    const a = o.ag;
+    rot = 'Hoje' + (a.hora ? ' · ' + a.hora : '') + (a.situacao === 'confirmado' ? ' · confirmado' : '');
+    titulo = nomeObra(a.obraId);
+    det = [a.etapa, a.servico, descObra(obra(a.obraId)), a.motoristaId ? 'Motorista: ' + nomeMot(a.motoristaId) : ''];
+    if (o.outros.length) det.push('Depois: ' + o.outros.map(x => nomeObra(x.obraId) + (x.hora ? ' às ' + x.hora : '')).join(', '));
+  } else if (o.tipo === 'km') {
+    rot = 'Hoje · km lançado';
+    titulo = nomeObra(o.r.obraId);
+    det = [o.r.etapa, o.r.motoristaId ? 'Motorista: ' + nomeMot(o.r.motoristaId) : ''];
+  } else {
+    cls = c.situacao === 'oficina' || c.situacao === 'parado' ? 'oficina' : '';
+    titulo = c.situacao === 'oficina' ? 'Na oficina' : c.situacao === 'parado' ? 'Parado' : 'Sem serviço agendado';
+    det = [o.ult ? `Último serviço: ${nomeObra(o.ult.obraId)}, ${fmtData(fimDe(o.ult))}` : 'Ainda sem serviço lançado', c.motoristaId ? 'Motorista fixo: ' + nomeMot(c.motoristaId) : ''];
+  }
+  const prox = proximos(c.id, h, 3);
+  const mesIni = h.slice(0, 8) + '01';
+  const kmMes = soma(todos('km').filter(r => r.caminhaoId === c.id && r.data >= mesIni && r.data <= h), kmDe);
+  const hod = kmAtual(c.id);
+  return `<article class="munk">
+    <div class="munk-cab">${placaHTML(c.placa, 'g')}<span class="veic-txt"><strong>${esc(c.apelido || '')}</strong>${c.apelido ? '<br>' : ''}${esc(c.munck || [c.marca, c.modelo].filter(Boolean).join(' '))}</span>${c.situacao !== 'ativo' ? pill(SIT_CAM, c.situacao) : ''}</div>
+    <div class="onde ${cls}"><span class="onde-rot">${esc(rot)}</span><span class="onde-obra">${esc(titulo)}</span>${det.filter(Boolean).map(x => `<span class="onde-det">${esc(x)}</span>`).join('')}</div>
+    <ul class="prox"><li class="nada prox-rot">Próximos serviços</li>${prox.length ? prox.map(a => `<li><span class="quando">${esc(diaSem(a.data))} ${esc(fmtDataCurta(a.data))}${a.hora ? '<br><span class="sem">' + esc(a.hora) + '</span>' : ''}</span><span class="oque">${esc(nomeObra(a.obraId))}${a.etapa ? ' · ' + esc(a.etapa) : ''}</span></li>`).join('') : '<li class="nada">Nada agendado para os próximos dias.</li>'}</ul>
+    <div class="munk-pe"><span class="km">Km no mês: <strong>${esc(fKm(kmMes))}</strong>${hod ? ' · hodômetro ' + esc(nf0.format(hod)) : ''}</span>
+      <span class="acoes-linha"><button class="btn small ghost" type="button" data-acao="novo-ag" data-cam="${esc(c.id)}">Agendar</button><button class="btn small ghost" type="button" data-acao="novo-km" data-cam="${esc(c.id)}">Lançar km</button></span></div>
+  </article>`;
+}
+
+/* ====================================================================
+   AGENDA
+   ==================================================================== */
+function renderQuadro() {
+  const h = hojeISO();
+  const ini = UI.semana || inicioSemana(h);
+  const dias = Array.from({ length: 7 }, (_, i) => somaDias(ini, i));
+  $('#semana-txt').textContent = `De ${diaSem(ini)} ${fmtDataCurta(ini)} a ${diaSem(dias[6])} ${fmtData(dias[6])}` + (dias.includes(h) ? ' · esta semana' : '');
+  const cams = camAtivos();
+  const cab = `<thead><tr><th class="col-cam" scope="col">Caminhão</th>${dias.map(d => `<th scope="col"${d === h ? ' class="hoje"' : ''}>${esc(diaSem(d))} ${esc(fmtDataCurta(d))}${d === h ? ' · hoje' : ''}</th>`).join('')}</tr></thead>`;
+  if (!cams.length) { $('#quadro').innerHTML = cab + `<tbody><tr><td class="vazio-txt" colspan="8">Cadastre os caminhões em “Caminhões e motoristas” para montar o quadro.</td></tr></tbody>`; return; }
+  const linhas = cams.map(c => {
+    const cels = dias.map(d => {
+      const ags = agendaDe(c.id, d);
+      const fds = [0, 6].includes(dataDe(d).getDay());
+      const cls = [d === h ? 'hoje' : fds ? 'fds' : '', conflitam(ags) ? 'conflito' : ''].filter(Boolean).join(' ');
+      const chips = ags.map(a => {
+        const parte = fimDe(a) !== a.data ? ` (${difDias(a.data, d) + 1}/${difDias(a.data, fimDe(a)) + 1})` : '';
+        const linha2 = [a.hora, a.etapa].filter(Boolean).join(' · ');
+        return `<button class="chip ${a.situacao}" type="button" data-acao="editar" data-alvo="agenda:${esc(a.id)}" title="${esc([nomeObra(a.obraId), a.etapa, a.servico, nomeMot(a.motoristaId), SIT_AG[a.situacao]].filter(Boolean).join(' · '))}"><strong>${esc(nomeObra(a.obraId))}${esc(parte)}</strong>${linha2 ? `<span>${esc(linha2)}</span>` : ''}${a.motoristaId ? `<span>${esc(primeiroNome(nomeMot(a.motoristaId)))}</span>` : ''}</button>`;
+      }).join('');
+      return `<td${cls ? ` class="${cls}"` : ''}><div class="celula">${chips}<button class="add" type="button" data-acao="novo-ag" data-cam="${esc(c.id)}" data-dia="${d}" aria-label="Agendar ${esc(mostraPlaca(c.placa))} em ${esc(fmtData(d))}">+</button></div></td>`;
+    }).join('');
+    return `<tr><th scope="row">${celCam(c)}</th>${cels}</tr>`;
+  }).join('');
+  $('#quadro').innerHTML = cab + `<tbody>${linhas}</tbody>`;
+}
+function renderListaAgenda() {
+  const h = hojeISO();
+  const quando = $('#fa-quando').value, fc = $('#fa-cam').value, fo = $('#fa-obra').value;
+  let lista = todos('agenda').filter(a => (!fc || a.caminhaoId === fc) && (!fo || a.obraId === fo));
+  if (quando === 'proximos') lista = lista.filter(a => fimDe(a) >= h).sort(porDataHora);
+  else if (quando === 'passados') lista = lista.filter(a => a.data < h && fimDe(a) >= somaDias(h, -30)).sort((a, b) => porDataHora(b, a));
+  else lista.sort((a, b) => porDataHora(b, a));
+  const linhas = lista.slice(0, 300).map(a => {
+    const c = cam(a.caminhaoId);
+    const extra = (agValido(a) && a.data <= h ? `<button class="lnk" type="button" data-acao="lancar-km" data-alvo="agenda:${esc(a.id)}">Lançar km</button>` : '')
+      + (agValido(a) && a.situacao !== 'feito' && a.data <= h ? `<button class="lnk" type="button" data-acao="feito" data-alvo="agenda:${esc(a.id)}">Feito</button>` : '');
+    return `<tr class="${a.situacao === 'cancelado' ? 'apagado' : ''}">
+      <td class="d"><strong>${esc(diaSem(a.data))}</strong> ${esc(periodoTxt(a))}</td>
+      <td class="d">${esc(a.hora || '')}</td>
+      <td>${celCam(c)}</td>
+      <td>${esc(nomeMot(a.motoristaId)) || '<span class="sem">—</span>'}</td>
+      <td class="riscar"><span class="forte">${esc(nomeObra(a.obraId))}</span>${a.etapa ? `<div class="fraco">${esc(a.etapa)}</div>` : ''}</td>
+      <td>${esc(a.servico || '')}${a.obs ? `<div class="fraco">${esc(a.obs)}</div>` : ''}</td>
+      <td>${pill(SIT_AG, a.situacao)}</td>
+      <td class="acoes">${acoesHTML('agenda', a.id, extra)}</td></tr>`;
+  });
+  const vazio = quando === 'proximos' ? 'Nada agendado de hoje em diante. Use “Novo agendamento” ou o <strong>+</strong> do quadro.' : 'Nenhum agendamento com esses filtros.';
+  tabela('#t-agenda', [['Data'], ['Hora'], ['Caminhão'], ['Motorista'], ['Obra e etapa'], ['O que vai fazer'], ['Situação'], ['', 'n']], linhas, '', vazio);
+}
+/* avisos do formulário de agendamento: o caminhão ou o motorista já têm serviço nesses dias */
+function calcAg() {
+  const f = $('#f-ag');
+  if (f.hidden) return;
+  const o = lerForm(f), out = [];
+  if (o.data && o.dataFim && o.dataFim < o.data) out.push('<span class="erro">A data “Até” é antes da data do serviço.</span>');
+  if (o.data) {
+    const x = { data: o.data, dataFim: o.dataFim && o.dataFim > o.data ? o.dataFim : '' };
+    const dias = diasDe(x, 62);
+    if (dias.length > 1) out.push(`<span class="info">${plural(dias.length, 'dia', 'dias')} de serviço.</span>`);
+    const outros = todos('agenda').filter(a => a.id !== f.dataset.editando && agValido(a) && dias.some(d => cobre(a, d)));
+    const doCam = o.caminhaoId ? outros.filter(a => a.caminhaoId === o.caminhaoId) : [];
+    doCam.slice(0, 3).forEach(a => out.push(`<span class="aviso">Este caminhão já tem serviço em ${esc(periodoTxt(a))}${a.hora ? ' às ' + esc(a.hora) : ''}: ${esc(nomeObra(a.obraId))}.</span>`));
+    const doMot = o.motoristaId ? outros.filter(a => a.motoristaId === o.motoristaId && a.caminhaoId !== o.caminhaoId) : [];
+    doMot.slice(0, 2).forEach(a => out.push(`<span class="aviso">${esc(nomeMot(o.motoristaId))} já está no ${esc(mostraPlaca((cam(a.caminhaoId) || {}).placa || ''))} em ${esc(periodoTxt(a))}.</span>`));
+    const c = cam(o.caminhaoId);
+    if (c && (c.situacao === 'oficina' || c.situacao === 'parado')) out.push(`<span class="aviso">Este caminhão está marcado como ${c.situacao === 'oficina' ? 'na oficina' : 'parado'}.</span>`);
+  }
+  $('#ag-calc').innerHTML = out.join('');
+}
+
+/* ====================================================================
+   KM DAS OBRAS
+   ==================================================================== */
+function renderListaKm() {
+  const fc = $('#fk-cam').value, fo = $('#fk-obra').value, mes = $('#fk-mes').value;
+  const lista = todos('km').filter(r => (!fc || r.caminhaoId === fc) && (!fo || r.obraId === fo) && (mes === 'todos' || !mes || r.data.slice(0, 7) === mes || fimDe(r).slice(0, 7) === mes))
+    .sort((a, b) => b.data.localeCompare(a.data) || (b.kmInicial || 0) - (a.kmInicial || 0));
+  const linhas = lista.map(r => `<tr>
+    <td class="d"><strong>${esc(diaSem(r.data))}</strong> ${esc(periodoTxt(r))}${r.modo === 'etapa' ? '<div class="fraco">por etapa</div>' : ''}</td>
+    <td>${celCam(cam(r.caminhaoId))}</td>
+    <td>${esc(nomeMot(r.motoristaId)) || '<span class="sem">—</span>'}</td>
+    <td><span class="forte">${esc(nomeObra(r.obraId))}</span>${r.etapa ? `<div class="fraco">${esc(r.etapa)}</div>` : ''}</td>
+    <td class="n">${esc(nf0.format(r.kmInicial || 0))}</td>
+    <td class="n">${esc(nf0.format(r.kmFinal || 0))}</td>
+    <td class="n forte">${esc(fKm(kmDe(r)))}</td>
+    <td class="n">${esc(fH(r.horas))}</td>
+    <td class="acoes">${acoesHTML('km', r.id)}</td></tr>`);
+  const tot = soma(lista, kmDe), th = soma(lista, r => r.horas);
+  $('#km-resumo').textContent = lista.length ? `${plural(lista.length, 'lançamento', 'lançamentos')}, ${fKm(tot)}${th ? ', ' + fH(th) + ' de munck' : ''}.` : '';
+  tabela('#t-km', [['Data'], ['Caminhão'], ['Motorista'], ['Obra e etapa'], ['Km inicial', 'n'], ['Km final', 'n'], ['Rodou', 'n'], ['Horas', 'n'], ['', 'n']], linhas,
+    lista.length > 1 ? `<tr><td colspan="6">Total</td><td class="n">${esc(fKm(tot))}</td><td class="n">${esc(fH(th))}</td><td></td></tr>` : '',
+    'Nenhum km lançado com esses filtros.');
+}
+function ajustarModoKm() {
+  const f = $('#f-km');
+  const etapa = (f.querySelector('input[name="modo"]:checked') || {}).value === 'etapa';
+  $('#km-fim-box').hidden = !etapa;
+  $('#km-data-rot').textContent = etapa ? 'Início da etapa' : 'Data';
+  $('#km-etapa-rot').textContent = etapa ? 'Etapa (obrigatória)' : 'Etapa';
+}
+function calcKm() {
+  const f = $('#f-km');
+  const o = lerForm(f), out = [];
+  if (o.modo === 'etapa' && o.data && o.dataFim) {
+    if (o.dataFim < o.data) out.push('<span class="erro">O fim da etapa é antes do início.</span>');
+    else out.push(`<span class="info">${plural(difDias(o.data, o.dataFim) + 1, 'dia', 'dias')} de etapa.</span>`);
+  }
+  if (o.kmInicial != null && o.kmFinal != null && !isNaN(o.kmInicial) && !isNaN(o.kmFinal)) {
+    const km = o.kmFinal - o.kmInicial;
+    if (km < 0) out.push('<span class="erro">O km final está menor que o inicial.</span>');
+    else {
+      out.unshift(`<span class="grande">${esc(fKm(km))}</span><span class="info">rodados</span>`);
+      if (km > 1000) out.push('<span class="aviso">Mais de 1.000 km: confira os números.</span>');
+    }
+  }
+  if (o.caminhaoId && o.data && o.kmInicial != null && !isNaN(o.kmInicial)) {
+    const u = ultimoKm(o.caminhaoId, o.data, f.dataset.editando);
+    if (u) {
+      const dif = o.kmInicial - u.kmFinal;
+      if (dif > 0) out.push(`<span class="aviso">${esc(fKm(dif))} sem lançamento desde ${esc(fmtData(fimDe(u)))} (o último km final foi ${esc(nf0.format(u.kmFinal))}).</span>`);
+      else if (dif < 0) out.push(`<span class="aviso">O km inicial está menor que o último km final deste caminhão (${esc(nf0.format(u.kmFinal))} em ${esc(fmtData(fimDe(u)))}). Confira.</span>`);
+    }
+  }
+  if (o.caminhaoId && o.data) {
+    const ag = agendaDe(o.caminhaoId, o.data)[0];
+    if (ag) out.push(`<span class="info">Agendado em ${esc(fmtDataCurta(o.data))}: ${esc(nomeObra(ag.obraId))}${ag.etapa ? ' · ' + esc(ag.etapa) : ''}.</span>`);
+  }
+  $('#km-calc').innerHTML = out.join('');
+}
+/* preenche o que der: motorista, obra e etapa do agendamento do dia; km inicial do último km final */
+function autoValor(el, v) {
+  if (v == null || v === '') return;
+  if (el.value && !el.dataset.auto) return;
+  if (el.tagName === 'SELECT') garantirOpcao(el, v);
+  el.value = v;
+  el.dataset.auto = '1';
+}
+function sugerirKm() {
+  const f = $('#f-km');
+  if (f.dataset.editando) return;
+  const camId = f.elements.caminhaoId.value, dia = f.elements.data.value;
+  if (!camId || !dia) { calcKm(); return; }
+  const c = cam(camId);
+  const ag = agendaDe(camId, dia)[0];
+  autoValor(f.elements.motoristaId, (ag && ag.motoristaId) || (c && c.motoristaId) || '');
+  if (ag && f.elements.obraId.value !== NOVA) { autoValor(f.elements.obraId, ag.obraId); autoValor(f.elements.etapa, ag.etapa || ''); }
+  const u = ultimoKm(camId, dia, null);
+  const ini = u ? u.kmFinal : c && c.kmInicial;
+  if (ini) autoValor(f.elements.kmInicial, nf0.format(ini));
+  ajustarObraNova(f);
+  atualizarEtapas(f);
+  calcKm();
+}
+function sugerirAg() {
+  const f = $('#f-ag');
+  if (f.dataset.editando) return;
+  const c = cam(f.elements.caminhaoId.value);
+  if (c) autoValor(f.elements.motoristaId, c.motoristaId || '');
+  calcAg();
+}
+function ajustarObraNova(f) {
+  const box = $('[data-obra-nova]', f);
+  const nova = f.elements.obraId.value === NOVA;
+  box.hidden = !nova;
+}
+
+/* ====================================================================
+   OBRAS
+   ==================================================================== */
+function renderObras() {
+  const det = UI.obraSel && obra(UI.obraSel);
+  $('#obras-lista').hidden = !!det;
+  $('#obra-det').hidden = !det;
+  if (det) { renderObraDet(det); return; }
+  const fs = $('#fo-sit').value;
+  const lista = todos('obras').filter(o => fs === 'todas' || (fs === 'concluida' ? o.situacao === 'concluida' : o.situacao !== 'concluida'))
+    .sort((a, b) => (ORDEM_OBRA[a.situacao] ?? 9) - (ORDEM_OBRA[b.situacao] ?? 9) || porNome(a, b));
+  const n = s => todos('obras').filter(o => o.situacao === s).length;
+  $('#obras-resumo').textContent = todos('obras').length ? `${plural(n('andamento'), 'em andamento', 'em andamento')}, ${plural(n('planejada'), 'planejada', 'planejadas')}, ${plural(n('pausada'), 'parada', 'paradas')}, ${plural(n('concluida'), 'concluída', 'concluídas')}.` : '';
+  const h = hojeISO();
+  const box = $('#obras-cards');
+  if (!lista.length) {
+    box.innerHTML = `<div class="vazio-grande"><strong>${todos('obras').length ? 'Nenhuma obra com esse filtro.' : 'Nenhuma obra cadastrada.'}</strong><p class="hint">Cadastre a obra com as etapas. Também dá para criar a obra na hora de agendar ou de lançar o km.</p><button class="btn" type="button" data-acao="abrir-form" data-form="f-obra">Nova obra</button></div>`;
+    return;
+  }
+  box.innerHTML = lista.map(o => {
+    const s = statsObra(o.id);
+    const prox = todos('agenda').filter(a => a.obraId === o.id && agValido(a) && fimDe(a) >= h).sort(porDataHora)[0];
+    const cams = new Set([...s.porCam.map(x => x.camId), ...todos('agenda').filter(a => a.obraId === o.id && agValido(a) && fimDe(a) >= h).map(a => a.caminhaoId)]);
+    return `<article class="obra">
+      <div class="obra-topo"><div><h3 class="obra-nome">${esc(o.nome)}</h3>${descObra(o) ? `<p class="obra-sub">${esc(descObra(o))}</p>` : ''}</div>${pill(SIT_OBRA, o.situacao)}</div>
+      <div class="numeros"><span><strong>${esc(fKm(s.km))}</strong> rodados</span><span><strong>${nf0.format(s.dias.size)}</strong> ${s.dias.size === 1 ? 'dia' : 'dias'} com km</span>${s.horas ? `<span><strong>${esc(fH(s.horas))}</strong> de munck</span>` : ''}</div>
+      ${o.inicio || o.previsao ? `<p class="obra-sub">${o.inicio ? 'Início ' + esc(fmtData(o.inicio)) : ''}${o.inicio && o.previsao ? ' · ' : ''}${o.previsao ? 'previsão ' + esc(fmtData(o.previsao)) : ''}</p>` : ''}
+      ${cams.size ? `<div class="etiquetas">${[...cams].map(id => cam(id)).filter(Boolean).sort(porPlaca).map(c => placaHTML(c.placa, 'p')).join('')}</div>` : ''}
+      <p class="obra-sub">${prox ? `Próximo serviço: <strong>${esc(diaSem(prox.data))} ${esc(fmtData(prox.data))}</strong>${prox.hora ? ' às ' + esc(prox.hora) : ''}, ${esc(rotuloCam(cam(prox.caminhaoId)))}` : 'Sem serviço agendado.'}</p>
+      ${s.etapas.length ? `<div class="etiquetas">${s.etapas.slice(0, 8).map(e => `<span class="etiqueta">${esc(e.etapa)}${e.km ? ' · ' + esc(fKm(e.km)) : ''}</span>`).join('')}${s.etapas.length > 8 ? `<span class="etiqueta">+${s.etapas.length - 8}</span>` : ''}</div>` : ''}
+      <div class="obra-pe"><button class="btn small" type="button" data-acao="ver-obra" data-obra="${esc(o.id)}">Ver obra</button><button class="btn small ghost" type="button" data-acao="novo-ag" data-obra="${esc(o.id)}">Agendar</button><button class="btn small ghost" type="button" data-acao="editar" data-alvo="obras:${esc(o.id)}">Editar</button></div>
+    </article>`;
+  }).join('');
+}
+function renderObraDet(o) {
+  const s = statsObra(o.id);
+  const h = hojeISO();
+  const ags = todos('agenda').filter(a => a.obraId === o.id).sort(porDataHora);
+  const futuros = ags.filter(a => agValido(a) && fimDe(a) >= h);
+  const ficha = [['Cliente', o.cliente], ['Cidade', o.cidade], ['Endereço ou local', o.endereco], ['Responsável na obra', o.contato], ['Início', fmtData(o.inicio)], ['Previsão de término', fmtData(o.previsao)], ['Observação', o.obs]].filter(([, v]) => v);
+  const linhaEtapa = e => `<tr><td class="forte">${esc(e.etapa)}</td><td class="n forte">${e.n ? esc(fKm(e.km)) : '<span class="sem">—</span>'}</td><td class="n">${esc(fH(e.horas))}</td><td class="n">${nf0.format(e.n)}</td><td>${[...e.cams].map(id => cam(id)).filter(Boolean).map(c => placaHTML(c.placa, 'p')).join(' ') || '<span class="sem">—</span>'}</td><td class="d">${e.ini ? esc(fmtData(e.ini)) + (e.fim !== e.ini ? ' a ' + esc(fmtData(e.fim)) : '') : '<span class="sem">ainda sem km</span>'}</td></tr>`;
+  const linhaCam = x => `<tr><td>${celCam(cam(x.camId))}</td><td class="n forte">${esc(fKm(x.km))}</td><td class="n">${esc(fH(x.horas))}</td><td class="n">${nf0.format(x.dias.size)}</td><td class="d">${esc(fmtData(x.ult))}</td></tr>`;
+  const linhaDia = r => `<tr><td class="d"><strong>${esc(diaSem(r.data))}</strong> ${esc(periodoTxt(r))}${r.modo === 'etapa' ? '<div class="fraco">por etapa</div>' : ''}</td><td>${celCam(cam(r.caminhaoId))}</td><td>${esc(nomeMot(r.motoristaId))}</td><td>${esc(r.etapa || '')}</td><td class="n">${esc(nf0.format(r.kmInicial || 0))}</td><td class="n">${esc(nf0.format(r.kmFinal || 0))}</td><td class="n forte">${esc(fKm(kmDe(r)))}</td><td class="n">${esc(fH(r.horas))}</td><td class="acoes">${acoesHTML('km', r.id)}</td></tr>`;
+  const linhaAg = a => `<tr class="${a.situacao === 'cancelado' ? 'apagado' : ''}"><td class="d"><strong>${esc(diaSem(a.data))}</strong> ${esc(periodoTxt(a))}</td><td class="d">${esc(a.hora || '')}</td><td>${celCam(cam(a.caminhaoId))}</td><td>${esc(nomeMot(a.motoristaId))}</td><td>${esc(a.etapa || '')}</td><td>${esc(a.servico || '')}</td><td>${pill(SIT_AG, a.situacao)}</td><td class="acoes">${acoesHTML('agenda', a.id)}</td></tr>`;
+  const el = $('#obra-det');
+  el.innerHTML = `
+    <div><button class="lnk" type="button" data-acao="obras-voltar">← Todas as obras</button></div>
+    <div class="cab">
+      <div><div class="titulo-obra"><h1 class="h1">${esc(o.nome)}</h1>${pill(SIT_OBRA, o.situacao)}</div>${descObra(o) ? `<p class="hint">${esc(descObra(o))}</p>` : ''}</div>
+      <div class="acoes-linha">
+        <button class="btn" type="button" data-acao="novo-ag" data-obra="${esc(o.id)}">Agendar</button>
+        <button class="btn ghost" type="button" data-acao="novo-km" data-obra="${esc(o.id)}">Lançar km</button>
+        <button class="btn ghost" type="button" data-acao="obra-excel" data-obra="${esc(o.id)}">Baixar no Excel</button>
+        <button class="btn ghost" type="button" data-acao="editar" data-alvo="obras:${esc(o.id)}">Editar obra</button>
+      </div>
+    </div>
+    ${ficha.length ? `<dl class="ficha-obra">${ficha.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
+    <div class="kpis">
+      <div class="kpi"><span class="kpi-rot">Km rodados</span><span class="kpi-val">${nf0.format(s.km)}<small>km</small></span><span class="kpi-sub">${plural(s.regs.length, 'lançamento', 'lançamentos')}</span></div>
+      <div class="kpi"><span class="kpi-rot">Dias com km</span><span class="kpi-val">${nf0.format(s.dias.size)}</span><span class="kpi-sub">${s.dias.size ? 'de ' + esc(fmtData([...s.dias].sort()[0])) + ' a ' + esc(fmtData([...s.dias].sort().pop())) : 'nenhum ainda'}</span></div>
+      <div class="kpi"><span class="kpi-rot">Horas de munck</span><span class="kpi-val">${s.horas ? nf1.format(s.horas) + '<small>h</small>' : '—'}</span><span class="kpi-sub">quando lançadas</span></div>
+      <div class="kpi"><span class="kpi-rot">Caminhões</span><span class="kpi-val">${nf0.format(s.porCam.length)}</span><span class="kpi-sub">${futuros.length ? plural(futuros.length, 'serviço agendado', 'serviços agendados') : 'nada agendado'}</span></div>
+    </div>
+    <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Por etapa</h2><p class="hint">Km de cada etapa da obra, somando todos os caminhões.</p></div></div>
+      <div class="tabela-box"><table class="tabela" id="t-ob-etapas"></table></div></section>
+    <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Por caminhão</h2></div></div>
+      <div class="tabela-box"><table class="tabela" id="t-ob-cams"></table></div></section>
+    <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Dia a dia</h2><p class="hint">Km inicial e final de cada lançamento nesta obra.</p></div></div>
+      <div class="tabela-box"><table class="tabela" id="t-ob-dias"></table></div></section>
+    <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Agenda da obra</h2></div></div>
+      <div class="tabela-box"><table class="tabela" id="t-ob-agenda"></table></div></section>`;
+  tabela('#t-ob-etapas', [['Etapa'], ['Km', 'n'], ['Horas', 'n'], ['Lançamentos', 'n'], ['Caminhões'], ['Período']], s.etapas.map(linhaEtapa),
+    s.etapas.length > 1 ? `<tr><td>Total</td><td class="n">${esc(fKm(s.km))}</td><td class="n">${esc(fH(s.horas))}</td><td class="n">${nf0.format(s.regs.length)}</td><td colspan="2"></td></tr>` : '', 'Nenhuma etapa cadastrada. Edite a obra para colocar as etapas, ou lance o km com o nome da etapa.');
+  tabela('#t-ob-cams', [['Caminhão'], ['Km', 'n'], ['Horas', 'n'], ['Dias', 'n'], ['Último dia']], s.porCam.map(linhaCam), '', 'Nenhum km lançado nesta obra.');
+  tabela('#t-ob-dias', [['Data'], ['Caminhão'], ['Motorista'], ['Etapa'], ['Km inicial', 'n'], ['Km final', 'n'], ['Rodou', 'n'], ['Horas', 'n'], ['', 'n']], [...s.regs].reverse().map(linhaDia), '', 'Nenhum km lançado nesta obra.');
+  tabela('#t-ob-agenda', [['Data'], ['Hora'], ['Caminhão'], ['Motorista'], ['Etapa'], ['O que vai fazer'], ['Situação'], ['', 'n']], [...futuros, ...ags.filter(a => !futuros.includes(a)).reverse()].slice(0, 60).map(linhaAg), '', 'Nenhum serviço agendado para esta obra.');
+}
+
+/* ====================================================================
+   CAMINHÕES E MOTORISTAS
+   ==================================================================== */
+function renderCadastro() {
+  const h = hojeISO();
+  const cams = todos('caminhoes').sort((a, b) => (a.situacao === 'fora') - (b.situacao === 'fora') || porPlaca(a, b));
+  tabela('#t-cam', [['Caminhão'], ['Munck'], ['Motorista fixo'], ['Hodômetro', 'n'], ['Hoje'], ['Situação'], ['', 'n']], cams.map(c => {
+    const o = ondeEsta(c, h);
+    const hoje = o.tipo === 'agenda' ? nomeObra(o.ag.obraId) : o.tipo === 'km' ? nomeObra(o.r.obraId) : '';
+    const equip = [c.munck, c.capacidade ? nf1.format(c.capacidade) + ' t' : '', c.alcance ? nf1.format(c.alcance) + ' m' : ''].filter(Boolean).join(' · ');
+    return `<tr class="${c.situacao === 'fora' ? 'apagado' : ''}"><td>${celCam(c, [c.apelido, [c.marca, c.modelo, c.ano].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}</td><td>${esc(equip) || '<span class="sem">—</span>'}</td><td>${esc(nomeMot(c.motoristaId)) || '<span class="sem">—</span>'}</td><td class="n">${kmAtual(c.id) ? esc(nf0.format(kmAtual(c.id))) : '—'}</td><td>${hoje ? esc(hoje) : '<span class="sem">Livre</span>'}</td><td>${pill(SIT_CAM, c.situacao)}</td><td class="acoes">${acoesHTML('caminhoes', c.id)}</td></tr>`;
+  }), '', 'Nenhum caminhão cadastrado. Use “Novo caminhão”.');
+  const mots = todos('motoristas').sort((a, b) => (a.situacao === 'desligado') - (b.situacao === 'desligado') || porNome(a, b));
+  tabela('#t-mot', [['Nome'], ['Telefone'], ['CNH'], ['Validade da CNH'], ['Curso NR-11'], ['Caminhão fixo'], ['Situação'], ['', 'n']], mots.map(m => {
+    const c = todos('caminhoes').find(x => x.motoristaId === m.id && x.situacao !== 'fora');
+    return `<tr class="${m.situacao === 'desligado' ? 'apagado' : ''}"><td class="forte">${esc(m.nome)}</td><td class="d">${esc(m.telefone || '')}</td><td class="d">${esc([m.cnh, m.categoria].filter(Boolean).join(' · '))}</td><td>${validade(m.validadeCnh, 'Validade da CNH')}</td><td>${validade(m.validadeNr, 'Validade do curso de operador')}</td><td>${c ? placaHTML(c.placa, 'p') : '<span class="sem">—</span>'}</td><td>${pill(SIT_MOT, m.situacao)}</td><td class="acoes">${acoesHTML('motoristas', m.id)}</td></tr>`;
+  }), '', 'Nenhum motorista cadastrado. Use “Novo motorista”.');
+  $('#dados-txt').textContent = Armazem.modo === 'nuvem'
+    ? 'Os dados ficam salvos na sua conta e aparecem em qualquer aparelho que abrir este link. A planilha traz tudo o que está cadastrado.'
+    : 'Os dados ficam neste computador. Salve uma cópia de vez em quando.';
+}
+
+/* ====================================================================
+   Formulários
+   ==================================================================== */
+function lerForm(f) {
+  const o = {};
+  for (const el of f.elements) {
+    if (!el.name) continue;
+    const t = el.dataset.tipo;
+    if (el.type === 'radio') { if (el.checked) o[el.name] = el.value; continue; }
+    if (el.type === 'checkbox') o[el.name] = el.checked;
+    else if (t === 'int') o[el.name] = lerNumero(el.value, true);
+    else if (t === 'dec') o[el.name] = lerNumero(el.value, false);
+    else if (t === 'linhas') o[el.name] = el.value.split('\n').map(x => x.trim()).filter(Boolean);
+    else if (t === 'ano') { const v = el.value.trim(), m = v.match(/^(\d{4})(?:\s*\/\s*(\d{4}))?$/); o[el.name] = m ? m[1] + (m[2] ? '/' + m[2] : '') : v; }
+    else o[el.name] = el.value.trim();
+  }
+  return o;
+}
+function preencherForm(f, o) {
+  for (const el of f.elements) {
+    if (!el.name) continue;
+    const v = o[el.name];
+    const t = el.dataset.tipo;
+    el.removeAttribute('aria-invalid');
+    delete el.dataset.auto;
+    if (el.type === 'radio') el.checked = el.value === v;
+    else if (el.type === 'checkbox') el.checked = !!v;
+    else if (t === 'int') el.value = v == null || v === '' ? '' : nf0.format(v);
+    else if (t === 'dec') el.value = v == null || v === '' ? '' : String(v).replace('.', ',');
+    else if (t === 'linhas') el.value = Array.isArray(v) ? v.join('\n') : (v || '');
+    else if (el.tagName === 'SELECT') { if (el.dataset.lista) garantirOpcao(el, v || ''); el.value = v == null ? '' : String(v); }
+    else el.value = v == null ? '' : v;
+  }
+}
+function modoForm(f, editandoId) {
+  if (editandoId) f.dataset.editando = editandoId; else delete f.dataset.editando;
+  f.classList.toggle('editando', !!editandoId);
+  $$('[data-novo]', f).forEach(el => { el.textContent = editandoId ? el.dataset.editar : el.dataset.novo; });
+  const cancelar = $('[data-acao="cancelar-edicao"]', f);
+  if (cancelar) cancelar.hidden = !editandoId;
+}
+const PADROES = {
+  'f-ag': () => ({ data: hojeISO(), situacao: 'agendado' }),
+  'f-km': () => ({ modo: 'dia', data: hojeISO() }),
+  'f-obra': () => ({ situacao: 'andamento', inicio: hojeISO() }),
+  'f-cam': () => ({ situacao: 'ativo' }),
+  'f-mot': () => ({ categoria: 'E', situacao: 'ativo' }),
+};
+function limparForm(f, manter) {
+  const base = PADROES[f.id]();
+  if (manter) manter.forEach(k => { const v = lerForm(f)[k]; if (v !== undefined) base[k] = v; });
+  preencherForm(f, base);
+  modoForm(f, null);
+  const msg = $('.f-msg', f);
+  if (msg) { msg.textContent = ''; msg.className = 'f-msg'; }
+  aposPreencher(f);
+}
+function aposPreencher(f) {
+  if (f.id === 'f-km') { ajustarModoKm(); ajustarObraNova(f); atualizarEtapas(f); calcKm(); }
+  if (f.id === 'f-ag') { ajustarObraNova(f); atualizarEtapas(f); calcAg(); }
+}
+function msgForm(f, txt, tipo) { const m = $('.f-msg', f); m.textContent = txt; m.className = 'f-msg ' + (tipo || ''); }
+function marcarErro(f, nome, txt) {
+  const el = f.elements[nome];
+  if (el && el.setAttribute) { el.setAttribute('aria-invalid', 'true'); el.focus(); }
+  msgForm(f, txt, 'erro');
+  return false;
+}
+/* abre o formulário numa aba, já preenchido com o que veio do botão */
+function abrirForm(formId, dados) {
+  const f = document.getElementById(formId);
+  const vista = VISTA_DO_FORM[formId];
+  if (vista === 'obras') UI.obraSel = '';
+  irPara(vista);
+  limparForm(f);
+  if (dados) { preencherForm(f, Object.assign(PADROES[formId](), dados)); aposPreencher(f); }
+  f.hidden = false;
+  if (formId === 'f-km') sugerirKm();
+  if (formId === 'f-ag') sugerirAg();
+  f.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  const primeiro = $('input:not([type="radio"]), select', f);
+  if (primeiro) primeiro.focus({ preventScroll: true });
+  return f;
+}
+function editar(col, id) {
+  const reg = D[col].get(id);
+  const formId = FORM_DA_COL[col];
+  if (!reg || !formId) return;
+  const f = abrirForm(formId, null);
+  preencherForm(f, Object.assign({}, reg));
+  modoForm(f, id);
+  aposPreencher(f);
+}
+
+async function salvarForm(f) {
+  if (f.dataset.salvando) return;
+  if (UI.somenteLeitura) { msgForm(f, msgErro({ code: 'invalid_argument' }), 'erro'); return; }
+  $$('[aria-invalid]', f).forEach(el => el.removeAttribute('aria-invalid'));
+  const col = f.dataset.col;
+  const editando = f.dataset.editando;
+  const antigo = editando ? D[col].get(editando) : null;
+  const o = lerForm(f);
+  const agora = new Date().toISOString();
+  const ops = [];
+  let aviso = '', manter = null, obraNova = null;
+
+  if (col === 'agenda' || col === 'km') {
+    if (!o.data) return marcarErro(f, 'data', col === 'km' && o.modo === 'etapa' ? 'Escolha o início da etapa.' : 'Escolha a data.');
+    if (col === 'km' && o.modo !== 'etapa') o.dataFim = '';
+    if (o.dataFim && o.dataFim < o.data) return marcarErro(f, 'dataFim', col === 'km' ? 'O fim da etapa é antes do início.' : 'A data “Até” é antes da data do serviço.');
+    if (col === 'km' && o.modo === 'etapa' && !o.dataFim) return marcarErro(f, 'dataFim', 'Escolha o fim da etapa.');
+    if (o.dataFim === o.data && col === 'agenda') o.dataFim = '';
+    if (o.dataFim && difDias(o.data, o.dataFim) > 180) return marcarErro(f, 'dataFim', 'No máximo 180 dias de uma vez.');
+    if (!o.caminhaoId) return marcarErro(f, 'caminhaoId', 'Escolha o caminhão.');
+    if (o.obraId === NOVA) {
+      if (!o.obraNovaNome) return marcarErro(f, 'obraNovaNome', 'Escreva o nome da obra nova.');
+      const mesma = todos('obras').find(x => (x.nome || '').toLowerCase() === o.obraNovaNome.toLowerCase());
+      if (mesma) o.obraId = mesma.id;
+      else {
+        obraNova = { id: novoId('ob'), nome: o.obraNovaNome, cliente: o.obraNovaCliente, cidade: o.obraNovaCidade, situacao: 'andamento', inicio: o.data, etapas: [], criadoEm: agora };
+        o.obraId = obraNova.id;
+      }
+    }
+    delete o.obraNovaNome; delete o.obraNovaCliente; delete o.obraNovaCidade;
+    if (!o.obraId) return marcarErro(f, 'obraId', 'Escolha a obra, ou “+ Cadastrar obra nova”.');
+    if (col === 'km') {
+      if (o.modo === 'etapa' && !o.etapa) return marcarErro(f, 'etapa', 'Escreva a etapa da obra.');
+      if (o.kmInicial == null || isNaN(o.kmInicial)) return marcarErro(f, 'kmInicial', 'Escreva o km inicial (só números).');
+      if (o.kmFinal == null || isNaN(o.kmFinal)) return marcarErro(f, 'kmFinal', 'Escreva o km final (só números).');
+      if (o.kmFinal < o.kmInicial) return marcarErro(f, 'kmFinal', 'O km final não pode ser menor que o inicial.');
+      if (o.horas != null && (isNaN(o.horas) || o.horas < 0)) return marcarErro(f, 'horas', 'As horas têm que ser só números, como 6,5.');
+    }
+    // a etapa entra na lista da obra, com o mesmo jeito de escrever
+    if (o.etapa) {
+      const ob = obraNova || obra(o.obraId);
+      const lista = (ob && ob.etapas) || [];
+      const igual = etapasDaObra(o.obraId).find(e => e.toLowerCase() === o.etapa.toLowerCase());
+      if (igual) o.etapa = igual;
+      if (ob && !lista.some(e => e.toLowerCase() === o.etapa.toLowerCase())) {
+        if (obraNova) obraNova.etapas = [...lista, o.etapa];
+        else ops.push(['set', 'obras', Object.assign({}, ob, { etapas: [...lista, o.etapa] })]);
+      }
+    }
+    if (obraNova) ops.push(['set', 'obras', obraNova]);
+    const c = cam(o.caminhaoId);
+    if (col === 'agenda') {
+      const outros = todos('agenda').filter(a => a.id !== editando && a.caminhaoId === o.caminhaoId && agValido(a) && diasDe(Object.assign({}, o), 62).some(d => cobre(a, d)));
+      aviso = `Agendado: ${c ? mostraPlaca(c.placa) : ''} na obra ${obraNova ? obraNova.nome : nomeObra(o.obraId)}, ${periodoTxt(o)}.` + (outros.length ? ' Atenção: o caminhão já tem outro serviço nesse dia.' : '');
+    } else {
+      aviso = `Km salvo: ${c ? mostraPlaca(c.placa) : ''}, ${fKm(o.kmFinal - o.kmInicial)} na obra ${obraNova ? obraNova.nome : nomeObra(o.obraId)}.`;
+      manter = ['modo', 'data', 'dataFim'];
+      // o serviço agendado daquele dia vira "Feito"
+      if (!editando) {
+        const feitos = todos('agenda').filter(a => a.caminhaoId === o.caminhaoId && a.obraId === o.obraId && agValido(a) && a.situacao !== 'feito' && fimDe(a) <= (o.dataFim || o.data) && a.data >= o.data);
+        feitos.forEach(ag => ops.push(['set', 'agenda', Object.assign({}, ag, { situacao: 'feito' })]));
+        if (feitos.length) aviso += feitos.length === 1 ? ' O agendamento ficou como Feito.' : ` ${feitos.length} agendamentos ficaram como Feito.`;
+      }
+    }
+  } else if (col === 'obras') {
+    if (!o.nome) return marcarErro(f, 'nome', 'Escreva o nome da obra.');
+    if (todos('obras').some(x => x.id !== editando && (x.nome || '').toLowerCase() === o.nome.toLowerCase())) return marcarErro(f, 'nome', 'Já existe uma obra com esse nome.');
+    if (o.inicio && o.previsao && o.previsao < o.inicio) return marcarErro(f, 'previsao', 'A previsão de término é antes do início.');
+    const vistas = new Set();
+    o.etapas = o.etapas.filter(e => { const k = e.toLowerCase(); if (vistas.has(k)) return false; vistas.add(k); return true; });
+    aviso = `Obra ${o.nome} salva.`;
+  } else if (col === 'caminhoes') {
+    o.placa = normPlaca(o.placa);
+    if (!/^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(o.placa)) return marcarErro(f, 'placa', 'A placa tem 3 letras e 4 números ou letras, como ABC1D23 ou ABC1234.');
+    if (todos('caminhoes').some(x => x.placa === o.placa && x.id !== editando)) return marcarErro(f, 'placa', 'Já existe um caminhão com a placa ' + mostraPlaca(o.placa) + '.');
+    const anos = String(o.ano || '').split('/').map(Number);
+    if (o.ano && (!/^\d{4}(\/\d{4})?$/.test(o.ano) || anos.some(a => a < 1970 || a > new Date().getFullYear() + 1))) return marcarErro(f, 'ano', 'Escreva o ano com 4 números, como 2020 ou 2020/2021.');
+    for (const [k, nome] of [['capacidade', 'A capacidade'], ['alcance', 'O alcance']]) if (o[k] != null && (isNaN(o[k]) || o[k] < 0)) return marcarErro(f, k, nome + ' tem que ser só números, como 12,5.');
+    if (o.kmInicial != null && isNaN(o.kmInicial)) return marcarErro(f, 'kmInicial', 'O hodômetro tem que ser só números.');
+    if (o.motoristaId) {
+      const outro = todos('caminhoes').find(x => x.id !== editando && x.motoristaId === o.motoristaId && x.situacao !== 'fora');
+      if (outro) ops.push(['set', 'caminhoes', Object.assign({}, outro, { motoristaId: '' })]);
+    }
+    aviso = `Caminhão ${mostraPlaca(o.placa)} salvo.`;
+  } else if (col === 'motoristas') {
+    if (!o.nome) return marcarErro(f, 'nome', 'Escreva o nome do motorista.');
+    if (o.situacao === 'desligado') { const c = todos('caminhoes').find(x => x.motoristaId === editando); if (c) ops.push(['set', 'caminhoes', Object.assign({}, c, { motoristaId: '' })]); }
+    aviso = `Motorista ${o.nome} salvo.`;
+  }
+
+  const prefixo = { agenda: 'ag', km: 'km', obras: 'ob', caminhoes: 'cam', motoristas: 'mot' }[col];
+  const reg = Object.assign({}, antigo || {}, o, { id: editando || novoId(prefixo), criadoEm: (antigo && antigo.criadoEm) || agora, alteradoEm: agora });
+  ops.push(['set', col, reg]);
+  f.dataset.salvando = '1';
+  renderEstado();
+  try {
+    await gravarVarios(ops);
+    limparForm(f, manter);
+    if (f.id !== 'f-km') f.hidden = true;
+    else sugerirKm();
+    toast(aviso);
+  } catch (e) { msgForm(f, msgErro(e), 'erro'); }
+  finally { delete f.dataset.salvando; render(); }
+}
+
+async function apagarRegistro(col, id) {
+  const reg = D[col].get(id);
+  UI.confirmar = null;
+  if (!reg) { agendarRender(); return; }
+  const usa = campo => todos('agenda').filter(a => a[campo] === id).length + todos('km').filter(r => r[campo] === id).length;
+  if (col === 'caminhoes' && usa('caminhaoId')) { toast(`O ${mostraPlaca(reg.placa)} tem agendamentos ou km lançado. Para tirar da lista, edite e mude a situação para Fora da frota.`, true); agendarRender(); return; }
+  if (col === 'motoristas' && usa('motoristaId')) { toast(`${reg.nome} aparece em agendamentos ou km. Para tirar da lista, edite e mude a situação para Desligado.`, true); agendarRender(); return; }
+  if (col === 'obras' && usa('obraId')) { toast(`A obra ${reg.nome} tem agendamentos ou km lançado. Para tirar da lista, edite e mude a situação para Concluída.`, true); agendarRender(); return; }
+  const ops = [['del', col, id]];
+  if (col === 'motoristas') todos('caminhoes').filter(c => c.motoristaId === id).forEach(c => ops.push(['set', 'caminhoes', Object.assign({}, c, { motoristaId: '' })]));
+  try {
+    await gravarVarios(ops);
+    if (col === 'obras' && UI.obraSel === id) UI.obraSel = '';
+    const f = document.getElementById(FORM_DA_COL[col]);
+    if (f && f.dataset.editando === id) { limparForm(f); if (f.id !== 'f-km') f.hidden = true; }
+    toast('Apagado.');
+  } catch (e) { toast(msgErro(e), true); }
+}
+async function marcarFeito(id) {
+  const a = D.agenda.get(id);
+  if (!a) return;
+  try { await gravar('agenda', Object.assign({}, a, { situacao: 'feito', alteradoEm: new Date().toISOString() })); toast('Serviço marcado como feito.'); }
+  catch (e) { toast(msgErro(e), true); }
+}
+
+/* ====================================================================
+   Planilhas (Excel) e cópia
+   ==================================================================== */
+const XLSX_TIPO = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const TABELA_CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = TABELA_CRC[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+/* zip sem compressão (método "store"), nomes em UTF-8 */
+function zipar(arquivos) {
+  const enc = new TextEncoder();
+  const partes = [], central = [];
+  let pos = 0;
+  for (const a of arquivos) {
+    const nome = enc.encode(a.nome), dados = enc.encode(a.texto), crc = crc32(dados);
+    const loc = new DataView(new ArrayBuffer(30));
+    loc.setUint32(0, 0x04034b50, true); loc.setUint16(4, 20, true); loc.setUint16(6, 0x0800, true); loc.setUint16(8, 0, true);
+    loc.setUint16(10, 0, true); loc.setUint16(12, 0x5B79, true); loc.setUint32(14, crc, true); loc.setUint32(18, dados.length, true);
+    loc.setUint32(22, dados.length, true); loc.setUint16(26, nome.length, true); loc.setUint16(28, 0, true);
+    partes.push(new Uint8Array(loc.buffer), nome, dados);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true);
+    cen.setUint16(10, 0, true); cen.setUint16(12, 0, true); cen.setUint16(14, 0x5B79, true); cen.setUint32(16, crc, true);
+    cen.setUint32(20, dados.length, true); cen.setUint32(24, dados.length, true); cen.setUint16(28, nome.length, true);
+    cen.setUint32(42, pos, true);
+    central.push(new Uint8Array(cen.buffer), nome);
+    pos += 30 + nome.length + dados.length;
+  }
+  const tamCentral = central.reduce((t, p) => t + p.length, 0);
+  const fim = new DataView(new ArrayBuffer(22));
+  fim.setUint32(0, 0x06054b50, true); fim.setUint16(8, arquivos.length, true); fim.setUint16(10, arquivos.length, true);
+  fim.setUint32(12, tamCentral, true); fim.setUint32(16, pos, true);
+  return new Blob([...partes, ...central, new Uint8Array(fim.buffer)], { type: XLSX_TIPO });
+}
+/* estilos da planilha (índices de cellXfs) */
+const XS = { cab: 1, data: 2, moeda: 3, txt: 4, forte: 5, vencido: 6, breve: 7, ok: 8, neutro: 9, titulo: 10, fraco: 11, inteiro: 12, grupo: 13, moedaForte: 14, cinza: 15, dataCinza: 16, moedaCinza: 17, intForte: 18, cabSeg: 19, grupoDoc: 20, grupoSeg: 21 };
+const ESTILOS_XLSX = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="&quot;R$&quot; #,##0.00"/></numFmts>
+<fonts count="9">
+<font><sz val="11"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="16"/><color rgb="FF151A23"/><name val="Calibri"/><family val="2"/></font>
+<font><sz val="10"/><color rgb="FF535E72"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="11"/><color rgb="FFBA2E29"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="11"/><color rgb="FF8A5300"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="11"/><color rgb="FF0B7550"/><name val="Calibri"/><family val="2"/></font>
+<font><sz val="11"/><color rgb="FF7A8496"/><name val="Calibri"/><family val="2"/></font>
+</fonts>
+<fills count="9">
+<fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF171C24"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFBE2E0"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFBEDD3"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFDBF2E7"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE4E8EF"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE2E8FA"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF2B3F8C"/><bgColor indexed="64"/></patternFill></fill>
+</fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style="thin"><color rgb="FFD3D9E3"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="22">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top"/></xf>
+<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="5" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="6" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="7" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="8" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="3" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="2" fillId="7" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="165" fontId="2" fillId="6" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="8" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="164" fontId="8" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top"/></xf>
+<xf numFmtId="165" fontId="8" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="2" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="1" fillId="8" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="2" fillId="6" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="0" fontId="2" fillId="7" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+const xmlEsc = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function letraColuna(i) { let s = ''; for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s; return s; }
+const serialExcel = d => Math.round((Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 86400000);
+/* célula: texto ou número, ou { v, s } com estilo, ou { d: 'aaaa-mm-dd', s } para data */
+function celulaXlsx(ref, c) {
+  if (c == null || c === '') return '';
+  let v = c, s = 0;
+  if (typeof c === 'object') {
+    s = c.s || 0;
+    if ('d' in c) return c.d && /^\d{4}-\d{2}-\d{2}$/.test(c.d) ? `<c r="${ref}" s="${s || XS.data}"><v>${serialExcel(c.d)}</v></c>` : (s ? `<c r="${ref}" s="${s}"/>` : '');
+    v = c.v;
+  }
+  const est = s ? ` s="${s}"` : '';
+  if (v == null || v === '') return s ? `<c r="${ref}"${est}/>` : '';
+  if (typeof v === 'number') return isFinite(v) ? `<c r="${ref}"${est}><v>${v}</v></c>` : '';
+  return `<c r="${ref}" t="inlineStr"${est}><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+}
+/* aba: { nome, larguras, linhas, cabecalho (índice da linha do cabeçalho, para congelar e filtrar) } */
+function abaXlsx(aba) {
+  const nCols = Math.max(1, ...aba.linhas.map(l => l.length));
+  const linhas = aba.linhas.map((l, i) => `<row r="${i + 1}">${l.map((c, j) => celulaXlsx(letraColuna(j) + (i + 1), c)).join('')}</row>`).join('');
+  const cab = aba.cabecalho;
+  const painel = cab != null ? `<pane ySplit="${cab + 1}" topLeftCell="A${cab + 2}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${cab + 2}" sqref="A${cab + 2}"/>` : '';
+  aba.filtro = cab != null && aba.ultimaLinhaFiltro > cab + 1 ? `A${cab + 1}:${letraColuna(nCols - 1)}${aba.ultimaLinhaFiltro}` : '';
+  const cols = aba.larguras ? `<cols>${aba.larguras.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '';
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
+    + `<sheetViews><sheetView workbookViewId="0" showGridLines="0">${painel}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${linhas}</sheetData>`
+    + (aba.filtro ? `<autoFilter ref="${aba.filtro}"/>` : '')
+    + '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>';
+}
+function nomeAbaXlsx(nome, usados) {
+  let base = String(nome).replace(/[:\\/?*[\]]/g, ' ').trim().slice(0, 31) || 'Planilha', n = base, i = 2;
+  while (usados.has(n.toLowerCase())) { const suf = ' (' + i++ + ')'; n = base.slice(0, 31 - suf.length) + suf; }
+  usados.add(n.toLowerCase());
+  return n;
+}
+function montarXlsx(abas) {
+  const usados = new Set();
+  abas.forEach(a => { a.nome = nomeAbaXlsx(a.nome, usados); });
+  const folhas = abas.map(abaXlsx);
+  const n = abas.length;
+  const nomesFiltro = abas.map((a, i) => (a.filtro ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xmlEsc(a.nome.replace(/'/g, "''"))}'!${a.filtro.replace(/([A-Z]+)(\d+)/g, '$$$1$$$2')}</definedName>` : '')).join('');
+  const arquivos = [
+    { nome: '[Content_Types].xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + abas.map((a, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>' },
+    { nome: '_rels/.rels', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>' },
+    { nome: 'docProps/core.xml', texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Documentos da frota</dc:title><dc:creator>Controle Munck</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0, 19)}Z</dcterms:created></cp:coreProperties>` },
+    { nome: 'docProps/app.xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Controle Munck</Application></Properties>' },
+    { nome: 'xl/workbook.xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>'
+      + abas.map((a, i) => `<sheet name="${xmlEsc(a.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets>'
+      + (nomesFiltro ? `<definedNames>${nomesFiltro}</definedNames>` : '') + '</workbook>' },
+    { nome: 'xl/_rels/workbook.xml.rels', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + abas.map((a, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')
+      + `<Relationship Id="rId${n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+    { nome: 'xl/styles.xml', texto: ESTILOS_XLSX },
+    ...folhas.map((x, i) => ({ nome: `xl/worksheets/sheet${i + 1}.xml`, texto: x })),
+  ];
+  return zipar(arquivos);
+}
+
+function emitido() { const d = new Date(); return 'Emitido em ' + fmtData(iso(d)) + ' às ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+const xT = v => ({ v: v == null ? '' : v, s: XS.txt });
+const xF = v => ({ v: v == null ? '' : v, s: XS.forte });
+const xN = v => ({ v: v == null || v === '' ? '' : v, s: XS.inteiro });
+const xNum = v => ({ v: v == null || v === '' || v === 0 ? '' : v, s: XS.txt });
+const xD = v => ({ d: v || '', s: XS.data });
+const xSit = (mapa, sit) => ({ v: mapa[sit] || '', s: { ok: XS.ok, warn: XS.breve, bad: XS.vencido, info: XS.neutro }[PILL[sit]] || XS.neutro });
+function abaSimples(nome, titulo, sub, colunas, larguras, linhas) {
+  return { nome, cabecalho: 3, ultimaLinhaFiltro: linhas.length + 4, larguras,
+    linhas: [[{ v: titulo, s: XS.titulo }], [{ v: sub + ' · ' + plural(linhas.length, 'registro', 'registros'), s: XS.fraco }], [], colunas.map(c => ({ v: c, s: XS.cab })), ...linhas] };
+}
+const linhaKmX = r => { const c = cam(r.caminhaoId); return [xD(r.data), xD(r.modo === 'etapa' ? fimDe(r) : ''), xT(r.modo === 'etapa' ? 'Por etapa' : 'Por dia'), xF(c ? mostraPlaca(c.placa) : ''), xT(c ? c.apelido : ''), xT(nomeMot(r.motoristaId)), xT(nomeObra(r.obraId)), xT(r.etapa), xN(r.kmInicial), xN(r.kmFinal), { v: kmDe(r), s: XS.intForte }, xNum(r.horas), xT(r.obs)]; };
+const COLS_KM = ['Data ou início', 'Fim da etapa', 'Lançado', 'Placa', 'Apelido', 'Motorista', 'Obra', 'Etapa', 'Km inicial', 'Km final', 'Km rodados', 'Horas de munck', 'Observação'];
+const LARG_KM = [13, 13, 11, 11, 16, 22, 28, 24, 11, 11, 11, 10, 40];
+const linhaAgX = a => { const c = cam(a.caminhaoId); return [xD(a.data), xD(a.dataFim), xT(a.hora), xF(c ? mostraPlaca(c.placa) : ''), xT(c ? c.apelido : ''), xT(nomeMot(a.motoristaId)), xT(nomeObra(a.obraId)), xT(a.etapa), xT(a.servico), xSit(SIT_AG, a.situacao), xT(a.obs)]; };
+const COLS_AG = ['Data', 'Até', 'Hora', 'Placa', 'Apelido', 'Motorista', 'Obra', 'Etapa', 'O que vai fazer', 'Situação', 'Observação'];
+const LARG_AG = [12, 12, 8, 11, 16, 22, 28, 24, 30, 13, 40];
+
+function planilhaTudo() {
+  const h = hojeISO();
+  const sub = NOME_APP + ' · ' + emitido().toLowerCase();
+  const porData = (a, b) => a.data.localeCompare(b.data) || porHora(a, b);
+  const cams = todos('caminhoes').sort(porPlaca).map(c => {
+    const o = ondeEsta(c, h);
+    const hoje = o.tipo === 'agenda' ? nomeObra(o.ag.obraId) : o.tipo === 'km' ? nomeObra(o.r.obraId) : 'Livre';
+    return [xF(mostraPlaca(c.placa)), xT(c.apelido), xT(c.marca), xT(c.modelo), xT(c.ano), xT(c.munck), xNum(c.capacidade), xNum(c.alcance), xT(nomeMot(c.motoristaId)), xN(kmAtual(c.id) || ''), xT(hoje), xSit(SIT_CAM, c.situacao), xT(c.obs)];
+  });
+  const mots = todos('motoristas').sort(porNome).map(m => {
+    const c = todos('caminhoes').find(x => x.motoristaId === m.id && x.situacao !== 'fora');
+    return [xF(m.nome), xT(m.telefone), xT(m.cnh), xT(m.categoria), xD(m.validadeCnh), xD(m.validadeNr), xT(c ? mostraPlaca(c.placa) : ''), xSit(SIT_MOT, m.situacao), xT(m.obs)];
+  });
+  const obras = todos('obras').sort((a, b) => (ORDEM_OBRA[a.situacao] ?? 9) - (ORDEM_OBRA[b.situacao] ?? 9) || porNome(a, b)).map(o => {
+    const s = statsObra(o.id);
+    return [xF(o.nome), xT(o.cliente), xT(o.cidade), xT(o.endereco), xT(o.contato), xD(o.inicio), xD(o.previsao), xSit(SIT_OBRA, o.situacao), xT(etapasDaObra(o.id).join(' · ')), { v: s.km, s: XS.intForte }, xNum(s.horas), xN(s.dias.size), xT(s.porCam.map(x => cam(x.camId)).filter(Boolean).map(c => mostraPlaca(c.placa)).join(', ')), xT(o.obs)];
+  });
+  const resumo = [];
+  for (const o of todos('obras').sort(porNome)) {
+    const s = statsObra(o.id);
+    for (const e of s.etapas) for (const cid of (e.cams.size ? [...e.cams] : [''])) {
+      const regs = s.regs.filter(r => (r.etapa || 'Sem etapa') === e.etapa && r.caminhaoId === cid);
+      const c = cam(cid);
+      resumo.push([xF(o.nome), xT(e.etapa), xT(c ? mostraPlaca(c.placa) : ''), { v: soma(regs, kmDe), s: XS.intForte }, xNum(soma(regs, r => r.horas)), xN(regs.length), xD(regs.length ? regs[0].data : ''), xD(regs.length ? regs.map(fimDe).sort().pop() : '')]);
+    }
+  }
+  return montarXlsx([
+    abaSimples('Caminhões', 'Caminhões munck', sub, ['Placa', 'Apelido', 'Marca', 'Modelo', 'Ano', 'Munck', 'Capacidade (t)', 'Alcance (m)', 'Motorista fixo', 'Hodômetro', 'Hoje', 'Situação', 'Observação'], [11, 16, 14, 20, 11, 20, 11, 10, 22, 11, 26, 13, 40], cams),
+    abaSimples('Motoristas', 'Motoristas', sub, ['Nome', 'Telefone', 'Nº da CNH', 'Categoria', 'Validade da CNH', 'Validade do curso NR-11', 'Caminhão fixo', 'Situação', 'Observação'], [26, 16, 14, 10, 14, 16, 12, 18, 40], mots),
+    abaSimples('Obras', 'Obras', sub, ['Obra', 'Cliente', 'Cidade', 'Endereço ou local', 'Responsável', 'Início', 'Previsão', 'Situação', 'Etapas', 'Km rodados', 'Horas de munck', 'Dias com km', 'Caminhões', 'Observação'], [28, 22, 16, 26, 22, 12, 12, 14, 40, 11, 10, 10, 26, 40], obras),
+    abaSimples('Km por obra', 'Km por obra, etapa e caminhão', sub, ['Obra', 'Etapa', 'Placa', 'Km rodados', 'Horas de munck', 'Lançamentos', 'De', 'Até'], [28, 26, 11, 11, 10, 11, 12, 12], resumo),
+    abaSimples('Km', 'Km lançados', sub, COLS_KM, LARG_KM, todos('km').sort(porData).map(linhaKmX)),
+    abaSimples('Agenda', 'Agenda', sub, COLS_AG, LARG_AG, todos('agenda').sort(porData).map(linhaAgX)),
+  ]);
+}
+function planilhaObra(id) {
+  const o = obra(id);
+  const s = statsObra(id);
+  const sub = NOME_APP + ' · ' + emitido().toLowerCase();
+  const ficha = [['Cliente', o.cliente], ['Cidade', o.cidade], ['Endereço ou local', o.endereco], ['Responsável na obra', o.contato], ['Início', o.inicio ? fmtData(o.inicio) : ''], ['Previsão de término', o.previsao ? fmtData(o.previsao) : ''], ['Situação', SIT_OBRA[o.situacao]], ['Km rodados', fKm(s.km)], ['Dias com km', nf0.format(s.dias.size)], ['Horas de munck', s.horas ? fH(s.horas) : '—'], ['Observação', o.obs]].filter(([, v]) => v);
+  const linhasRes = [[{ v: o.nome, s: XS.titulo }], [{ v: sub, s: XS.fraco }], [], ...ficha.map(([k, v]) => [{ v: k, s: XS.forte }, xT(v)]), [], [{ v: 'Por etapa', s: XS.titulo }],
+    ['Etapa', 'Km rodados', 'Horas de munck', 'Lançamentos', 'Caminhões', 'De', 'Até'].map(c => ({ v: c, s: XS.cab })),
+    ...s.etapas.map(e => [xF(e.etapa), { v: e.km, s: XS.intForte }, xNum(e.horas), xN(e.n), xT([...e.cams].map(cid => cam(cid)).filter(Boolean).map(c => mostraPlaca(c.placa)).join(', ')), xD(e.ini), xD(e.fim)]),
+    [{ v: 'Total', s: XS.intForte }, { v: s.km, s: XS.intForte }, { v: s.horas || '', s: XS.intForte }, { v: s.regs.length, s: XS.intForte }, { v: '', s: XS.intForte }, { v: '', s: XS.intForte }, { v: '', s: XS.intForte }]];
+  const porCam = s.porCam.map(x => { const c = cam(x.camId); return [xF(c ? mostraPlaca(c.placa) : ''), xT(c ? c.apelido : ''), { v: x.km, s: XS.intForte }, xNum(x.horas), xN(x.dias.size), xD(x.ult)]; });
+  return montarXlsx([
+    { nome: 'Resumo', larguras: [24, 14, 14, 12, 22, 12, 12], linhas: linhasRes },
+    abaSimples('Por caminhão', o.nome + ': por caminhão', sub, ['Placa', 'Apelido', 'Km rodados', 'Horas de munck', 'Dias', 'Último dia'], [11, 18, 11, 10, 8, 12], porCam),
+    abaSimples('Dia a dia', o.nome + ': km dia a dia', sub, COLS_KM, LARG_KM, s.regs.map(linhaKmX)),
+    abaSimples('Agenda', o.nome + ': agenda', sub, COLS_AG, LARG_AG, todos('agenda').filter(a => a.obraId === id).sort(porDataHora).map(linhaAgX)),
+  ]);
+}
+const nomeArq = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
+async function baixarExcel(qual, id) {
+  let arq, nome;
+  try {
+    if (qual === 'obra') { arq = planilhaObra(id); nome = 'obra-' + nomeArq(nomeObra(id)) + '-' + hojeISO() + '.xlsx'; }
+    else { arq = planilhaTudo(); nome = 'controle-munck-' + hojeISO() + '.xlsx'; }
+  } catch (e) { toast('Não consegui montar a planilha.', true); return; }
+  if (await baixar(nome, arq, XLSX_TIPO)) toast('Planilha salva.');
+}
+async function baixar(nome, conteudo, tipo) {
+  if (window.claude && typeof window.claude.use === 'function') {
+    let dl = null;
+    try { dl = await window.claude.use('downloads'); } catch (e) { dl = null; }
+    if (dl) {
+      try { await dl.save({ filename: nome, data: conteudo }); return true; }
+      catch (e) {
+        if (e && e.code === 'declined') return false;
+        toast(e && e.code === 'rate_limited' ? 'Já tem um arquivo esperando sua confirmação.' : 'Não consegui salvar o arquivo aqui.', true);
+        return false;
+      }
+    }
+  }
+  try {
+    const url = URL.createObjectURL(conteudo instanceof Blob ? conteudo : new Blob([conteudo], { type: tipo }));
+    const a = document.createElement('a');
+    a.href = url; a.download = nome; a.rel = 'noopener';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+    return true;
+  } catch (e) { toast('Não consegui salvar o arquivo aqui.', true); return false; }
+}
+async function salvarCopia() {
+  const dados = {};
+  COLS.forEach(c => { dados[c] = todos(c); });
+  const json = JSON.stringify({ app: 'controle-munck', versao: 1, salvoEm: new Date().toISOString(), dados }, null, 1);
+  if (await baixar('controle-munck-copia-' + hojeISO() + '.json', json, 'application/json')) toast('Cópia salva.');
+}
+async function carregarCopia(arquivo) {
+  let obj;
+  try { obj = JSON.parse(await arquivo.text()); } catch (e) { obj = null; }
+  if (!obj || obj.app !== 'controle-munck' || !obj.dados || typeof obj.dados !== 'object') { toast('Este arquivo não é uma cópia do Controle Munck.', true); return; }
+  const ops = [];
+  for (const c of COLS) for (const x of (Array.isArray(obj.dados[c]) ? obj.dados[c] : [])) if (x && typeof x.id === 'string' && /^[A-Za-z0-9_.~:@+-]{1,120}$/.test(x.id)) ops.push(['set', c, x]);
+  if (!ops.length) { toast('A cópia está vazia.', true); return; }
+  try { await gravarVarios(ops); toast(`Cópia carregada: ${plural(ops.length, 'registro', 'registros')}.`); }
+  catch (e) { toast(msgErro(e), true); }
+}
+
+/* ====================================================================
+   Navegação e eventos
+   ==================================================================== */
+let toastTimer = null;
+function toast(txt, erro) {
+  const t = $('#toast');
+  t.textContent = txt;
+  t.className = 'toast' + (erro ? ' erro' : '');
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, erro ? 7000 : 4000);
+}
+function mostrarAba(aba) {
+  UI.aba = aba;
+  $$('.aba').forEach(a => a.setAttribute('aria-selected', String(a.dataset.aba === aba)));
+  const ativa = $('.aba[aria-selected="true"]'), barraAbas = $('.abas');
+  if (ativa && barraAbas.scrollWidth > barraAbas.clientWidth) barraAbas.scrollLeft = Math.max(0, ativa.offsetLeft - (barraAbas.clientWidth - ativa.offsetWidth) / 2);
+  render();
+}
+function irPara(aba) {
+  if ((location.hash || '').replace('#', '') !== aba) { UI.ignorarHash = true; location.hash = aba; }
+  if (UI.aba !== aba) mostrarAba(aba);
+}
+function rotear() {
+  const h = (location.hash || '').replace('#', '');
+  mostrarAba(ABAS.includes(h) ? h : 'painel');
+}
+function montarListasFixas() {
+  const preencher = (sel, pares) => { $(sel).innerHTML = opcoes(pares); };
+  preencher('#ag-sit', Object.entries(SIT_AG));
+  preencher('#ob-sit', Object.entries(SIT_OBRA));
+  preencher('#cam-sit', Object.entries(SIT_CAM));
+  preencher('#mot-sit', Object.entries(SIT_MOT));
+  preencher('#mot-cat', CATEGORIAS_CNH.map(c => [c, c]));
+  ['f-ag', 'f-km', 'f-obra', 'f-cam', 'f-mot'].forEach(id => limparForm(document.getElementById(id)));
+}
+function ligarEventos() {
+  window.addEventListener('hashchange', () => {
+    if (UI.ignorarHash) { UI.ignorarHash = false; return; }
+    if ((location.hash || '').replace('#', '') === 'obras') UI.obraSel = '';
+    rotear();
+    window.scrollTo(0, 0);
+  });
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-acao]');
+    if (!b) return;
+    const acao = b.dataset.acao;
+    const alvo = b.dataset.alvo ? b.dataset.alvo.split(':') : null;
+    const h = hojeISO();
+    switch (acao) {
+      case 'editar': UI.confirmar = null; editar(alvo[0], alvo[1]); break;
+      case 'apagar': UI.confirmar = b.dataset.alvo; render(); { const s = $('[data-acao="apagar-nao"]'); if (s) s.focus(); } break;
+      case 'apagar-nao': UI.confirmar = null; render(); break;
+      case 'apagar-sim': apagarRegistro(alvo[0], alvo[1]); break;
+      case 'cancelar-edicao': { const f = b.closest('form'); limparForm(f); if (f.id !== 'f-km') f.hidden = true; render(); break; }
+      case 'fechar-form': { const f = b.closest('form'); limparForm(f); f.hidden = true; break; }
+      case 'abrir-form': abrirForm(b.dataset.form); break;
+      case 'novo-ag': abrirForm('f-ag', { caminhaoId: b.dataset.cam || '', data: b.dataset.dia || h, obraId: b.dataset.obra || '' }); break;
+      case 'novo-km': {
+        const camId = b.dataset.cam || '';
+        abrirForm('f-km', { caminhaoId: camId, data: h, obraId: b.dataset.obra || '' });
+        break;
+      }
+      case 'lancar-km': {
+        const a = D.agenda.get(alvo[1]);
+        if (!a) break;
+        const dia = b.dataset.dia || (fimDe(a) < h ? fimDe(a) : a.data <= h ? h : a.data);
+        abrirForm('f-km', { modo: 'dia', data: dia, caminhaoId: a.caminhaoId, motoristaId: a.motoristaId || '', obraId: a.obraId, etapa: a.etapa || '' });
+        break;
+      }
+      case 'feito': marcarFeito(alvo[1]); break;
+      case 'semana': {
+        const passo = Number(b.dataset.passo);
+        UI.semana = passo === 0 ? '' : somaDias(UI.semana || inicioSemana(h), passo);
+        render();
+        break;
+      }
+      case 'ver-obra': UI.obraSel = b.dataset.obra; irPara('obras'); render(); window.scrollTo(0, 0); break;
+      case 'obras-voltar': UI.obraSel = ''; render(); window.scrollTo(0, 0); break;
+      case 'obra-excel': baixarExcel('obra', b.dataset.obra); break;
+      case 'tudo-excel': baixarExcel('tudo'); break;
+      case 'backup': salvarCopia(); break;
+      case 'restaurar': $('#arquivo-copia').click(); break;
+    }
+  });
+  document.addEventListener('change', e => {
+    const el = e.target;
+    if (el.dataset) delete el.dataset.auto;
+    const f = el.form;
+    if (f && (f.id === 'f-ag' || f.id === 'f-km')) {
+      if (el.name === 'obraId') { ajustarObraNova(f); atualizarEtapas(f); if (el.value === NOVA) $('[name="obraNovaNome"]', f).focus(); }
+      if (f.id === 'f-km') {
+        if (el.name === 'modo') ajustarModoKm();
+        if (el.name === 'caminhaoId' || el.name === 'data') sugerirKm(); else calcKm();
+      } else {
+        if (el.name === 'caminhaoId') sugerirAg(); else calcAg();
+      }
+      return;
+    }
+    if (['fa-quando', 'fa-cam', 'fa-obra', 'fk-cam', 'fk-obra', 'fk-mes', 'fo-sit'].includes(el.id)) { UI.confirmar = null; render(); }
+    else if (el.id === 'arquivo-copia') { const a = el.files && el.files[0]; el.value = ''; if (a) carregarCopia(a); }
+  });
+  document.addEventListener('input', e => {
+    const el = e.target, f = el.form;
+    if (!f) return;
+    el.removeAttribute('aria-invalid');
+    delete el.dataset.auto;
+    if (f.id === 'f-km') calcKm();
+    else if (f.id === 'f-ag') calcAg();
+  });
+  document.addEventListener('focusout', e => {
+    const el = e.target;
+    if (el.dataset && el.dataset.tipo === 'int' && el.value) { const n = lerNumero(el.value, true); if (n != null && !isNaN(n)) el.value = nf0.format(n); }
+    if (el.name === 'placa' && el.value) el.value = mostraPlaca(normPlaca(el.value));
+  });
+  document.addEventListener('submit', e => {
+    const f = e.target;
+    if (!f.classList.contains('ficha')) return;
+    e.preventDefault();
+    salvarForm(f);
+  });
+}
+
+async function iniciar() {
+  montarListasFixas();
+  ligarEventos();
+  rotear();
+  if (window.claude && typeof window.claude.use === 'function') {
+    let db = null;
+    try { db = await window.claude.use('db'); } catch (e) { db = null; }
+    if (db) { iniciarNuvem(db); return; }
+  }
+  iniciarLocal();
+}
+iniciar();
+</script>
