@@ -58,7 +58,7 @@ async function reiniciar() { await descer(); proc = null; await subir(); }
 
 before(async () => {
   await subir();
-  navegador = await chromium.launch();
+  navegador = await chromium.launch(process.env.PW_CANAL ? { channel: process.env.PW_CANAL } : {});
 });
 after(async () => {
   if (navegador) await navegador.close().catch(() => {});
