@@ -215,6 +215,14 @@ input[aria-invalid="true"] { border-color: var(--bad); }
 .filtros select { width: auto; max-width: 100%; min-height: 40px; padding: 7px 10px; font-size: 0.92rem; background: var(--surface); }
 .check { display: flex; gap: 10px; align-items: flex-start; font-size: 0.95rem; cursor: pointer; }
 .check input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+.pecas-box { display: flex; flex-direction: column; gap: 10px; }
+.pecas-cab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.pecas { display: flex; flex-direction: column; gap: 10px; }
+.pecas:empty { display: none; }
+.peca { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.peca .p-info { grid-column: 1 / -1; font-size: 0.88rem; color: var(--muted); }
+.peca .p-info:empty { display: none; }
+.peca .p-info .aviso { color: var(--warn); font-weight: 600; }
 .calc { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-variant-numeric: tabular-nums; }
 .calc:empty { display: none; }
 .calc .grande { font-family: var(--display); font-weight: 700; font-size: 1.6rem; }
@@ -588,11 +596,16 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
         <div class="campo"><label for="man-veic">Caminhão ou semirreboque</label><select id="man-veic" name="veiculo" data-lista="veiculos"></select></div>
         <div class="campo"><label for="man-tipo">Serviço</label><select id="man-tipo" name="tipo"></select></div>
         <div class="campo" data-so-caminhao><label for="man-km">Km do caminhão</label><input type="text" id="man-km" name="km" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica" id="man-km-dica"></span></div>
-        <div class="campo"><label for="man-valor">Valor (R$)</label><input type="text" id="man-valor" name="valor" data-tipo="dec" inputmode="decimal" autocomplete="off"><span class="dica">Peças e mão de obra. Garantia: 0.</span></div>
+        <div class="campo"><label for="man-valor">Mão de obra / serviço (R$)</label><input type="text" id="man-valor" name="servico" data-tipo="dec" inputmode="decimal" autocomplete="off"><span class="dica">Sem as peças: elas somam abaixo. Garantia: 0.</span></div>
         <div class="campo"><label for="man-oficina">Oficina</label><input type="text" id="man-oficina" name="oficina" list="lista-oficinas" autocomplete="off"></div>
         <div class="campo largo"><label for="man-desc">O que foi feito</label><input type="text" id="man-desc" name="descricao" autocomplete="off" placeholder="Peças trocadas, defeito, nota…"></div>
         <div class="campo" data-so-caminhao><label for="man-pkm">Próxima com quantos km</label><input type="text" id="man-pkm" name="proximaKm" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica">Ex.: troca de óleo: km de hoje + 30.000</span></div>
         <div class="campo"><label for="man-pdata">Próxima na data</label><input type="date" id="man-pdata" name="proximaData"><span class="dica">Deixe em branco se não tiver.</span></div>
+      </div>
+      <div class="pecas-box">
+        <div class="pecas-cab"><span class="rot">Peças</span><button class="btn ghost small" type="button" data-acao="add-peca">+ Peça</button></div>
+        <div class="pecas" id="man-pecas"></div>
+        <div class="calc" id="man-total" aria-live="polite"></div>
       </div>
       <div class="acoes-linha"><button class="btn" type="submit" data-novo="Salvar manutenção" data-editar="Salvar a correção">Salvar manutenção</button><p class="f-msg" role="status"></p></div>
     </form>
@@ -817,6 +830,7 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
 
 <datalist id="lista-lugares"></datalist>
 <datalist id="lista-postos"></datalist>
+<datalist id="lista-pecas"></datalist>
 <datalist id="lista-oficinas"></datalist>
 <datalist id="lista-seguradoras"><option value="Porto Seguro"><option value="Tokio Marine"><option value="Allianz"><option value="HDI"><option value="Mapfre"><option value="Bradesco Seguros"><option value="Sompo"><option value="Zurich"><option value="Yelum (Liberty)"><option value="Suhai"><option value="Azul Seguros"><option value="Itaú Seguros"><option value="SulAmérica"></datalist>
 <datalist id="lista-marcas"><option value="Volvo"><option value="Scania"><option value="Mercedes-Benz"><option value="DAF"><option value="Volkswagen"><option value="Iveco"><option value="Ford"></datalist>
@@ -1211,6 +1225,7 @@ async function lerEstoque() {
   else Object.assign(ESTOQUE, { ok: true, materiais: d.materiais || [], movimentos: d.movimentos || [], porId: new Map((d.materiais || []).map(m => [m.id, m])) });
   ajustarTanque();
   calcAb();
+  calcPecas();
   agendarRender();
 }
 let lerEstoqueTimer = null;
@@ -1235,6 +1250,111 @@ function ajustarTanque(escolher) {
   sel.value = atual;
   $('#ab-onde-box').hidden = !ESTOQUE.ok;
   $('#ab-posto-box').hidden = ESTOQUE.ok && !!atual;
+}
+
+/* ---------- peças da manutenção (o mesmo bloco no DECONTO e no Controle) ----------
+   Do estoque: escolhe o material, sai do saldo e custa qtd × preço médio (o preço fica gravado na linha).
+   Comprada para esta manutenção: nome, qtd, valor e fornecedor; não mexe no estoque.
+   Total da manutenção = serviço + peças; é o "valor" que os relatórios já usam. */
+const centavos = n => Math.round(n * 100) / 100;
+const numPeca = x => nf1.format(x).replace(/,0$/, '');
+function htmlPeca(p) {
+  const v = x => (x != null ? esc(String(x).replace('.', ',')) : '');
+  return `<div class="peca" data-mat="${esc(p.materialId || '')}" data-preco="${p.preco != null ? p.preco : ''}" data-nome="${esc(p.nome || '')}" data-un="${esc(p.unidade || '')}">
+    <select class="p-origem" aria-label="De onde veio a peça">${ESTOQUE.ok || p.origem === 'estoque' ? '<option value="estoque">Do estoque</option>' : ''}<option value="comprada">Comprada para esta manutenção</option></select>
+    <select class="p-mat" aria-label="Peça do estoque"></select>
+    <input class="p-nome" list="lista-pecas" autocomplete="off" aria-label="Peça comprada" placeholder="Nome da peça" value="${p.origem === 'estoque' ? '' : esc(p.nome || '')}">
+    <input class="p-qtd" inputmode="decimal" autocomplete="off" aria-label="Quantidade" placeholder="Quantidade" value="${v(p.qtd)}">
+    <input class="p-valor" inputmode="decimal" autocomplete="off" aria-label="Valor da peça (R$)" placeholder="Valor (R$)" value="${v(p.valor)}">
+    <input class="p-forn" autocomplete="off" aria-label="Fornecedor" placeholder="Fornecedor" value="${esc(p.fornecedor || '')}">
+    <button class="lnk perigo" type="button" data-acao="tirar-peca">Tirar</button>
+    <div class="p-info"></div>
+  </div>`;
+}
+function addPeca(p, depois) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = htmlPeca(p);
+  const row = tmp.firstElementChild;
+  if (depois) depois.after(row); else $('#man-pecas').appendChild(row);
+  $('.p-origem', row).value = p.origem === 'estoque' ? 'estoque' : 'comprada';
+  return row;
+}
+function mostrarPecas(lista) {
+  $('#man-pecas').innerHTML = '';
+  lista.forEach(p => addPeca(p));
+  const nomes = new Set([...ESTOQUE.materiais.filter(m => !m.tanque && m.ativo !== false).map(m => m.nome), ...todos('manutencoes').flatMap(m => (Array.isArray(m.pecas) ? m.pecas : []).map(p => p && p.nome))].filter(Boolean));
+  $('#lista-pecas').innerHTML = [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 300).map(n => `<option value="${esc(n)}">`).join('');
+  calcPecas();
+}
+function lerPecas() {
+  return $$('#man-pecas .peca').map(row => {
+    const origem = $('.p-origem', row).value, mat = $('.p-mat', row).value, m = ESTOQUE.porId.get(mat), igual = row.dataset.mat === mat;
+    const base = { origem, qtd: lerNumero($('.p-qtd', row).value) };
+    if (origem !== 'estoque') return Object.assign(base, { nome: $('.p-nome', row).value.trim(), valor: lerNumero($('.p-valor', row).value), fornecedor: $('.p-forn', row).value.trim() });
+    // a linha já gravada fica com o preço que tinha; peça nova ou trocada, com o preço médio de agora
+    const preco = igual && row.dataset.preco !== '' ? Number(row.dataset.preco) : m && m.precoMedio != null ? m.precoMedio : 0;
+    return Object.assign(base, { materialId: mat, nome: m ? m.nome : igual ? row.dataset.nome : '', unidade: m ? m.unidade : igual ? row.dataset.un : '', preco });
+  });
+}
+const custoPeca = p => (p.origem === 'estoque' ? (p.qtd > 0 ? p.qtd * (p.preco || 0) : 0) : p.valor > 0 ? p.valor : 0);
+function calcPecas() {
+  const editando = $('#f-man').dataset.editando, usado = new Map();
+  for (const row of $$('#man-pecas .peca')) {
+    const estoque = $('.p-origem', row).value === 'estoque', sel = $('.p-mat', row);
+    const atual = sel.options.length ? sel.value : row.dataset.mat;
+    const mats = ESTOQUE.materiais.filter(m => !m.tanque && (m.ativo !== false || m.id === atual)).sort(porNome);
+    let html = '<option value="">Escolha a peça</option>' + mats.map(m => `<option value="${esc(m.id)}">${esc(m.nome)}</option>`).join('');
+    if (atual && !mats.some(m => m.id === atual)) html += `<option value="${esc(atual)}">${esc(row.dataset.nome || 'Peça do estoque')}</option>`;
+    if (sel.dataset.html !== html) { sel.innerHTML = html; sel.dataset.html = html; sel.value = atual || ''; }
+    sel.hidden = !estoque;
+    ['.p-nome', '.p-valor', '.p-forn'].forEach(s => { $(s, row).hidden = estoque; });
+    const info = $('.p-info', row), q = lerNumero($('.p-qtd', row).value);
+    info.innerHTML = '';
+    if (!estoque || !sel.value) continue;
+    const tem = ESTOQUE.ok ? emEstoque(sel.value, editando) : null;
+    if (tem == null) { info.textContent = ESTOQUE.ok ? '' : 'Peça do estoque. Para ver quanto tem, abra pelo Painel Deconto.'; continue; }
+    // a mesma peça em duas linhas: a segunda vê o que a primeira já pegou
+    const disp = Math.round((tem - (usado.get(sel.value) || 0)) * 1000) / 1000;
+    if (q > 0) usado.set(sel.value, (usado.get(sel.value) || 0) + q);
+    row.dataset.disp = disp;
+    if (q > disp) info.innerHTML = `<span class="aviso">Em estoque: ${numPeca(disp)}, pediu ${numPeca(q)}.</span> ` + (disp > 0
+      ? `<button class="lnk" type="button" data-acao="dividir-peca">Dividir: ${numPeca(disp)} do estoque e ${numPeca(centavos(q - disp))} comprada</button>`
+      : '<button class="lnk" type="button" data-acao="peca-comprada">Marcar como comprada</button>');
+    else info.textContent = `Em estoque: ${fQtd(disp, (ESTOQUE.porId.get(sel.value) || {}).unidade)}.`;
+  }
+  const servico = lerNumero($('#man-valor').value), pecas = lerPecas(), tp = pecas.reduce((t, p) => t + custoPeca(p), 0), s = servico > 0 ? servico : 0;
+  $('#man-total').innerHTML = pecas.length || s ? `<span class="grande">${fR(centavos(s + tp))}</span><span class="info">total da manutenção${pecas.length ? `: serviço ${fR(s)} + peças ${fR(centavos(tp))}` : ''}</span>` : '';
+}
+/* lê e confere as peças do formulário; devolve a lista ou null (com o erro mostrado) */
+function pecasDoForm(f) {
+  const linhas = $$('#man-pecas .peca'), out = [];
+  for (const [i, p] of lerPecas().entries()) {
+    if (p.qtd == null && !p.materialId && !p.nome && p.valor == null) continue; // linha em branco
+    const erro = (sel, txt) => { const el = $(sel, linhas[i]); el.setAttribute('aria-invalid', 'true'); el.focus(); msgForm(f, txt, 'erro'); return null; };
+    if (p.origem === 'estoque' && !p.materialId) return erro('.p-mat', 'Escolha a peça do estoque.');
+    if (p.origem !== 'estoque' && !p.nome) return erro('.p-nome', 'Escreva o nome da peça comprada.');
+    if (!(p.qtd > 0)) return erro('.p-qtd', 'Escreva a quantidade da peça (ex.: 2 ou 1,5).');
+    if (p.origem !== 'estoque' && p.valor != null && (isNaN(p.valor) || p.valor < 0)) return erro('.p-valor', 'O valor da peça tem que ser só números, como 80,00.');
+    if (p.origem !== 'estoque') p.valor = p.valor || 0;
+    out.push(p);
+  }
+  return out;
+}
+function acaoPeca(acao, b) {
+  const row = b.closest('.peca');
+  if (acao === 'add-peca') { const r = addPeca({ origem: ESTOQUE.ok ? 'estoque' : 'comprada' }); calcPecas(); $(ESTOQUE.ok ? '.p-mat' : '.p-nome', r).focus(); return; }
+  if (!row) return;
+  const m = ESTOQUE.porId.get($('.p-mat', row).value), q = lerNumero($('.p-qtd', row).value);
+  if (acao === 'tirar-peca') row.remove();
+  else if (acao === 'dividir-peca' && m) {
+    const disp = Number(row.dataset.disp);
+    $('.p-qtd', row).value = numPeca(disp);
+    $('.p-valor', addPeca({ origem: 'comprada', nome: m.nome, qtd: centavos(q - disp) }, row)).focus();
+  } else if (acao === 'peca-comprada') {
+    $('.p-origem', row).value = 'comprada';
+    if (m && !$('.p-nome', row).value) $('.p-nome', row).value = m.nome;
+  }
+  calcPecas();
 }
 
 async function gravar(col, obj) {
@@ -2148,7 +2268,7 @@ function renderManut() {
     lista.map(m => `<tr>
       <td class="d">${esc(fmtData(m.data))}</td>
       <td>${m.veiculoTipo === 'caminhao' ? celVeiculoCam(cam(m.veiculoId), '') : celSemi(semi(m.veiculoId))}</td>
-      <td>${esc(m.tipo)}</td><td>${esc(m.descricao || '')}</td><td>${esc(m.oficina || '')}</td>
+      <td>${esc(m.tipo)}</td><td>${esc(m.descricao || '')}${Array.isArray(m.pecas) && m.pecas.length ? `<div class="fraco">Peças: ${esc(m.pecas.map(p => p.nome + ' ×' + numPeca(p.qtd)).join(', '))}</div>` : ''}</td><td>${esc(m.oficina || '')}</td>
       <td class="n">${m.km ? nf0.format(m.km) : '—'}</td><td class="n forte">${fR(m.valor)}</td>
       <td class="acoes">${acoesHTML('manutencoes', m.id)}</td></tr>`),
     lista.length > 1 ? `<tr><td colspan="6">Total</td><td class="n">${fR(total)}</td><td></td></tr>` : null,
@@ -3575,7 +3695,7 @@ function limparForm(f, manter) {
   if (msg) { msg.textContent = ''; msg.className = 'f-msg'; }
   if (f.id === 'f-dia') { $('#dia-calc').innerHTML = ''; $('#dia-conj-box').hidden = true; $('#dia-conj').checked = true; }
   if (f.id === 'f-ab') { $('#ab-calc').innerHTML = ''; delete $('#ab-valor').dataset.auto; ajustarTanque(''); $('#ab-onde-dica').textContent = ''; }
-  if (f.id === 'f-man') { $('#man-km').placeholder = ''; ajustarCamposManut(); }
+  if (f.id === 'f-man') { $('#man-km').placeholder = ''; ajustarCamposManut(); mostrarPecas([]); }
   if (f.id === 'f-doc') { delete f.dataset.substitui; $('#doc-arquivo').value = ''; $('#doc-arquivo-limpar').hidden = true; mostrarArquivoAtual(null); ajustarDoc(); }
 }
 function msgForm(f, txt, tipo) { const m = $('.f-msg', f); m.textContent = txt; m.className = 'f-msg ' + (tipo || ''); }
@@ -3654,8 +3774,14 @@ async function salvarForm(f) {
     if (vt !== 'caminhao') { o.km = null; o.proximaKm = null; }
     if (o.km != null && isNaN(o.km)) return marcarErro(f, 'km', 'O km tem que ser só números.');
     if (o.proximaKm != null && isNaN(o.proximaKm)) return marcarErro(f, 'proximaKm', 'O km da próxima tem que ser só números.');
-    if (o.valor == null || isNaN(o.valor) || o.valor < 0) return marcarErro(f, 'valor', 'Escreva o valor (0 se foi na garantia).');
+    const pecas = pecasDoForm(f);
+    if (!pecas) return;
+    if (o.servico != null && (isNaN(o.servico) || o.servico < 0)) return marcarErro(f, 'servico', 'O serviço tem que ser só números, como 250,00 (0 se foi na garantia).');
+    if (o.servico == null && !pecas.length) return marcarErro(f, 'servico', 'Escreva o valor da mão de obra ou do serviço (0 se foi na garantia), ou lance as peças.');
     if (o.proximaKm && o.km && o.proximaKm <= o.km) return marcarErro(f, 'proximaKm', 'A próxima precisa ser com mais km do que agora.');
+    o.servico = o.servico || 0;
+    o.pecas = pecas;
+    o.valor = centavos(o.servico + pecas.reduce((t, p) => t + custoPeca(p), 0)); // o total: é o que os relatórios usam
     aviso = `Manutenção salva: ${o.tipo}, ${fR(o.valor)}.`;
     manter = ['data'];
   } else if (col === 'caminhoes' || col === 'semirreboques') {
@@ -3762,12 +3888,14 @@ function editar(col, id) {
   f.hidden = false;
   const dados = Object.assign({}, reg);
   if (col === 'manutencoes' || col === 'documentos') dados.veiculo = reg.veiculoTipo + ':' + reg.veiculoId;
+  // manutenção de antes das peças: o valor que tinha era tudo, vira o serviço
+  if (col === 'manutencoes' && dados.servico == null) dados.servico = reg.valor;
   limparForm(f);
   preencherForm(f, dados);
   modoForm(f, id);
   if (col === 'dias') calcDia();
   if (col === 'abastecimentos') { ajustarTanque(reg.tanqueId || ''); calcAb(); }
-  if (col === 'manutencoes') ajustarCamposManut();
+  if (col === 'manutencoes') { ajustarCamposManut(); mostrarPecas(Array.isArray(reg.pecas) ? reg.pecas : []); }
   if (col === 'documentos') { ajustarDoc(); mostrarArquivoAtual(reg); }
   f.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   const primeiro = $('input, select', f);
@@ -4186,6 +4314,7 @@ function ligarEventos() {
       }
       case 'ver-docs': e.preventDefault(); $('#fdoc-veic').value = b.dataset.veic; location.hash = 'documentos'; mostrarAba('documentos'); window.scrollTo(0, 0); break;
       case 'baixar-relatorio': baixarRelatorio(); break;
+      case 'add-peca': case 'tirar-peca': case 'dividir-peca': case 'peca-comprada': acaoPeca(acao, b); break;
     }
   });
 
@@ -4195,6 +4324,11 @@ function ligarEventos() {
     else if (el.id === 'ab-cam') { preencherDoCaminhao('ab'); calcAb(); }
     else if (el.id === 'dia-data' || el.id === 'dia-mot' || el.id === 'dia-semi') calcDia();
     else if (el.id === 'ab-comb' || el.id === 'ab-data') calcAb();
+    else if (el.classList.contains('p-origem') || el.classList.contains('p-mat')) {
+      const row = el.closest('.peca'), m = ESTOQUE.porId.get($('.p-mat', row).value);
+      if (el.value === 'comprada' && m && !$('.p-nome', row).value) $('.p-nome', row).value = m.nome;
+      calcPecas();
+    }
     else if (el.id === 'ab-onde') { const t = ESTOQUE.porId.get(el.value); if (t && t.combustivel) $('#ab-comb').value = t.combustivel; ajustarTanque(); calcAb(); }
     else if (el.id === 'man-veic') { $('#man-km').placeholder = ''; ajustarCamposManut(); }
     else if (el.id === 'g-cam') { UI.grafCam = el.value; render(); }
@@ -4238,6 +4372,7 @@ function ligarEventos() {
     e.target.removeAttribute('aria-invalid');
     if (f.id === 'f-dia') calcDia();
     else if (f.id === 'f-ab') { if (e.target.id === 'ab-valor') delete e.target.dataset.auto; calcAb(); }
+    else if (f.id === 'f-man') calcPecas();
     else if (f.id === 'f-doc') calcDoc();
   });
   document.addEventListener('focusout', e => {

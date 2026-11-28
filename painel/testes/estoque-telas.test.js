@@ -73,7 +73,8 @@ const esperarServidor = p => p.waitForFunction(() => { const e = document.queryS
 const esperarToast = (p, trecho) => p.waitForFunction(x => { const t = document.querySelector('#toast'); return !!t && t.textContent.includes(x); }, trecho, { timeout: 15000 });
 const limparToast = p => p.evaluate(() => { document.querySelector('#toast').textContent = ''; });
 const texto = (p, sel) => p.evaluate(s => (document.querySelector(s) || {}).textContent || '', sel);
-const esperarTexto = (p, sel, trecho, timeout = 6000) => p.waitForFunction(([s, x]) => { const el = document.querySelector(s); return !!el && el.textContent.includes(x); }, [sel, trecho], { timeout });
+// o "R$ 260,00" do Intl tem espaço que não quebra: compara com espaços comuns
+const esperarTexto = (p, sel, trecho, timeout = 6000) => p.waitForFunction(([s, x]) => { const el = document.querySelector(s); return !!el && el.textContent.replace(/\s/g, ' ').includes(x); }, [sel, trecho], { timeout });
 async function pedir(ctx, metodo, rota, corpo) {
   const r = await ctx.request.fetch(BASE + rota, { method: metodo, data: corpo });
   assert.strictEqual(r.status(), 200, metodo + ' ' + rota);
@@ -257,6 +258,133 @@ teste('DECONTO no arquivo (file://): sem "Onde abasteceu"; corrigir abasteciment
   await l.click('#f-ab button[type="submit"]');
   await esperarToast(l, 'Abastecimento salvo');
   assert.deepStrictEqual(await l.evaluate(() => { const a = D.abastecimentos.get('ab-l'); return [a.litros, a.tanqueId]; }), [120, 'tq-x']);
+});
+
+// ---------- DECONTO: peças na manutenção ----------
+const linha = (p, i) => p.locator('#man-pecas .peca').nth(i);
+async function novaPeca(p, i, campos) {
+  await p.click('#f-man [data-acao="add-peca"]');
+  const l = linha(p, i);
+  if (campos.origem) await l.locator('.p-origem').selectOption(campos.origem);
+  if (campos.mat) await l.locator('.p-mat').selectOption(campos.mat);
+  for (const k of ['nome', 'qtd', 'valor', 'forn']) if (campos[k] != null) await l.locator('.p-' + k).fill(campos[k]);
+  return l;
+}
+async function abrirManutencao(ctx, veiculo) {
+  const p = await abrir(ctx, '/frota/#manutencao');
+  await esperarServidor(p);
+  await p.waitForFunction(() => ESTOQUE.ok, null, { timeout: 6000 });
+  if (veiculo) await p.selectOption('#man-veic', veiculo);
+  return p;
+}
+const manDoCam = async (ctx, cid) => (await pedir(ctx, 'GET', '/frota/api/dados')).manutencoes.filter(m => m.veiculoId === cid);
+teste('DECONTO: peças do estoque e compradas; total ao vivo; a lista usa o total', async () => {
+  const ctx = await logado();
+  const mid = await criarMaterial(ctx, { nome: 'Filtro diesel', categoria: 'Filtros' });
+  await entrada(ctx, mid, 3, 40);
+  await camFrota(ctx, 'cam-pc', 'PCA1A00');
+  const p = await abrirManutencao(ctx, 'caminhao:cam-pc');
+  assert.match(await texto(p, 'label[for="man-valor"]'), /Mão de obra \/ serviço/);
+  await p.fill('#man-valor', '100');
+  const l0 = await novaPeca(p, 0, { mat: mid, qtd: '2' });
+  assert.match(await l0.locator('.p-info').textContent(), /Em estoque: 3/);
+  await novaPeca(p, 1, { origem: 'comprada', nome: 'Correia', qtd: '1', valor: '80', forn: 'Auto Peças X' });
+  await esperarTexto(p, '#man-total', 'R$ 260,00');
+  await limparToast(p);
+  await p.click('#f-man button[type="submit"]');
+  await esperarToast(p, 'Manutenção salva');
+  const [m] = await manDoCam(ctx, 'cam-pc');
+  assert.deepStrictEqual([m.valor, m.servico, m.pecas.length], [260, 100, 2]);
+  assert.deepStrictEqual([m.pecas[0].origem, m.pecas[0].materialId, m.pecas[0].qtd, m.pecas[0].preco, m.pecas[0].nome], ['estoque', mid, 2, 40, 'Filtro diesel']);
+  assert.deepStrictEqual([m.pecas[1].origem, m.pecas[1].nome, m.pecas[1].qtd, m.pecas[1].valor, m.pecas[1].fornecedor], ['comprada', 'Correia', 1, 80, 'Auto Peças X']);
+  assert.strictEqual((await material(ctx, 'Filtro diesel')).saldo, 1);
+  await esperarTexto(p, '#t-man', 'R$ 260,00');
+  assert.strictEqual(await p.locator('#man-pecas .peca').count(), 0, 'o formulário limpo não tem peças');
+});
+
+teste('DECONTO: pedir mais do que tem avisa e sugere dividir; salva com saldo negativo', async () => {
+  const ctx = await logado();
+  const mid = await criarMaterial(ctx, { nome: 'Lâmpada H7', categoria: 'Peças' });
+  await entrada(ctx, mid, 1, 15);
+  await camFrota(ctx, 'cam-dv', 'DIV1A00');
+  const p = await abrirManutencao(ctx, 'caminhao:cam-dv');
+  await p.fill('#man-valor', '0');
+  const l0 = await novaPeca(p, 0, { mat: mid, qtd: '4' });
+  assert.match(await l0.locator('.p-info').textContent(), /Em estoque: 1, pediu 4/);
+  await l0.locator('[data-acao="dividir-peca"]').click();
+  const l1 = linha(p, 1);
+  assert.deepStrictEqual([await l0.locator('.p-qtd').inputValue(), await l1.locator('.p-origem').inputValue(), await l1.locator('.p-nome').inputValue(), await l1.locator('.p-qtd').inputValue()], ['1', 'comprada', 'Lâmpada H7', '3']);
+  await l1.locator('.p-valor').fill('45');
+  await esperarTexto(p, '#man-total', 'R$ 60,00');
+  await limparToast(p);
+  await p.click('#f-man button[type="submit"]');
+  await esperarToast(p, 'Manutenção salva');
+  assert.strictEqual((await material(ctx, 'Lâmpada H7')).saldo, 0);
+  // sem dividir: não trava, o saldo fica negativo
+  await p.waitForFunction(x => ESTOQUE.porId.get(x).saldo === 0, mid, { timeout: 6000 });
+  await p.selectOption('#man-veic', 'caminhao:cam-dv');
+  await p.fill('#man-valor', '0');
+  const n0 = await novaPeca(p, 0, { mat: mid, qtd: '2' });
+  assert.match(await n0.locator('.p-info').textContent(), /Em estoque: 0, pediu 2/);
+  assert.strictEqual(await n0.locator('[data-acao="peca-comprada"]').count(), 1);
+  await limparToast(p);
+  await p.click('#f-man button[type="submit"]');
+  await esperarToast(p, 'Manutenção salva');
+  const s = await material(ctx, 'Lâmpada H7');
+  assert.deepStrictEqual([s.saldo, s.situacao], [-2, 'negativo']);
+});
+
+teste('DECONTO: corrigir manutenção não desconta as próprias peças; antiga sem peças abre com o valor no serviço', async () => {
+  const ctx = await logado();
+  const mid = await criarMaterial(ctx, { nome: 'Filtro de ar', categoria: 'Filtros' });
+  await entrada(ctx, mid, 3, 50);
+  await camFrota(ctx, 'cam-co', 'COR1A00');
+  await pedir(ctx, 'PUT', '/frota/api/dados/manutencoes/man-co', { data: '2026-11-05', veiculoTipo: 'caminhao', veiculoId: 'cam-co', tipo: 'Revisão preventiva', servico: 20, valor: 120, pecas: [{ origem: 'estoque', materialId: mid, nome: 'Filtro de ar', unidade: 'un', qtd: 2, preco: 50 }], criadoEm: new Date().toISOString() });
+  await pedir(ctx, 'PUT', '/frota/api/dados/manutencoes/man-antiga', { data: '2025-03-05', veiculoTipo: 'caminhao', veiculoId: 'cam-co', tipo: 'Freios', valor: 350, oficina: 'Oficina Velha', criadoEm: '2025-03-05T10:00:00.000Z' });
+  assert.strictEqual((await material(ctx, 'Filtro de ar')).saldo, 1);
+  const p = await abrirManutencao(ctx);
+  await p.evaluate(() => editar('manutencoes', 'man-co'));
+  await esperarTexto(p, '#man-pecas .peca .p-info', 'Em estoque: 3');
+  assert.strictEqual(await p.inputValue('#man-valor'), '20');
+  await linha(p, 0).locator('.p-qtd').fill('1');
+  await esperarTexto(p, '#man-total', 'R$ 70,00');
+  await limparToast(p);
+  await p.click('#f-man button[type="submit"]');
+  await esperarToast(p, 'Manutenção salva');
+  assert.strictEqual((await material(ctx, 'Filtro de ar')).saldo, 2);
+  // manutenção antiga, sem peças: o valor que tinha vira o serviço e o total não muda
+  const antes = (await saldos(ctx)).movimentos.length;
+  await p.evaluate(() => editar('manutencoes', 'man-antiga'));
+  assert.strictEqual(await p.inputValue('#man-valor'), '350');
+  assert.strictEqual(await p.locator('#man-pecas .peca').count(), 0);
+  await esperarTexto(p, '#man-total', 'R$ 350,00');
+  await limparToast(p);
+  await p.click('#f-man button[type="submit"]');
+  await esperarToast(p, 'Manutenção salva');
+  const m = (await manDoCam(ctx, 'cam-co')).find(x => x.id === 'man-antiga');
+  assert.deepStrictEqual([m.valor, m.servico, (m.pecas || []).length, m.oficina], [350, 350, 0, 'Oficina Velha']);
+  assert.strictEqual((await saldos(ctx)).movimentos.length, antes, 'a manutenção antiga não mexe no estoque');
+});
+
+teste('DECONTO no arquivo (file://): só peça comprada, e o total soma', async () => {
+  const ctx = await contexto();
+  const l = await ctx.newPage();
+  await l.goto(pathToFileURL(path.join(RAIZ, 'sistema-carlise', 'frota.html')).href + '#manutencao');
+  await l.waitForFunction(() => Armazem.modo === 'local');
+  await l.evaluate(async () => { await gravar('caminhoes', { id: 'cam-lp', placa: 'LPC1A00', tipo: 'Truck', situacao: 'rodando' }); });
+  await l.selectOption('#man-veic', 'caminhao:cam-lp');
+  await l.fill('#man-valor', '50');
+  await l.click('#f-man [data-acao="add-peca"]');
+  const l0 = linha(l, 0);
+  assert.strictEqual(await l0.locator('.p-origem option[value="estoque"]').count(), 0, 'sem Estoque não tem "Do estoque"');
+  assert.strictEqual(await l0.locator('.p-origem').inputValue(), 'comprada');
+  await l0.locator('.p-nome').fill('Palheta');
+  await l0.locator('.p-qtd').fill('2');
+  await l0.locator('.p-valor').fill('30');
+  await esperarTexto(l, '#man-total', 'R$ 80,00');
+  await l.click('#f-man button[type="submit"]');
+  await esperarToast(l, 'Manutenção salva');
+  assert.deepStrictEqual(await l.evaluate(() => { const m = todos('manutencoes')[0]; return [m.valor, m.servico, m.pecas[0].nome]; }), [80, 50, 'Palheta']);
 });
 
 // ---------- no fim ----------
