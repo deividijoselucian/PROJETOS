@@ -816,6 +816,69 @@ teste('DECONTO local (file://): cópia feita no painel fica com os PDFs neste co
   assert.deepStrictEqual(faltam, [], 'nenhum PDF da cópia do painel ficou de fora da cópia seguinte');
 });
 
+// ---------- 12. RH: ponto pelo celular ----------
+async function funcionarioAPI(ctx, id, extra = {}) {
+  let r = await ctx.request.put(`${BASE}/rh/api/dados/funcionarios/${id}`, { data: Object.assign({ id, nome: 'Func ' + id, cpf: '12345678901', cargo: 'Motorista', jornadaMin: 528, situacao: 'ativo', criadoEm: new Date().toISOString() }, extra) });
+  assert.strictEqual(r.status(), 200);
+  r = await ctx.request.post(`${BASE}/rh/api/link/${id}`, { data: {} });
+  assert.strictEqual(r.status(), 200);
+  return (await r.json()).token;
+}
+/* JPEG de verdade, feito pelo próprio navegador, maior que 1024 px para conferir a redução */
+const jpegDeTeste = (p, w = 1600, h = 1200) => p.evaluate(([w, h]) => {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.fillStyle = '#c33'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.fillRect(w / 4, h / 4, w / 2, h / 2);
+  return c.toDataURL('image/jpeg', 0.9).split(',')[1];
+}, [w, h]).then(b => ({ name: 'selfie.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(b, 'base64') }));
+const LOCAL_TELA = { latitude: -26.8766, longitude: -52.4036, accuracy: 15 };
+
+teste('Ponto pelo celular: aviso de privacidade, foto e local falsos, registra entrada e depois saída', async () => {
+  const adm = await logado();
+  const tok = await funcionarioAPI(adm, 'f-tela', { nome: 'Bruno da Tela' });
+  const ctx = await contexto({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  await ctx.grantPermissions(['geolocation'], { origin: BASE });
+  await ctx.setGeolocation(LOCAL_TELA);
+  const p = await abrir(ctx, '/ponto/' + tok);
+  assert.strictEqual((await p.textContent('#nome')).trim(), 'Bruno da Tela');
+  assert.ok(await p.isVisible('#aviso'), 'aviso de privacidade na primeira vez');
+  assert.match(await p.textContent('#aviso'), /foto/);
+  assert.ok(!(await p.isVisible('#bater')), 'o botão aparece depois do aviso');
+  await p.click('#entendi');
+  assert.strictEqual((await p.textContent('#bater')).trim(), 'Registrar entrada');
+  assert.strictEqual(await p.getAttribute('#foto', 'capture'), 'user');
+  const foto = await jpegDeTeste(p);
+  await p.setInputFiles('#foto', foto);
+  await p.waitForSelector('#comprovante:not([hidden])', { timeout: 15000 });
+  assert.match((await p.textContent('#comp-tipo')).trim(), /^Entrada registrada às \d{2}:\d{2}$/);
+  assert.strictEqual((await p.textContent('#bater')).trim(), 'Registrar saída');
+  // a saída pelo caminho de verdade: o botão abre a câmera (o seletor de arquivo)
+  const [seletor] = await Promise.all([p.waitForEvent('filechooser'), p.click('#bater')]);
+  await seletor.setFiles(foto);
+  await p.waitForFunction(() => document.querySelector('#comp-tipo').textContent.startsWith('Saída registrada às'), null, { timeout: 15000 });
+  assert.strictEqual((await p.textContent('#bater')).trim(), 'Registrar entrada');
+  assert.ok(await larguraDaPagina(p) <= 390, 'sem rolagem para o lado');
+  const meus = (await dados(adm, 'rh')).pontos.filter(x => x.funcionarioId === 'f-tela');
+  assert.deepStrictEqual(meus.map(x => x.tipo), ['entrada', 'saida']);
+  assert.strictEqual(meus[0].lat, LOCAL_TELA.latitude);
+  assert.strictEqual(meus[0].lon, LOCAL_TELA.longitude);
+  assert.strictEqual(meus[0].precisao, 15);
+  // a foto chegou reduzida a 1024 px, em JPEG
+  const pa = await abrir(adm, '/');
+  const tam = await pa.evaluate(async id => { const r = await fetch('/rh/api/arquivos/' + id); const b = await createImageBitmap(await r.blob()); return { tipo: r.headers.get('content-type'), w: b.width, h: b.height }; }, meus[0].foto.id);
+  assert.deepStrictEqual(tam, { tipo: 'image/jpeg', w: 1024, h: 768 });
+  // na segunda vez o aviso não aparece
+  await p.reload();
+  assert.ok(!(await p.isVisible('#aviso')));
+  assert.match(await p.textContent('#ultimo'), /Saída/);
+  // sem permitir a localização: avisa e não registra
+  await ctx.clearPermissions();
+  await p.setInputFiles('#foto', foto);
+  await p.waitForFunction(() => /localiza/i.test(document.querySelector('#msg').textContent), null, { timeout: 25000 });
+  assert.strictEqual((await dados(adm, 'rh')).pontos.filter(x => x.funcionarioId === 'f-tela').length, 2, 'sem local não registrou');
+});
+
 // ---------- 9. erros de página ----------
 teste('nenhum erro de página (pageerror) em nenhum teste', async () => {
   assert.deepStrictEqual(errosDePagina, []);

@@ -12,7 +12,7 @@ const path = require('path');
 const crypto = require('crypto');
 const SISTEMAS = require('./sistemas');
 const { criarBanco, criarArquivos, importarCarga, lerJSON, gravarJSON, TIPOS_ARQ, LIMITE_ARQ } = require('./banco');
-const { paginaEntrar, paginaInicial, paginaSistema } = require('./paginas');
+const { paginaEntrar, paginaInicial, paginaSistema, paginaPonto, paginaPontoNaoVale } = require('./paginas');
 
 const PASTA = __dirname;
 lerEnv(path.join(PASTA, '.env'));
@@ -225,6 +225,55 @@ function correcaoDoRH(banco, corpo, u) {
   }
   return { ponto };
 }
+// registros que valem: sem os que foram corrigidos (outro aponta para eles) e sem os anulados
+function pontosQueValem(pontos) {
+  const trocados = new Set(pontos.map(p => p.substitui).filter(Boolean));
+  return pontos.filter(p => !trocados.has(p.id) && !p.anulado);
+}
+const ordemPonto = (a, b) => (a.data + a.hora).localeCompare(b.data + b.hora) || String(a.em || a.alteradoEm).localeCompare(String(b.em || b.alteradoEm));
+function funcionarioDoLink(token) {
+  const rh = bancos.rh;
+  const l = rh && rh.lista('links').find(x => x.token === token);
+  const f = l && rh.pegar('funcionarios', l.id);
+  return f && f.situacao !== 'desligado' ? f : null;
+}
+// o botão alterna sozinho: depois de uma entrada de hoje vem a saída; esqueceu a saída ontem, hoje começa com entrada
+function estadoPonto(f) {
+  const meus = pontosQueValem(bancos.rh.lista('pontos')).filter(p => p.funcionarioId === f.id).sort(ordemPonto);
+  const ult = meus[meus.length - 1] || null;
+  return { nome: f.nome, ultimo: ult && { tipo: ult.tipo, data: ult.data, hora: ult.hora }, proximo: ult && ult.tipo === 'entrada' && ult.data === noFuso(new Date()).data ? 'saida' : 'entrada', agora: Date.now() };
+}
+const LIMITE_FOTO = 3 * 1024 * 1024;
+const PNG_INICIO = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+const FOTO_OK = { 'image/jpeg': b => b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF, 'image/png': b => b.subarray(0, 8).equals(PNG_INICIO) };
+const numeroAte = (v, max) => { const s = String(v == null ? '' : v).trim(), n = Number(s); return s && Number.isFinite(n) && Math.abs(n) <= max ? n : null; };
+const LINK_NAO_VALE = 'Este link de ponto não vale mais. Peça o link novo ao RH.';
+/* /ponto/<token> e /ponto/<token>/registrar, sem login: o link só registra o ponto do próprio funcionário. */
+async function rotaPonto(req, res, partes, metodo) {
+  const f = partes.length === 2 || partes.length === 3 ? funcionarioDoLink(partes[1]) : null;
+  if (f && partes.length === 2 && metodo === 'GET') return html(res, 200, paginaPonto(estadoPonto(f)));
+  if (!f || partes[2] !== 'registrar' || metodo !== 'POST') {
+    req.resume();
+    return metodo === 'GET' ? html(res, 404, paginaPontoNaoVale(LINK_NAO_VALE)) : json(res, 404, { erro: LINK_NAO_VALE });
+  }
+  const tipoFoto = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  const lat = numeroAte(req.headers['x-lat'], 90), lon = numeroAte(req.headers['x-lon'], 180), precisao = numeroAte(req.headers['x-precisao'], 1e7);
+  if (!FOTO_OK[tipoFoto]) { req.resume(); return json(res, 415, { erro: 'A foto precisa ser JPG ou PNG.' }); }
+  if (Number(req.headers['content-length'] || 0) > LIMITE_FOTO) { req.resume(); return json(res, 413, { erro: 'A foto passa de 3 MB.' }); }
+  if (lat == null || lon == null) { req.resume(); return json(res, 400, { erro: 'Sem a localização o ponto não é registrado. Permita a localização e tente de novo.' }); }
+  const buf = await lerBruto(req, LIMITE_FOTO).catch(e => { if (e && e.status === 413) return null; throw e; });
+  if (!buf) return json(res, 413, { erro: 'A foto passa de 3 MB.' });
+  if (!buf.length) return json(res, 400, { erro: 'Sem a foto o ponto não é registrado. Tire a foto e tente de novo.' });
+  if (!FOTO_OK[tipoFoto](buf)) return json(res, 415, { erro: 'Esse arquivo não é uma foto JPG ou PNG.' });
+  // daqui até aplicar não há await: dois toques ao mesmo tempo não viram duas entradas
+  const agora = new Date(), { data, hora } = noFuso(agora), tipo = estadoPonto(f).proximo;
+  const foto = arquivosDe.rh.guardar(buf, { nome: `ponto-${data}-${hora.replace(':', 'h')}.${tipoFoto === 'image/png' ? 'png' : 'jpg'}`, tipo: tipoFoto });
+  const ponto = { id: idPonto(), funcionarioId: f.id, tipo, data, hora, em: agora.toISOString(), lat, lon, precisao: precisao == null || precisao < 0 ? null : Math.round(precisao), foto, origem: 'celular' };
+  const op = bancos.rh.aplicar({ tipo: 'set', col: 'pontos', obj: ponto });
+  if (!(await gravou(bancos.rh))) { arquivosDe.rh.apagarDeVez(foto.id); return json(res, 500, NAO_GRAVOU); }
+  avisar('rh', op);
+  return json(res, 200, { ok: true, tipo, data, hora, nome: f.nome, proximo: tipo === 'entrada' ? 'saida' : 'entrada' });
+}
 
 /* ---------- rotas ---------- */
 async function rotear(req, res) {
@@ -254,8 +303,9 @@ async function rotear(req, res) {
     return json(res, 200, { ok: true, nome: u.nome }, { 'Set-Cookie': cookieSessao(req, tok, DIAS_SESSAO * 86400) });
   }
 
-  const s = sessaoDe(req);
   const partes = rota.split('/').filter(Boolean);
+  if (partes[0] === 'ponto' && bancos.rh) return rotaPonto(req, res, partes, metodo);
+  const s = sessaoDe(req);
   const ehApi = rota.startsWith('/api/') || partes[1] === 'api';
   if (!s) {
     if (ehApi) return json(res, 401, { erro: 'Entre de novo.' });
