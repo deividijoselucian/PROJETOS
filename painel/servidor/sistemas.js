@@ -11,11 +11,13 @@ module.exports = [
   },
   {
     id: 'operacao', numero: 2, nome: 'Controle de Operação', pronto: true,
-    descricao: 'Caminhões munck: onde estão, agenda, km das obras, mapa, manutenção e relatório.',
-    pagina: 'operacao.html', arquivos: false, extras: ['mapa-sul.json'], cor: '#5B3FD6',
-    cols: ['caminhoes', 'motoristas', 'obras', 'agenda', 'km', 'manutencoes', 'config'],
+    descricao: 'Caminhões munck: agenda de operação, operações, documentos, manutenção e relatório.',
+    pagina: 'operacao.html', arquivos: false, extras: [], cor: '#5B3FD6',
+    // obras: só para mostrar os registros antigos (não se cria mais obra)
+    cols: ['caminhoes', 'motoristas', 'obras', 'agenda', 'km', 'manutencoes', 'documentos', 'config'],
   },
   { id: 'rh', numero: 3, nome: 'RH', pronto: false, descricao: 'Em desenvolvimento.', cor: '#0B7550', cols: [] },
   { id: 'financeiro', numero: 4, nome: 'Financeiro', pronto: false, descricao: 'Em desenvolvimento.', cor: '#8A5300', cols: [] },
   { id: 'cargas', numero: 5, nome: 'Cargas', pronto: false, descricao: 'Em desenvolvimento.', cor: '#BA2E29', cols: [] },
+  { id: 'monitoramento', numero: 6, nome: 'Monitoramento de Frota', pronto: false, descricao: 'Em desenvolvimento.', cor: '#0E7490', cols: [] },
 ];

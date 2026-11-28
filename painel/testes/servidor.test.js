@@ -22,7 +22,6 @@ fs.mkdirSync(PUBLICO, { recursive: true });
 fs.mkdirSync(CARGA, { recursive: true });
 fs.writeFileSync(path.join(PUBLICO, 'frota.html'), '<title>DECONTO</title>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow">\n<p>pagina da frota</p>');
 fs.writeFileSync(path.join(PUBLICO, 'operacao.html'), '<title>Controle de Operação</title>\n<p>pagina da operacao</p>');
-fs.writeFileSync(path.join(PUBLICO, 'mapa-sul.json'), '{"ok":true}');
 // carga inicial da frota: um documento com PDF embutido e um caminhão
 const PDF = Buffer.from('%PDF-1.4\n% teste\n');
 fs.writeFileSync(path.join(CARGA, 'frota.json'), JSON.stringify({
@@ -103,11 +102,10 @@ test('sem login, / manda para /entrar', async () => {
   assert.strictEqual(r.status, 302);
   assert.match(r.headers.get('location'), /entrar$/);
 });
-test('sem login, página, API, arquivo e mapa não saem', async () => {
+test('sem login, página, API e arquivo não saem', async () => {
   assert.strictEqual((await fetch(BASE + '/frota/', { redirect: 'manual' })).status, 302);
   assert.strictEqual((await fetch(BASE + '/frota/api/dados')).status, 401);
   assert.strictEqual((await fetch(BASE + '/frota/api/arquivos/arq-' + '0'.repeat(32))).status, 401);
-  assert.strictEqual((await fetch(BASE + '/operacao/mapa-sul.json', { redirect: 'manual' })).status, 302);
 });
 test('login só aceita JSON (415)', async () => {
   const r = await fetch(BASE + '/api/entrar', { method: 'POST', body: 'usuario=admin&senha=senhaTeste1', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
@@ -133,6 +131,8 @@ test('tela inicial mostra os sistemas na ordem, com os futuros em desenvolviment
   assert.match(html, /href="\/frota\/"/);
   assert.match(html, /href="\/operacao\/"/);
   assert.match(html, /Em desenvolvimento/);
+  assert.ok(html.indexOf('Monitoramento de Frota') > html.indexOf('Cargas'), 'Monitoramento de Frota depois de Cargas');
+  assert.ok(!/href="\/monitoramento\/"/.test(html), 'Monitoramento de Frota ainda não abre');
 });
 test('/frota sem barra vai para /frota/ e a página traz window.PAINEL', async () => {
   const r1 = await pedir('/frota');
@@ -147,10 +147,8 @@ test('sistema em desenvolvimento ou desconhecido dá 404', async () => {
   assert.strictEqual((await pedir('/rh/')).status, 404);
   assert.strictEqual((await pedir('/xyz/')).status, 404);
 });
-test('mapa sai para quem entrou', async () => {
-  const r = await pedir('/operacao/mapa-sul.json');
-  assert.strictEqual(r.status, 200);
-  assert.deepStrictEqual(await r.json(), { ok: true });
+test('o Controle não tem mais mapa', async () => {
+  assert.strictEqual((await pedir('/operacao/mapa-sul.json')).status, 404);
 });
 
 // ---------- Task 2: dados e avisos ao vivo ----------
@@ -163,7 +161,12 @@ test('gravar em frota não aparece em operacao', async () => {
   assert.ok(!o.caminhoes.some(c => c.id === 'cam-1'));
 });
 test('coleção que não é do sistema dá 400', async () => {
-  assert.strictEqual((await json('PUT', '/operacao/api/dados/documentos/d1', { a: 1 })).status, 400);
+  assert.strictEqual((await json('PUT', '/operacao/api/dados/abastecimentos/d1', { a: 1 })).status, 400);
+});
+test('o Controle guarda documentos', async () => {
+  assert.strictEqual((await json('PUT', '/operacao/api/dados/documentos/doc-1', { caminhaoId: 'c1', numero: '123' })).status, 200);
+  const o = await (await pedir('/operacao/api/dados')).json();
+  assert.ok(o.documentos.some(d => d.id === 'doc-1' && d.numero === '123'));
 });
 test('lote com um item inválido não grava nada', async () => {
   const r = await json('POST', '/frota/api/lote', { ops: [{ tipo: 'set', col: 'motoristas', obj: { id: 'm1', nome: 'A' } }, { tipo: 'set', col: 'naoexiste', obj: { id: 'x' } }] });

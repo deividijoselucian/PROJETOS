@@ -26,7 +26,6 @@ fs.mkdirSync(PUBLICO, { recursive: true });
 fs.mkdirSync(CARGA, { recursive: true });
 fs.copyFileSync(path.join(RAIZ, 'sistema-carlise', 'frota.html'), path.join(PUBLICO, 'frota.html'));
 fs.copyFileSync(path.join(RAIZ, 'munck', 'munck.html'), path.join(PUBLICO, 'operacao.html'));
-fs.copyFileSync(path.join(RAIZ, 'munck', 'mapa-sul.json'), path.join(PUBLICO, 'mapa-sul.json'));
 
 /* PDF mínimo, com um texto para cada um ficar diferente */
 function pdfMinimo(texto) {
