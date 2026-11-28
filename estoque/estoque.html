@@ -289,7 +289,7 @@ async function api(metodo, caminho, corpo) {
 const msgErro = e => (e && e.message) || 'O servidor não respondeu. Confira a internet e tente de novo.';
 async function lerSaldos() {
   const d = await api('GET', 'api/saldos');
-  S.materiais = d.materiais || [];
+  S.materiais = (d.materiais || []).map(m => Object.assign(m, { nome: String(m.nome || '(sem nome)') })); // registro sem nome não quebra a tela
   S.movimentos = d.movimentos || [];
   S.caminhoes = d.caminhoes || [];
   S.porId = new Map(S.materiais.map(m => [m.id, m]));

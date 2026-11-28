@@ -191,6 +191,16 @@ teste('Estoque: saldo negativo fica em vermelho e avisa', async () => {
   assert.match(await texto(p, '#avisos'), /Lona de freio com saldo negativo/);
 });
 
+teste('Estoque: material gravado sem nome (por outra via) não quebra a página', async () => {
+  const ctx = await logado();
+  const mid = id('mat');
+  await pedir(ctx, 'PUT', '/estoque/api/dados/materiais/' + mid, { categoria: 'Outros', unidade: 'un', ativo: true });
+  const p = await abrir(ctx, '/estoque/');
+  await esperarServidor(p);
+  await esperarTexto(p, `#t-saldo tr[data-mat="${mid}"]`, '(sem nome)');
+  await pedir(ctx, 'DELETE', '/estoque/api/dados/materiais/' + mid);
+});
+
 teste('celular 390px: Estoque sem rolagem para o lado', async () => {
   const ctx = await logado({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   const p = await abrir(ctx, '/estoque/');
