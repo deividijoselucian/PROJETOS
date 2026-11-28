@@ -280,7 +280,7 @@ teste('"← Painel Deconto" volta para a tela inicial e "Sair" leva para /entrar
 });
 
 // ---------- 7. Controle de Operação ----------
-teste('Controle de Operação: abre pelo cartão, agenda pelo quadro e o outro navegador vê, mapa abre e carrega cópia "controle-munck"', async () => {
+teste('Controle de Operação: abre pelo cartão, agenda pelo quadro e o outro navegador vê, sem Mapa e Obras, e carrega cópia "controle-munck"', async () => {
   const ctxA = await logado();
   const a = await abrir(ctxA, '/');
   await a.click('a.cartao[href="/operacao/"]');
@@ -319,9 +319,8 @@ teste('Controle de Operação: abre pelo cartão, agenda pelo quadro e o outro n
   const o = await dados(ctxA, 'operacao');
   assert.ok(o.agenda.some(x => x.caminhaoId === 'cam-op-1' && x.obraId === 'ob-tela-1' && x.data === hoje && x.servico === 'Içar poste'), 'agendamento no servidor');
 
-  // mapa
-  await a.click('.aba[data-aba="mapa"]');
-  await a.waitForSelector('#mapa-svg', { timeout: 15000 });
+  // sem as abas Mapa e Obras
+  assert.strictEqual(await a.locator('.aba[data-aba="mapa"], .aba[data-aba="obras"]').count(), 0, 'sem abas Mapa e Obras');
 
   // cópia antiga, ainda com o nome "controle-munck"
   await a.click('.aba[data-aba="cadastro"]');
