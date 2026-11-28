@@ -128,22 +128,29 @@ destino B**. Num registro antigo sem cliente, mostra o nome da obra.
 ## Tarefas
 
 Trabalho 1 (este documento):
-- [ ] Servidor: `sistemas.js` (descrição, extras, `documentos`, cartão Monitoramento de Frota)
-- [ ] Tirar abas Mapa e Obras e o código delas; tirar `mapa-sul.json` do pacote
-- [ ] Aba Operação (era Km das obras): campos novos, horímetro só para munck, filtros e totais
-- [ ] Agenda de operação: cliente e destinos no lugar de obra e etapa
-- [ ] Aba Documento e avisos de vencimento
-- [ ] Painel do Controle: cartões, "A receber" e avisos
-- [ ] Relatório e Excel: por cliente, faturado, a receber, abas Operações e Documentos
-- [ ] Testes de servidor e de tela atualizados e passando
-- [ ] README do munck atualizado
-- [ ] Publicar (push) e atualizar a VM
+- [x] Servidor: `sistemas.js` (descrição, extras, `documentos`, cartão Monitoramento de Frota)
+- [x] Tirar abas Mapa e Obras e o código delas; tirar `mapa-sul.json` do pacote
+- [x] Aba Operação (era Km das obras): campos novos, horímetro só para munck, filtros e totais
+- [x] Agenda de operação: cliente e destinos no lugar de obra e etapa
+- [x] Aba Documento e avisos de vencimento
+- [x] Painel do Controle: cartões, "A receber" e avisos
+- [x] Relatório e Excel: por cliente, faturado, a receber, abas Operações e Documentos
+- [x] Testes de servidor e de tela atualizados e passando
+- [x] README do munck atualizado
+- [x] Publicar (push) e atualizar a VM
 
 Depois (trabalho 2):
 - [ ] Relatórios no Painel Deconto juntando DECONTO e Controle de Operação: índices do mês,
       caminhões, combustível, manutenção e operações, separados por empresa
 - [ ] Definir as empresas e ligar cada caminhão a uma empresa
 - [ ] Monitoramento de Frota (integração futura)
+
+Feito depois do trabalho 1 (2026-11-28):
+- [x] Operação: "Usou o munck?" mostra o horímetro em qualquer caminhão
+- [x] Carga no servidor: 18 veículos, 2 semirreboques e 20 CRLVs no DECONTO; 11 caminhões no Controle
+- [x] Endereço provisório https://deconto.sinistravistorias.com.br (o firewall da empresa bloqueia sslip.io)
+- [ ] Destino A e B puxando a cidade (plano `docs/superpowers/plans/2026-11-28-destino-cidade.md`)
+- [ ] Pesquisa de sistemas de frota do mercado → lista de funções para trazer
 
 Depois (trabalho 3):
 - [ ] Sistema de RH (o cartão "RH" do Painel): controle de funcionários, banco de horas,
@@ -155,3 +162,9 @@ Depois (trabalho 4):
 - [ ] O Painel Deconto vira o painel do administrador
 - [ ] Cada sistema com o seu subdomínio (ex.: `operacao.…sslip.io`), para a equipe entrar direto
       no sistema dela sem passar pelo Painel Deconto
+
+Depois (trabalho 5) — Controle de Estoque (pedido em 2026-11-28):
+- [ ] Estoque geral: todo o material da empresa, com entradas, saídas (baixa) e saldo
+- [ ] Depósito de diesel: quantos litros tem; o abastecimento lançado no DECONTO dá baixa no tanque
+- [ ] Aviso de quando precisa comprar diesel (nível mínimo do tanque)
+- [ ] Pneus: estoque e ligação com os caminhões
