@@ -16,7 +16,11 @@ para a fase 2.
 2. **Controle de Operação** (`/operacao/`): o antigo Controle Munck, com agenda de operação,
    operações (cliente, destinos, valor, pago, km e horímetro), documento e seguro de cada
    caminhão, manutenção e relatório.
-3. **RH**: em desenvolvimento.
+3. **RH** (`/rh/`): controle interno de ponto. Cada funcionário bate o ponto pelo celular num link
+   pessoal (`/ponto/<link>`, sem senha), com foto e local, na hora do servidor. A central mostra os
+   registros do dia com foto e "ver no mapa", corrige ou inclui com justificativa (o original fica
+   guardado) e tira o relatório do mês para a contabilidade (Excel e impressão). Não é o ponto
+   oficial (REP-P, Portaria 671/2021).
 4. **Financeiro**: em desenvolvimento.
 5. **Cargas**: em desenvolvimento.
 6. **Monitoramento de Frota**: em desenvolvimento (integração futura).
@@ -34,7 +38,8 @@ para a fase 2.
   (`.github/workflows/painel-deconto.yml`). Passo a passo em
   [servidor/LEIA-ME.md](servidor/LEIA-ME.md).
 - As páginas dos sistemas não ficam aqui: o pacote leva `sistema-carlise/frota.html` (DECONTO),
-  `munck/munck.html` (Controle de Operação).
+  `munck/munck.html` (Controle de Operação) e `rh/rh.html` (RH). A tela do ponto pelo celular
+  fica em `servidor/paginas.js`.
 - `testes/servidor.test.js`: os testes do servidor.
 
 ## Testes

@@ -29,7 +29,7 @@ recarregar_nginx() { systemctl reload nginx 2>/dev/null || service nginx reload 
 
 [ "$(id -u)" = "0" ] || erro "Rode como root (sudo bash instalar-no-servidor.sh)."
 cd "$PASTA"
-for f in servidor.js sistemas.js banco.js paginas.js publico/frota.html publico/operacao.html; do
+for f in servidor.js sistemas.js banco.js paginas.js publico/frota.html publico/operacao.html publico/rh.html; do
   [ -f "$f" ] || erro "Falta o arquivo $f nesta pasta ($PASTA)."
 done
 

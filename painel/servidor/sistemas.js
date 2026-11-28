@@ -16,7 +16,13 @@ module.exports = [
     // obras: só para mostrar os registros antigos (não se cria mais obra)
     cols: ['caminhoes', 'motoristas', 'obras', 'agenda', 'km', 'manutencoes', 'documentos', 'config'],
   },
-  { id: 'rh', numero: 3, nome: 'RH', pronto: false, descricao: 'Em desenvolvimento.', cor: '#0B7550', cols: [] },
+  {
+    id: 'rh', numero: 3, nome: 'RH', pronto: true,
+    descricao: 'Ponto pelo celular com foto e local, registros de cada dia e relatório do mês para a contabilidade.',
+    pagina: 'rh.html', arquivos: true, extras: [], cor: '#0B7550',
+    // soServidor: só o servidor grava (o ponto do celular, a correção com justificativa e o link novo)
+    cols: ['funcionarios', 'pontos', 'links'], soServidor: ['pontos', 'links'],
+  },
   { id: 'financeiro', numero: 4, nome: 'Financeiro', pronto: false, descricao: 'Em desenvolvimento.', cor: '#8A5300', cols: [] },
   { id: 'cargas', numero: 5, nome: 'Cargas', pronto: false, descricao: 'Em desenvolvimento.', cor: '#BA2E29', cols: [] },
   { id: 'monitoramento', numero: 6, nome: 'Monitoramento de Frota', pronto: false, descricao: 'Em desenvolvimento.', cor: '#0E7490', cols: [] },

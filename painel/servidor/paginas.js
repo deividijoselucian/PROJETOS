@@ -156,4 +156,138 @@ function paginaSistema(htmlSistema, u, s) {
     + ICONE + '\n' + cab.join('\n') + `\n<style>${RESET}</style>\n<script>window.PAINEL = ${painel};</script>\n</head>\n<body>\n` + corpo + '\n</body>\n</html>\n';
 }
 
-module.exports = { paginaEntrar, paginaInicial, paginaSistema };
+/* Ponto pelo celular (/ponto/<token>, sem login). A foto vem da câmera da frente (capture="user"),
+   reduzida aqui para ~1024 px em JPEG; o local, do GPS. A hora que vale é a do servidor. */
+const ESTILO_PONTO = `
+.ponto-wrap { max-width: 480px; gap: 18px; }
+.relogio strong { display: block; font: 700 3.4rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.relogio span { color: var(--muted); }
+.bater { width: 100%; min-height: 96px; font-size: 1.45rem; border-radius: 16px; }
+.bater.entrada { background: var(--ok); }
+.bater.saida { background: var(--accent); }
+.comprovante { border-color: var(--ok); border-width: 2px; }
+.comprovante strong { font: 700 1.5rem/1.2 var(--display); color: var(--ok); }
+`;
+function paginaPontoNaoVale(msg) {
+  return cabeca('Ponto') + `<body>
+<header class="barra"><div class="barra-in"><div class="marca">${MARCA}<div><strong>Ponto</strong><span>Deconto</span></div></div></div></header>
+<main class="wrap" style="max-width:480px"><p class="bloco">${esc(msg)}</p></main>
+</body>
+</html>
+`;
+}
+function paginaPonto(estado) {
+  const dados = JSON.stringify(estado).replace(/</g, '\\u003c');
+  return cabeca('Ponto · ' + estado.nome).replace('</style>', ESTILO_PONTO + '</style>') + `<body>
+<header class="barra"><div class="barra-in"><div class="marca">${MARCA}<div><strong>Ponto</strong><span>Deconto · controle interno</span></div></div></div></header>
+<main class="wrap ponto-wrap">
+  <div><p class="hint">Olá,</p><h1 class="h1" id="nome">${esc(estado.nome)}</h1></div>
+  <div class="relogio" aria-live="off"><strong id="hora">--:--:--</strong><span id="dia"></span></div>
+  <p class="hint" id="ultimo"></p>
+  <section class="bloco" id="aviso" hidden>
+    <h2>Aviso de privacidade</h2>
+    <p>Ao registrar o ponto, este celular manda para o RH da Deconto uma foto sua e o local daquele momento. Nada é enviado fora do registro, e o RH usa só para conferir o ponto (LGPD).</p>
+    <div><button class="btn" type="button" id="entendi">Entendi</button></div>
+  </section>
+  <button class="btn bater entrada" type="button" id="bater" hidden>Registrar entrada</button>
+  <input id="foto" type="file" accept="image/*" capture="user" hidden>
+  <p class="msg" id="msg" role="status" aria-live="polite"></p>
+  <section class="bloco comprovante" id="comprovante" hidden aria-live="polite">
+    <strong id="comp-tipo"></strong>
+    <p id="comp-det"></p>
+  </section>
+  <p class="hint">Ao tocar no botão, o celular tira uma foto sua e pega o local. Dica: salve esta página na tela inicial do celular.</p>
+</main>
+<script>
+var P = ${dados};
+var dif = P.agora - Date.now();
+var $ = function (id) { return document.getElementById(id); };
+var FUSO = 'America/Sao_Paulo';
+var NOME_TIPO = { entrada: 'Entrada', saida: 'Saída' };
+var dataBR = function (s) { return s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4); };
+function tic() {
+  var d = new Date(Date.now() + dif);
+  $('hora').textContent = d.toLocaleTimeString('pt-BR', { timeZone: FUSO, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  $('dia').textContent = d.toLocaleDateString('pt-BR', { timeZone: FUSO, weekday: 'long', day: '2-digit', month: 'long' });
+}
+function mostrar() {
+  $('bater').textContent = P.proximo === 'saida' ? 'Registrar saída' : 'Registrar entrada';
+  $('bater').className = 'btn bater ' + P.proximo;
+  $('ultimo').textContent = P.ultimo ? 'Último registro: ' + NOME_TIPO[P.ultimo.tipo] + ' em ' + dataBR(P.ultimo.data) + ' às ' + P.ultimo.hora + '.' : 'Nenhum registro ainda.';
+}
+function msg(t, erro) { $('msg').textContent = t; $('msg').className = 'msg' + (erro ? ' erro' : ''); }
+function local() {
+  return new Promise(function (ok, falha) {
+    if (!navigator.geolocation) return falha({ code: 2 });
+    navigator.geolocation.getCurrentPosition(ok, falha, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+  });
+}
+// ~1024 px no lado maior, em JPEG; se o navegador não conseguir ler, manda a original (JPG ou PNG)
+function reduzir(arq) {
+  return new Promise(function (ok) {
+    var url = URL.createObjectURL(arq), img = new Image();
+    var original = function () { URL.revokeObjectURL(url); ok(arq.type === 'image/jpeg' || arq.type === 'image/png' ? arq : null); };
+    img.onload = function () {
+      var k = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(function (b) { if (b) { URL.revokeObjectURL(url); ok(b); } else original(); }, 'image/jpeg', 0.8);
+    };
+    img.onerror = original;
+    img.src = url;
+  });
+}
+var aviso = false;
+try { aviso = localStorage.getItem('ponto-aviso-lido') === '1'; } catch (e) { /* sem localStorage: mostra o aviso */ }
+$('aviso').hidden = aviso;
+$('bater').hidden = !aviso;
+$('entendi').addEventListener('click', function () {
+  try { localStorage.setItem('ponto-aviso-lido', '1'); } catch (e) { /* mostra de novo na próxima vez */ }
+  $('aviso').hidden = true; $('bater').hidden = false; $('bater').focus();
+});
+$('bater').addEventListener('click', function () { msg(''); $('foto').value = ''; $('foto').click(); });
+$('foto').addEventListener('change', async function () {
+  var arq = $('foto').files[0];
+  if (!arq) { msg('Sem a foto o ponto não é registrado. Toque no botão e tire a foto.', true); return; }
+  $('bater').disabled = true;
+  $('comprovante').hidden = true;
+  try {
+    msg('Pegando o local…');
+    var pos;
+    try { pos = await local(); } catch (e) {
+      msg(e && e.code === 1 ? 'Sem a localização o ponto não é registrado. Permita a localização para este site nas configurações do navegador e tente de novo.' : 'Não consegui pegar a localização. Ligue o GPS, vá para um lugar aberto e tente de novo.', true);
+      return;
+    }
+    var foto = await reduzir(arq);
+    if (!foto) { msg('Não consegui ler a foto. Tente de novo.', true); return; }
+    msg('Enviando…');
+    var r, d;
+    try {
+      r = await fetch('/ponto/' + location.pathname.split('/')[2] + '/registrar', { method: 'POST', body: foto,
+        headers: { 'Content-Type': foto.type, 'X-Lat': String(pos.coords.latitude), 'X-Lon': String(pos.coords.longitude), 'X-Precisao': String(Math.round(pos.coords.accuracy || 0)) } });
+      d = await r.json().catch(function () { return {}; });
+    } catch (e) { msg('Não deu para confirmar se o ponto chegou (sem internet?). Abra esta página de novo e confira o último registro antes de tentar outra vez.', true); return; }
+    if (!r.ok) {
+      if (d.proximo) { P.proximo = d.proximo; P.ultimo = d.ultimo || P.ultimo; mostrar(); }
+      msg(d.erro || 'O ponto não foi registrado. Tente de novo.', true);
+      return;
+    }
+    P.proximo = d.proximo;
+    P.ultimo = { tipo: d.tipo, data: d.data, hora: d.hora };
+    mostrar();
+    msg('');
+    $('comp-tipo').textContent = NOME_TIPO[d.tipo] + ' registrada às ' + d.hora;
+    $('comp-det').textContent = d.nome + ' · ' + dataBR(d.data) + ' · hora do servidor';
+    $('comprovante').hidden = false;
+  } finally { $('bater').disabled = false; }
+});
+mostrar();
+tic();
+setInterval(tic, 1000);
+</script>
+</body>
+</html>
+`;
+}
+
+module.exports = { paginaEntrar, paginaInicial, paginaSistema, paginaPonto, paginaPontoNaoVale };

@@ -26,6 +26,7 @@ fs.mkdirSync(PUBLICO, { recursive: true });
 fs.mkdirSync(CARGA, { recursive: true });
 fs.copyFileSync(path.join(RAIZ, 'sistema-carlise', 'frota.html'), path.join(PUBLICO, 'frota.html'));
 fs.copyFileSync(path.join(RAIZ, 'munck', 'munck.html'), path.join(PUBLICO, 'operacao.html'));
+fs.copyFileSync(path.join(RAIZ, 'rh', 'rh.html'), path.join(PUBLICO, 'rh.html'));
 
 /* PDF mínimo, com um texto para cada um ficar diferente */
 function pdfMinimo(texto) {
@@ -43,7 +44,7 @@ const abertos = [];
 
 function subir() {
   return new Promise((ok, falha) => {
-    proc = spawn(process.execPath, [SERVIDOR], { env: Object.assign({}, process.env, { PORTA: String(PORTA), HOST: '127.0.0.1', PAINEL_SENHA: SENHA, PASTA_DADOS: DADOS, PASTA_PUBLICO: PUBLICO, PASTA_CARGA: CARGA }), stdio: ['ignore', 'pipe', 'pipe'] });
+    proc = spawn(process.execPath, [SERVIDOR], { env: Object.assign({}, process.env, { PORTA: String(PORTA), HOST: '127.0.0.1', PAINEL_SENHA: SENHA, PASTA_DADOS: DADOS, PASTA_PUBLICO: PUBLICO, PASTA_CARGA: CARGA, PONTO_INTERVALO_S: '0' }), stdio: ['ignore', 'pipe', 'pipe'] });
     let saida = '';
     proc.stdout.on('data', c => { saida += c; if (saida.includes('Painel Deconto em')) ok(); });
     proc.stderr.on('data', c => { saida += c; });
@@ -118,9 +119,10 @@ teste('login e tela inicial mostram os 6 cartões; DECONTO abre pelo cartão e m
   assert.deepStrictEqual(nomes, ['DECONTO', 'Controle de Operação', 'RH', 'Financeiro', 'Cargas', 'Monitoramento de Frota']);
   assert.strictEqual(await p.locator('a.cartao[href="/frota/"]').count(), 1);
   assert.strictEqual(await p.locator('a.cartao[href="/operacao/"]').count(), 1);
+  assert.strictEqual(await p.locator('a.cartao[href="/rh/"]').count(), 1);
   const breves = await p.$$eval('.cartao.breve', cs => cs.map(c => c.querySelector('h2').textContent.trim() + ': ' + c.textContent));
-  assert.strictEqual(breves.length, 4);
-  for (const [i, nome] of ['RH', 'Financeiro', 'Cargas', 'Monitoramento de Frota'].entries()) {
+  assert.strictEqual(breves.length, 3);
+  for (const [i, nome] of ['Financeiro', 'Cargas', 'Monitoramento de Frota'].entries()) {
     assert.ok(breves[i].startsWith(nome + ':'), 'cartão em desenvolvimento: ' + nome);
     assert.match(breves[i], /Em desenvolvimento/);
   }
@@ -896,6 +898,293 @@ teste('DECONTO local (file://): cópia feita no painel fica com os PDFs neste co
   assert.ok(e && Buffer.from(e.dados, 'base64').equals(pdf), 'a cópia feita no computador leva o PDF');
   const faltam = comArquivo.filter(d => !(copiaLocal.arquivos && copiaLocal.arquivos[d.arquivo.id] && copiaLocal.arquivos[d.arquivo.id].dados === copiaPainel.arquivos[d.arquivo.id].dados)).map(d => d.id);
   assert.deepStrictEqual(faltam, [], 'nenhum PDF da cópia do painel ficou de fora da cópia seguinte');
+});
+
+// ---------- 12. RH: ponto pelo celular ----------
+async function funcionarioAPI(ctx, id, extra = {}) {
+  let r = await ctx.request.put(`${BASE}/rh/api/dados/funcionarios/${id}`, { data: Object.assign({ id, nome: 'Func ' + id, cpf: '12345678901', cargo: 'Motorista', jornadaMin: 528, situacao: 'ativo', criadoEm: new Date().toISOString() }, extra) });
+  assert.strictEqual(r.status(), 200);
+  r = await ctx.request.post(`${BASE}/rh/api/link/${id}`, { data: {} });
+  assert.strictEqual(r.status(), 200);
+  return (await r.json()).token;
+}
+/* JPEG de verdade, feito pelo próprio navegador, maior que 1024 px para conferir a redução */
+const jpegDeTeste = (p, w = 1600, h = 1200) => p.evaluate(([w, h]) => {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.fillStyle = '#c33'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; g.fillRect(w / 4, h / 4, w / 2, h / 2);
+  return c.toDataURL('image/jpeg', 0.9).split(',')[1];
+}, [w, h]).then(b => ({ name: 'selfie.jpg', mimeType: 'image/jpeg', buffer: Buffer.from(b, 'base64') }));
+const LOCAL_TELA = { latitude: -26.8766, longitude: -52.4036, accuracy: 15 };
+
+teste('Ponto pelo celular: aviso de privacidade, foto e local falsos, registra entrada e depois saída', async () => {
+  const adm = await logado();
+  const tok = await funcionarioAPI(adm, 'f-tela', { nome: 'Bruno da Tela' });
+  const ctx = await contexto({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  await ctx.grantPermissions(['geolocation'], { origin: BASE });
+  await ctx.setGeolocation(LOCAL_TELA);
+  const p = await abrir(ctx, '/ponto/' + tok);
+  assert.strictEqual((await p.textContent('#nome')).trim(), 'Bruno da Tela');
+  assert.ok(await p.isVisible('#aviso'), 'aviso de privacidade na primeira vez');
+  assert.match(await p.textContent('#aviso'), /foto/);
+  assert.ok(!(await p.isVisible('#bater')), 'o botão aparece depois do aviso');
+  await p.click('#entendi');
+  assert.strictEqual((await p.textContent('#bater')).trim(), 'Registrar entrada');
+  assert.strictEqual(await p.getAttribute('#foto', 'capture'), 'user');
+  const foto = await jpegDeTeste(p);
+  await p.setInputFiles('#foto', foto);
+  await p.waitForSelector('#comprovante:not([hidden])', { timeout: 15000 });
+  assert.match((await p.textContent('#comp-tipo')).trim(), /^Entrada registrada às \d{2}:\d{2}$/);
+  assert.strictEqual((await p.textContent('#bater')).trim(), 'Registrar saída');
+  // a saída pelo caminho de verdade: o botão abre a câmera (o seletor de arquivo)
+  const [seletor] = await Promise.all([p.waitForEvent('filechooser'), p.click('#bater')]);
+  await seletor.setFiles(foto);
+  await p.waitForFunction(() => document.querySelector('#comp-tipo').textContent.startsWith('Saída registrada às'), null, { timeout: 15000 });
+  assert.strictEqual((await p.textContent('#bater')).trim(), 'Registrar entrada');
+  assert.ok(await larguraDaPagina(p) <= 390, 'sem rolagem para o lado');
+  const meus = (await dados(adm, 'rh')).pontos.filter(x => x.funcionarioId === 'f-tela');
+  assert.deepStrictEqual(meus.map(x => x.tipo), ['entrada', 'saida']);
+  assert.strictEqual(meus[0].lat, LOCAL_TELA.latitude);
+  assert.strictEqual(meus[0].lon, LOCAL_TELA.longitude);
+  assert.strictEqual(meus[0].precisao, 15);
+  // a foto chegou reduzida a 1024 px, em JPEG
+  const pa = await abrir(adm, '/');
+  const tam = await pa.evaluate(async id => { const r = await fetch('/rh/api/arquivos/' + id); const b = await createImageBitmap(await r.blob()); return { tipo: r.headers.get('content-type'), w: b.width, h: b.height }; }, meus[0].foto.id);
+  assert.deepStrictEqual(tam, { tipo: 'image/jpeg', w: 1024, h: 768 });
+  // na segunda vez o aviso não aparece
+  await p.reload();
+  assert.ok(!(await p.isVisible('#aviso')));
+  assert.match(await p.textContent('#ultimo'), /Saída/);
+  // sem permitir a localização: avisa e não registra
+  await ctx.clearPermissions();
+  await p.setInputFiles('#foto', foto);
+  await p.waitForFunction(() => /localiza/i.test(document.querySelector('#msg').textContent), null, { timeout: 25000 });
+  assert.strictEqual((await dados(adm, 'rh')).pontos.filter(x => x.funcionarioId === 'f-tela').length, 2, 'sem local não registrou');
+  // a resposta não chegou: a página não diz que não registrou, manda conferir o último registro
+  await ctx.grantPermissions(['geolocation'], { origin: BASE });
+  await ctx.route('**/registrar', r => r.abort());
+  await p.setInputFiles('#foto', foto);
+  await p.waitForFunction(() => /confirmar/.test(document.querySelector('#msg').textContent), null, { timeout: 15000 });
+  await ctx.unroute('**/registrar');
+});
+
+// ---------- 13. RH: central ----------
+teste('RH: a central cadastra o funcionário pela tela, copia o link do ponto e gera link novo', async () => {
+  const ctx = await logado();
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
+  const p = await abrir(ctx, '/');
+  await p.click('a.cartao[href="/rh/"]');
+  await p.waitForURL(BASE + '/rh/');
+  await esperarServidor(p);
+  assert.strictEqual((await p.textContent('h1')).trim(), 'Controle interno de ponto');
+  assert.match(await p.textContent('main'), /REP-P/);
+  await p.evaluate(() => { location.hash = 'funcionarios'; });
+  await p.fill('#fu-nome', 'Carla Teste');
+  await p.fill('#fu-cpf', '123.456.789-01');
+  await p.fill('#fu-cargo', 'Auxiliar de escritório');
+  await p.fill('#fu-jornada', '8:48');
+  await p.click('#f-func button[type="submit"]');
+  await p.waitForFunction(() => document.querySelector('#t-func').textContent.includes('Carla Teste'));
+  let d = await dados(ctx, 'rh');
+  const f = d.funcionarios.find(x => x.nome === 'Carla Teste');
+  assert.ok(f, 'gravado no servidor');
+  assert.strictEqual(f.cpf, '12345678901');
+  assert.strictEqual(f.jornadaMin, 528);
+  assert.strictEqual(f.situacao, 'ativo');
+  await p.waitForFunction(id => document.querySelector(`[data-acao="copiar-link"][data-id="${id}"]`), f.id);
+  const link = () => dados(ctx, 'rh').then(x => (x.links.find(l => l.id === f.id) || {}).token);
+  const t1 = await link();
+  assert.ok(t1, 'o link já sai no cadastro');
+  await limparToast(p);
+  await p.click(`[data-acao="copiar-link"][data-id="${f.id}"]`);
+  await esperarToast(p, 'copiado');
+  assert.strictEqual(await p.evaluate(() => navigator.clipboard.readText()), `${BASE}/ponto/${t1}`);
+  // jornada que não é hora: avisa e não grava
+  await p.click(`[data-acao="editar"][data-id="${f.id}"]`);
+  await p.fill('#fu-jornada', 'oito');
+  await limparToast(p);
+  await p.click('#f-func button[type="submit"]');
+  await esperarToast(p, 'jornada');
+  assert.strictEqual((await dados(ctx, 'rh')).funcionarios.find(x => x.id === f.id).jornadaMin, 528);
+  // link novo: pergunta antes, e o antigo para de valer
+  p.once('dialog', dlg => dlg.accept());
+  await limparToast(p);
+  await p.click(`[data-acao="novo-link"][data-id="${f.id}"]`);
+  await esperarToast(p, 'Link novo');
+  const t2 = await link();
+  assert.notStrictEqual(t2, t1);
+  assert.strictEqual((await ctx.request.get(`${BASE}/ponto/${t1}`)).status(), 404);
+  assert.strictEqual((await ctx.request.get(`${BASE}/ponto/${t2}`)).status(), 200);
+});
+
+teste('RH: a central mostra o dia com foto, mapa e horas; corrige e inclui com justificativa sem apagar o original', async () => {
+  const ctx = await logado();
+  const tok = await funcionarioAPI(ctx, 'f-central', { nome: 'Dora Central' });
+  const p = await abrir(ctx, '/rh/#registros');
+  await esperarServidor(p);
+  const foto = await jpegDeTeste(p, 320, 240);
+  const r = await fetch(`${BASE}/ponto/${tok}/registrar`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg', 'X-Lat': '-26.8766', 'X-Lon': '-52.4036', 'X-Precisao': '10' }, body: foto.buffer });
+  assert.strictEqual(r.status, 200);
+  const c = await r.json();
+  const bloco = p.locator('[data-func="f-central"]');
+  await bloco.waitFor({ timeout: 5000 }); // chega pelo aviso ao vivo, sem recarregar
+  assert.match(await bloco.textContent(), /entrada sem saída/);
+  assert.strictEqual(await bloco.locator('a[href="https://www.google.com/maps?q=-26.8766,-52.4036"]').count(), 1, 'ver no mapa');
+  await bloco.locator('img').first().waitFor();
+  await p.waitForFunction(() => { const i = document.querySelector('[data-func="f-central"] img'); return i && i.complete && i.naturalWidth === 320; }, null, { timeout: 5000 });
+  // corrigir a entrada para 08:00: sem justificativa não grava
+  await bloco.locator('[data-acao="corrigir"]').first().click();
+  await p.fill('#co-hora', '08:00');
+  await p.fill('#co-just', '');
+  await p.click('#f-cor button[type="submit"]');
+  assert.match(await p.textContent('#co-msg'), /justificativa/i);
+  assert.strictEqual((await dados(ctx, 'rh')).pontos.filter(x => x.funcionarioId === 'f-central').length, 1);
+  await p.fill('#co-just', 'Bateu atrasado, chegou às 8h');
+  await p.click('#f-cor button[type="submit"]');
+  await p.waitForFunction(() => !document.querySelector('#d-cor').open);
+  // incluir a saída das 12:00
+  await bloco.locator('[data-acao="incluir"]').click();
+  await p.selectOption('#co-tipo', 'saida');
+  await p.fill('#co-hora', '12:00');
+  await p.fill('#co-just', 'Esqueceu de bater a saída');
+  await p.click('#f-cor button[type="submit"]');
+  await p.waitForFunction(() => /4:00/.test(document.querySelector('[data-func="f-central"] .horas-dia').textContent), null, { timeout: 5000 });
+  const txt = semEspaco(await bloco.textContent());
+  assert.doesNotMatch(txt, /entrada sem saída/);
+  assert.match(txt, new RegExp('era ' + c.hora), 'o original aparece');
+  assert.match(txt, /Bateu atrasado/);
+  const meus = (await dados(ctx, 'rh')).pontos.filter(x => x.funcionarioId === 'f-central');
+  assert.strictEqual(meus.length, 3, 'original, correção e inclusão');
+  const original = meus.find(x => x.origem === 'celular');
+  assert.strictEqual(original.hora, c.hora, 'o original não mudou');
+  assert.ok(meus.some(x => x.substitui === original.id && x.hora === '08:00' && x.por === 'admin'));
+});
+
+teste('RH: relatório do mês dá o total certo num caso com 2 dias, com Excel e página para imprimir', async () => {
+  const ctx = await logado();
+  await funcionarioAPI(ctx, 'f-mes', { nome: 'Edu Relatório', cpf: '11122233344', jornadaMin: 528 });
+  const incluir = async (tipo, data, hora, extra = {}) => {
+    const r = await ctx.request.post(`${BASE}/rh/api/pontos`, { data: Object.assign({ funcionarioId: 'f-mes', tipo, data, hora, justificativa: 'Teste do relatório' }, extra) });
+    assert.strictEqual(r.status(), 200);
+    return (await r.json()).ponto;
+  };
+  // dia 7: um registro desconsiderado não soma, mas o dia sai como ajustado pelo RH
+  const desc = await incluir('entrada', '2026-10-07', '09:00');
+  await incluir(undefined, undefined, undefined, { funcionarioId: undefined, substitui: desc.id, anulado: true });
+  // dia 5: 4:00 + 4:48 = 8:48 (a jornada); dia 6: 10:00 (1:12 acima) e uma entrada sem saída, que não soma
+  await incluir('entrada', '2026-10-05', '08:00'); await incluir('saida', '2026-10-05', '12:00');
+  await incluir('entrada', '2026-10-05', '13:00'); await incluir('saida', '2026-10-05', '17:48');
+  await incluir('entrada', '2026-10-06', '08:00'); await incluir('saida', '2026-10-06', '18:00');
+  await incluir('entrada', '2026-10-06', '19:00');
+  const p = await abrir(ctx, '/rh/#relatorio');
+  await esperarServidor(p);
+  await p.fill('#m-mes', '2026-10');
+  await p.locator('#m-mes').dispatchEvent('change');
+  const bloco = p.locator('.rel-func[data-func="f-mes"]');
+  await bloco.waitFor({ timeout: 5000 });
+  assert.strictEqual(await bloco.locator('tr[data-dia]').count(), 31, 'todos os dias de outubro');
+  assert.strictEqual((await bloco.locator('.total-horas').textContent()).trim(), '18:48');
+  assert.strictEqual((await bloco.locator('.total-extra').textContent()).trim(), '1:12');
+  const d5 = semEspaco(await bloco.locator('tr[data-dia="2026-10-05"]').textContent());
+  assert.match(d5, /08:00, 13:00/);
+  assert.match(d5, /12:00, 17:48/);
+  assert.match(d5, /8:48/);
+  const d6 = semEspaco(await bloco.locator('tr[data-dia="2026-10-06"]').textContent());
+  assert.match(d6, /08:00, 19:00/);
+  assert.match(d6, /10:00/);
+  assert.match(d6, /1:12/);
+  assert.match(d6, /entrada sem saída/);
+  assert.strictEqual(await bloco.locator('tr[data-dia="2026-10-06"].marcado').count(), 1, 'o dia com entrada sem saída fica marcado');
+  assert.match(semEspaco(await bloco.locator('tr[data-dia="2026-10-07"]').textContent()), /ajustado pelo RH/, 'o dia com registro desconsiderado aparece');
+  const resumo = semEspaco(await p.locator('#m-resumo tr[data-func="f-mes"]').textContent());
+  assert.match(resumo, /Edu Relatório/);
+  assert.match(resumo, /18:48/);
+  assert.match(resumo, /1:12/);
+  // Excel: aba Resumo e uma aba por funcionário, com as horas em [h]:mm
+  const xml = await p.evaluate(async () => { const x = planilhaMes('2026-10'); return x instanceof Blob ? await x.text() : new TextDecoder().decode(x); });
+  assert.ok(xml.includes('<sheet name="Resumo"'), 'aba Resumo');
+  assert.ok(xml.includes('<sheet name="Edu Relatório"'), 'aba do funcionário');
+  assert.ok(xml.includes('[h]:mm'), 'horas como hora do Excel');
+  assert.ok(xml.includes('<v>' + (1128 / 1440) + '</v>'), 'total 18:48 no Excel');
+  assert.ok(xml.includes('<v>' + (72 / 1440) + '</v>'), '1:12 acima da jornada no Excel');
+  assert.ok(xml.includes('entrada sem saída'), 'a marcação vai para o Excel');
+  const [baixado] = await Promise.all([p.waitForEvent('download'), p.click('[data-acao="excel"]')]);
+  assert.strictEqual(baixado.suggestedFilename(), 'ponto-2026-10.xlsx');
+  // na impressão sai só o relatório
+  await p.emulateMedia({ media: 'print' });
+  assert.ok(!(await p.isVisible('.abas')), 'sem as abas na impressão');
+  assert.ok(!(await p.isVisible('#m-mes')), 'sem os filtros na impressão');
+  assert.ok(await p.isVisible('.rel-func[data-func="f-mes"]'));
+  assert.match(await p.textContent('.so-impressao'), /Controle interno de ponto/);
+  await p.emulateMedia({ media: 'screen' });
+});
+
+teste('RH: a central continua rápida com um ano de registros de 50 funcionários', async () => {
+  const ctx = await logado();
+  const p = await abrir(ctx, '/rh/#registros');
+  await esperarServidor(p);
+  const ms = await p.evaluate(() => {
+    const hoje = hojeISO(), ini = Date.parse(hoje + 'T12:00:00Z');
+    for (let f = 0; f < 50; f++) {
+      D.funcionarios.set('fx' + f, { id: 'fx' + f, nome: 'Carga ' + f, jornadaMin: 528, situacao: 'ativo' });
+      for (let d = 0; d < 365; d++) {
+        const data = new Date(ini - d * 86400000).toISOString().slice(0, 10);
+        [['entrada', '08:00'], ['saida', '12:00'], ['entrada', '13:00'], ['saida', d % 7 ? '17:48' : '19:00']].forEach(([tipo, hora], i) => {
+          if (d === 3 && i === 3) return; // uma entrada sem saída para o aviso
+          D.pontos.set(`px${f}-${d}-${i}`, { id: `px${f}-${d}-${i}`, funcionarioId: 'fx' + f, tipo, data, hora, origem: 'celular' });
+        });
+      }
+    }
+    const t0 = performance.now(); render(); const t1 = performance.now(); relatorioMes(hoje.slice(0, 7)); const t2 = performance.now();
+    return { registros: Math.round(t1 - t0), relatorio: Math.round(t2 - t1), aviso: document.querySelector('#r-pendentes').textContent.includes('Carga 0') };
+  });
+  assert.ok(ms.aviso, 'o aviso de entrada sem saída aparece');
+  assert.ok(ms.registros < 1000 && ms.relatorio < 1000, 'milissegundos: ' + JSON.stringify(ms));
+});
+
+teste('RH: clique duplo em Salvar ou em Gravar não duplica', async () => {
+  const ctx = await logado();
+  const p = await abrir(ctx, '/rh/#funcionarios');
+  await esperarServidor(p);
+  await p.fill('#fu-nome', 'Gil Duplo');
+  await p.fill('#fu-jornada', '8:00');
+  await p.dblclick('#f-func button[type="submit"]');
+  await p.waitForFunction(() => document.querySelector('#t-func').textContent.includes('Gil Duplo'));
+  await p.waitForTimeout(600);
+  const gil = (await dados(ctx, 'rh')).funcionarios.filter(f => f.nome === 'Gil Duplo');
+  assert.strictEqual(gil.length, 1, 'um funcionário só');
+  await p.evaluate(() => { location.hash = 'registros'; });
+  await p.click(`[data-acao="incluir"][data-id="${gil[0].id}"]`);
+  await p.fill('#co-hora', '07:00');
+  await p.fill('#co-just', 'Clique duplo');
+  await p.dblclick('#f-cor button[type="submit"]');
+  await p.waitForFunction(() => !document.querySelector('#d-cor').open);
+  await p.waitForTimeout(600);
+  assert.strictEqual((await dados(ctx, 'rh')).pontos.filter(x => x.funcionarioId === gil[0].id).length, 1, 'um registro só');
+});
+
+teste('RH: se a primeira leitura dos dados falha, a central tenta de novo sozinha', async () => {
+  const ctx = await logado();
+  let pedidos = 0;
+  await ctx.route('**/rh/api/dados', r => (pedidos++ ? r.continue() : r.fulfill({ status: 502, body: 'Bad Gateway' })));
+  const p = await abrir(ctx, '/rh/');
+  await esperarServidor(p, 15000);
+  assert.ok(pedidos >= 2, 'tentou de novo: ' + pedidos);
+});
+
+teste('celular 390px: central do RH sem rolagem para o lado', async () => {
+  const ctx = await logado({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  const p = await abrir(ctx, '/rh/');
+  await esperarServidor(p);
+  const larguras = {};
+  for (const aba of ['registros', 'funcionarios', 'relatorio']) {
+    await p.evaluate(x => { location.hash = x; }, aba);
+    await p.waitForFunction(x => { const v = document.querySelector('#v-' + x); return !!v && !v.hidden; }, aba);
+    await p.waitForTimeout(200);
+    larguras[aba] = await larguraDaPagina(p);
+  }
+  assert.deepStrictEqual(Object.entries(larguras).filter(([, w]) => w > 390), [], 'larguras: ' + JSON.stringify(larguras));
 });
 
 // ---------- 9. erros de página ----------

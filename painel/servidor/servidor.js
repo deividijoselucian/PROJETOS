@@ -12,7 +12,7 @@ const path = require('path');
 const crypto = require('crypto');
 const SISTEMAS = require('./sistemas');
 const { criarBanco, criarArquivos, importarCarga, lerJSON, gravarJSON, TIPOS_ARQ, LIMITE_ARQ } = require('./banco');
-const { paginaEntrar, paginaInicial, paginaSistema } = require('./paginas');
+const { paginaEntrar, paginaInicial, paginaSistema, paginaPonto, paginaPontoNaoVale } = require('./paginas');
 
 const PASTA = __dirname;
 lerEnv(path.join(PASTA, '.env'));
@@ -191,6 +191,101 @@ async function gravou(banco) {
   try { await banco.salvar(); return true; } catch (e) { return false; }
 }
 
+/* ---------- RH: ponto ---------- */
+// O dia e a hora do ponto são os de Xanxerê, qualquer que seja o fuso da VM.
+const FUSO_PONTO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+function noFuso(d) {
+  const p = Object.fromEntries(FUSO_PONTO.formatToParts(d).map(x => [x.type, x.value]));
+  return { data: `${p.year}-${p.month}-${p.day}`, hora: `${p.hour}:${p.minute}` };
+}
+const dataOk = s => { const d = new Date(String(s) + 'T00:00:00Z'); return /^\d{4}-\d{2}-\d{2}$/.test(String(s)) && !isNaN(d) && d.toISOString().slice(0, 10) === s; };
+const horaOk = s => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s));
+const idPonto = () => 'pt-' + crypto.randomBytes(12).toString('hex');
+/* Correção ou inclusão feita pelo RH: o original não muda; o registro novo aponta para ele (substitui)
+   e guarda a justificativa, quem fez e quando. Devolve { ponto } ou { status, erro }. */
+function correcaoDoRH(banco, corpo, u) {
+  const justificativa = String(corpo.justificativa || '').trim().slice(0, 500);
+  if (!justificativa) return { status: 400, erro: 'Escreva a justificativa.' };
+  let alvo = null;
+  if (corpo.substitui != null) {
+    alvo = banco.pegar('pontos', String(corpo.substitui));
+    if (!alvo) return { status: 404, erro: 'Registro não encontrado.' };
+    if (banco.lista('pontos').some(p => p.substitui === alvo.id)) return { status: 409, erro: 'Esse registro já foi corrigido. Corrija o registro mais novo.' };
+  }
+  const funcionarioId = alvo ? alvo.funcionarioId : String(corpo.funcionarioId || '');
+  if (!banco.pegar('funcionarios', funcionarioId)) return { status: 404, erro: 'Funcionário não encontrado.' };
+  const ponto = { id: idPonto(), funcionarioId, origem: 'rh', justificativa, por: u.usuario, alteradoEm: new Date().toISOString() };
+  if (alvo) ponto.substitui = alvo.id;
+  if (alvo && corpo.anulado === true) ponto.anulado = true;
+  else {
+    if (!['entrada', 'saida'].includes(corpo.tipo) || !dataOk(corpo.data) || !horaOk(corpo.hora)) return { status: 400, erro: 'Confira se é entrada ou saída, a data e a hora.' };
+    Object.assign(ponto, { tipo: corpo.tipo, data: corpo.data, hora: corpo.hora });
+    // a foto e o local continuam sendo os do toque no celular
+    if (alvo) for (const k of ['foto', 'lat', 'lon', 'precisao']) if (alvo[k] != null) ponto[k] = alvo[k];
+  }
+  return { ponto };
+}
+// registros que valem: sem os que foram corrigidos (outro aponta para eles) e sem os anulados
+function pontosQueValem(pontos) {
+  const trocados = new Set(pontos.map(p => p.substitui).filter(Boolean));
+  return pontos.filter(p => !trocados.has(p.id) && !p.anulado);
+}
+const ordemPonto = (a, b) => (a.data + a.hora).localeCompare(b.data + b.hora) || String(a.em || a.alteradoEm).localeCompare(String(b.em || b.alteradoEm));
+function funcionarioDoLink(token) {
+  const rh = bancos.rh;
+  const l = rh && rh.lista('links').find(x => x.token === token);
+  const f = l && rh.pegar('funcionarios', l.id);
+  return f && f.situacao !== 'desligado' ? f : null;
+}
+// o botão alterna sozinho: depois de uma entrada de hoje vem a saída; esqueceu a saída ontem, hoje começa com entrada
+function estadoPonto(f) {
+  const hoje = noFuso(new Date()).data; // um registro do RH com data no futuro não conta
+  const meus = pontosQueValem(bancos.rh.lista('pontos')).filter(p => p.funcionarioId === f.id && p.data <= hoje).sort(ordemPonto);
+  const ult = meus[meus.length - 1] || null;
+  return { nome: f.nome, ultimo: ult && { tipo: ult.tipo, data: ult.data, hora: ult.hora }, proximo: ult && ult.tipo === 'entrada' && ult.data === hoje ? 'saida' : 'entrada', agora: Date.now() };
+}
+// Dois toques em menos de 1 minuto (outra aba, resposta perdida no 3G) não viram entrada e saída.
+// PONTO_INTERVALO_S só existe para os testes baterem entrada e saída seguidas.
+const INTERVALO_PONTO = Number(process.env.PONTO_INTERVALO_S || 60) * 1000;
+const PONTOS_POR_DIA = 12; // um link vazado não enche o disco com fotos
+const LIMITE_FOTO = 3 * 1024 * 1024;
+const PNG_INICIO = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+const FOTO_OK = { 'image/jpeg': b => b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF, 'image/png': b => b.subarray(0, 8).equals(PNG_INICIO) };
+const numeroAte = (v, max) => { const s = String(v == null ? '' : v).trim(), n = Number(s); return s && Number.isFinite(n) && Math.abs(n) <= max ? n : null; };
+const LINK_NAO_VALE = 'Este link de ponto não vale mais. Peça o link novo ao RH.';
+/* /ponto/<token> e /ponto/<token>/registrar, sem login: o link só registra o ponto do próprio funcionário. */
+async function rotaPonto(req, res, partes, metodo) {
+  const f = partes.length === 2 || partes.length === 3 ? funcionarioDoLink(partes[1]) : null;
+  if (f && partes.length === 2 && metodo === 'GET') return html(res, 200, paginaPonto(estadoPonto(f)));
+  if (!f || partes[2] !== 'registrar' || metodo !== 'POST') {
+    req.resume();
+    return metodo === 'GET' ? html(res, 404, paginaPontoNaoVale(LINK_NAO_VALE)) : json(res, 404, { erro: LINK_NAO_VALE });
+  }
+  const tipoFoto = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  const lat = numeroAte(req.headers['x-lat'], 90), lon = numeroAte(req.headers['x-lon'], 180), precisao = numeroAte(req.headers['x-precisao'], 1e7);
+  if (!FOTO_OK[tipoFoto]) { req.resume(); return json(res, 415, { erro: 'A foto precisa ser JPG ou PNG.' }); }
+  if (Number(req.headers['content-length'] || 0) > LIMITE_FOTO) { req.resume(); return json(res, 413, { erro: 'A foto passa de 3 MB.' }); }
+  if (lat == null || lon == null) { req.resume(); return json(res, 400, { erro: 'Sem a localização o ponto não é registrado. Permita a localização e tente de novo.' }); }
+  const buf = await lerBruto(req, LIMITE_FOTO).catch(e => { if (e && e.status === 413) return null; throw e; });
+  if (!buf) return json(res, 413, { erro: 'A foto passa de 3 MB.' });
+  if (!buf.length) return json(res, 400, { erro: 'Sem a foto o ponto não é registrado. Tire a foto e tente de novo.' });
+  if (!FOTO_OK[tipoFoto](buf)) return json(res, 415, { erro: 'Esse arquivo não é uma foto JPG ou PNG.' });
+  // daqui até aplicar não há await: o segundo de dois toques ao mesmo tempo já vê o primeiro
+  const agora = new Date(), { data, hora } = noFuso(agora), est = estadoPonto(f), tipo = est.proximo;
+  const doCelular = bancos.rh.lista('pontos').filter(p => p.funcionarioId === f.id && p.origem === 'celular');
+  const ult = doCelular.reduce((a, p) => (!a || p.em > a.em ? p : a), null);
+  if (ult && agora - Date.parse(ult.em) < INTERVALO_PONTO) {
+    return json(res, 409, { erro: `Você já registrou ${ult.tipo === 'saida' ? 'saída' : 'entrada'} às ${ult.hora}. Para registrar de novo, espere um minuto.`, ultimo: est.ultimo, proximo: est.proximo });
+  }
+  if (doCelular.filter(p => p.data === data).length >= PONTOS_POR_DIA) return json(res, 429, { erro: 'Hoje já são muitos registros por este link. Fale com o RH.' });
+  const foto = arquivosDe.rh.guardar(buf, { nome: `ponto-${data}-${hora.replace(':', 'h')}.${tipoFoto === 'image/png' ? 'png' : 'jpg'}`, tipo: tipoFoto });
+  const ponto = { id: idPonto(), funcionarioId: f.id, tipo, data, hora, em: agora.toISOString(), lat, lon, precisao: precisao == null || precisao < 0 ? null : Math.round(precisao), foto, origem: 'celular' };
+  const op = bancos.rh.aplicar({ tipo: 'set', col: 'pontos', obj: ponto });
+  if (!(await gravou(bancos.rh))) { arquivosDe.rh.apagarDeVez(foto.id); return json(res, 500, NAO_GRAVOU); }
+  avisar('rh', op);
+  return json(res, 200, { ok: true, tipo, data, hora, nome: f.nome, proximo: tipo === 'entrada' ? 'saida' : 'entrada' });
+}
+
 /* ---------- rotas ---------- */
 async function rotear(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -219,8 +314,9 @@ async function rotear(req, res) {
     return json(res, 200, { ok: true, nome: u.nome }, { 'Set-Cookie': cookieSessao(req, tok, DIAS_SESSAO * 86400) });
   }
 
-  const s = sessaoDe(req);
   const partes = rota.split('/').filter(Boolean);
+  if (partes[0] === 'ponto' && bancos.rh) return rotaPonto(req, res, partes, metodo);
+  const s = sessaoDe(req);
   const ehApi = rota.startsWith('/api/') || partes[1] === 'api';
   if (!s) {
     if (ehApi) return json(res, 401, { erro: 'Entre de novo.' });
@@ -266,10 +362,32 @@ async function rotear(req, res) {
   if (partes[1] !== 'api') return html(res, 404, PAGINA_404);
   const banco = bancos[sis.id];
   const resto = partes.slice(2);
+  const soServidor = col => (sis.soServidor || []).includes(col);
+  const SO_SERVIDOR = { erro: 'Esses registros só o servidor grava.' };
+
+  if (sis.id === 'rh' && metodo === 'POST' && resto[0] === 'link' && resto.length === 2) {
+    req.resume();
+    const fid = decodeURIComponent(resto[1]);
+    if (!banco.pegar('funcionarios', fid)) return json(res, 404, { erro: 'Funcionário não encontrado.' });
+    const op = banco.aplicar({ tipo: 'set', col: 'links', obj: { id: fid, token: crypto.randomBytes(24).toString('base64url'), criadoEm: new Date().toISOString() } });
+    if (!op) return json(res, 400, { erro: 'Funcionário inválido.' });
+    if (!(await gravou(banco))) return json(res, 500, NAO_GRAVOU);
+    avisar(sis.id, op);
+    return json(res, 200, { ok: true, token: op.obj.token });
+  }
+  if (sis.id === 'rh' && metodo === 'POST' && resto[0] === 'pontos' && resto.length === 1) {
+    const r = correcaoDoRH(banco, await lerJSONCorpo(req, 10000), u);
+    if (r.erro) return json(res, r.status, { erro: r.erro });
+    const op = banco.aplicar({ tipo: 'set', col: 'pontos', obj: r.ponto });
+    if (!(await gravou(banco))) return json(res, 500, NAO_GRAVOU);
+    avisar(sis.id, op);
+    return json(res, 200, { ok: true, ponto: r.ponto });
+  }
 
   if (resto[0] === 'dados' && resto.length === 1 && metodo === 'GET') return json(res, 200, banco.todos());
   if (resto[0] === 'dados' && resto.length === 3) {
     const col = resto[1], id = decodeURIComponent(resto[2]);
+    if ((metodo === 'PUT' || metodo === 'DELETE') && soServidor(col)) { req.resume(); return json(res, 403, SO_SERVIDOR); }
     if (metodo === 'PUT') {
       const obj = await lerJSONCorpo(req, 2e6);
       const op = banco.aplicar({ tipo: 'set', col, obj: Object.assign({}, obj, { id }) });
@@ -290,6 +408,7 @@ async function rotear(req, res) {
     const corpo = await lerJSONCorpo(req, 20e6);
     const ops = Array.isArray(corpo.ops) ? corpo.ops : [];
     if (!ops.length || ops.length > 20000) return json(res, 400, { erro: 'Lote inválido.' });
+    if (ops.some(o => o && soServidor(o.col))) return json(res, 403, SO_SERVIDOR);
     const feitas = banco.aplicarLote(ops);
     if (!feitas) return json(res, 400, { erro: 'Algum registro do lote é inválido. Nada foi gravado.' });
     if (!(await gravou(banco))) return json(res, 500, NAO_GRAVOU);

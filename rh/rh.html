@@ -1,0 +1,687 @@
+<title>RH</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* Central do RH: controle interno de ponto. Só funciona dentro do Painel Deconto (window.PAINEL). */
+:root {
+  --bg: #EEF1F5; --surface: #FFFFFF; --sunk: #E4E8EF; --ink: #151A23; --muted: #535E72; --line: #D3D9E3;
+  --accent: #0B7550; --accent-hover: #08583C; --accent-ink: #FFFFFF; --ok: #0B7550; --bad: #BA2E29; --warn: #8A5300;
+  --ok-bg: #DBF2E7; --bad-bg: #FBE2E0; --warn-bg: #FBEDD3;
+  --barra: #171C24; --barra-ink: #F3F5F8; --barra-muted: #A9B2C1; --barra-line: #2C3441; --faixa: #F2C230;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif; --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0E1117; --surface: #161B24; --sunk: #1D2430; --ink: #E7EBF2; --muted: #9CA6B8; --line: #2B3443;
+    --accent: #4FCB96; --accent-hover: #7AD9AF; --accent-ink: #0E1117; --ok: #4FCB96; --bad: #FF8F87; --warn: #F2B860;
+    --ok-bg: #12352A; --bad-bg: #3D1C1B; --warn-bg: #3A2A10; --barra: #0A0D12; --barra-line: #232A35; color-scheme: dark; }
+}
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body); min-height: 100vh; }
+h1, h2, p { margin: 0; }
+.barra { background: var(--barra); color: var(--barra-ink); border-bottom: 1px solid var(--barra-line); }
+.barra-in, .wrap { max-width: 1100px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.barra-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-block: 10px; }
+.marca { display: flex; align-items: center; gap: 10px; }
+.marca strong { display: block; font: 700 1.4rem/1.1 var(--display); }
+.marca span { font-size: 0.82rem; color: var(--barra-muted); }
+.quem { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 0.9rem; color: var(--barra-muted); }
+.quem a { color: var(--barra-ink); font-weight: 600; text-decoration: none; }
+.quem a:hover { text-decoration: underline; }
+.quem button { font: 600 0.88rem var(--body); color: var(--barra-ink); background: transparent; border: 1px solid var(--barra-line); border-radius: 8px; padding: 6px 12px; min-height: 36px; cursor: pointer; }
+.estado::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); margin-right: 6px; }
+.estado.ok::before { background: #4FCB96; }
+.wrap { padding-block: 22px 56px; display: flex; flex-direction: column; gap: 18px; }
+.topo h1 { font: 700 1.9rem/1.1 var(--display); }
+.hint { color: var(--muted); font-size: 0.92rem; }
+.abas { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--line); }
+.abas a { padding: 10px 14px; font-weight: 700; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.abas a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+section { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.filtros label { min-width: min(100%, 200px); }
+.bloco { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.bloco h2, dialog h2 { font: 600 1.3rem var(--display); }
+.campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+label { display: flex; flex-direction: column; gap: 5px; font-weight: 600; font-size: 0.92rem; }
+label.check { flex-direction: row; align-items: center; gap: 8px; }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; min-height: 44px; width: 100%; }
+input[type="checkbox"] { width: 20px; min-height: 20px; height: 20px; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+.botoes { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { font: 700 1rem var(--body); color: var(--accent-ink); background: var(--accent); border: 1px solid var(--accent); border-radius: 9px; min-height: 44px; padding: 9px 16px; cursor: pointer; }
+.btn:hover { background: var(--accent-hover); }
+.btn.sec { background: var(--surface); color: var(--ink); border-color: var(--line); }
+.btn.sec:hover { border-color: var(--accent); }
+.btn.mini { min-height: 36px; padding: 5px 12px; font-size: 0.9rem; }
+.btn:focus-visible, .abas a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.pill { display: inline-block; font-size: 0.8rem; font-weight: 700; padding: 2px 9px; border-radius: 99px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.bad { background: var(--bad-bg); color: var(--bad); } .pill.warn { background: var(--warn-bg); color: var(--warn); }
+.alerta { background: var(--bad-bg); color: var(--bad); border-radius: 10px; padding: 10px 14px; font-weight: 600; }
+.alerta button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+.lista { display: flex; flex-direction: column; gap: 12px; }
+.dia { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.dia > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; width: 100%; }
+.dia > header strong { font: 700 1.2rem var(--display); margin-right: 8px; }
+.soma { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.horas-dia { font-weight: 700; }
+.marcas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.reg { display: flex; align-items: center; gap: 10px; border-left: 4px solid var(--line); padding-left: 10px; }
+.reg.entrada { border-left-color: var(--ok); } .reg.saida { border-left-color: var(--accent); }
+.reg-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-wrap: anywhere; }
+.reg .tipo { font-weight: 700; }
+.reg small { color: var(--muted); }
+.reg.riscado > .reg-txt > div { text-decoration: line-through; color: var(--muted); }
+.foto img { display: block; width: 56px; height: 56px; object-fit: cover; border-radius: 8px; background: var(--sunk); }
+.sem, .vazio { color: var(--muted); }
+.rolar { overflow-x: auto; max-width: 100%; }
+.tabela { width: 100%; border-collapse: collapse; background: var(--surface); }
+.tabela th, .tabela td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tabela th { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.tabela td.num, .tabela th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tabela .acoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabela tr.total td { font-weight: 700; background: var(--sunk); }
+.tabela tr.marcado td { background: var(--bad-bg); }
+.rel-func { display: flex; flex-direction: column; gap: 8px; }
+.rel-func h2 { font: 700 1.35rem var(--display); }
+dialog { width: min(520px, calc(100vw - 32px)); border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: var(--surface); color: var(--ink); }
+dialog::backdrop { background: rgba(10, 13, 18, 0.5); }
+dialog form { display: flex; flex-direction: column; gap: 12px; }
+.msg { min-height: 1.4em; font-weight: 600; font-size: 0.92rem; }
+.msg.erro { color: var(--bad); }
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); max-width: calc(100vw - 32px); background: var(--barra); color: var(--barra-ink); padding: 10px 16px; border-radius: 10px; font-weight: 600; opacity: 0; visibility: hidden; transition: opacity 0.2s; z-index: 10; }
+.toast.show { opacity: 1; visibility: visible; } .toast.erro { background: var(--bad); color: #fff; }
+.so-impressao { display: none; }
+@media print {
+  body { background: #fff; color: #000; font-size: 11pt; }
+  .barra, .topo, .abas, #v-registros, #v-funcionarios, .filtros, .toast, dialog, .nao-imprime { display: none !important; }
+  #v-relatorio { display: flex !important; }
+  .wrap { padding: 0; max-width: none; }
+  .so-impressao { display: block; }
+  .rel-func { break-before: page; }
+  .tabela { font-size: 10pt; } .tabela th, .tabela td { padding: 3px 6px; }
+  .rolar { overflow: visible; }
+}
+</style>
+
+<header class="barra"><div class="barra-in">
+  <div class="marca"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="0.5" y="0.5" width="33" height="33" rx="7" fill="#1F3E9C"/><circle cx="17" cy="17" r="10.6" fill="none" stroke="#FFFFFF" stroke-width="4.2"/><path d="M18.6 9.6L12.6 18.2H16.4L15.2 24.6L21.6 15.4H17.8Z" fill="#F2C230"/></svg><div><strong>RH</strong><span>Painel Deconto</span></div></div>
+  <div class="quem" id="quem"><span class="estado" id="estado">Conectando…</span><span id="quem-nome"></span><a href="/">← Painel Deconto</a><button type="button" data-acao="sair">Sair</button></div>
+</div></header>
+<main class="wrap">
+  <div class="topo">
+    <h1>Controle interno de ponto</h1>
+    <p class="hint">Ponto pelo celular, com foto e local, para conferência do RH. Ainda não é o ponto oficial: o REP-P (Portaria 671/2021) fica para outra fase.</p>
+  </div>
+  <nav class="abas" aria-label="Seções">
+    <a href="#registros" data-aba="registros">Registros</a>
+    <a href="#funcionarios" data-aba="funcionarios">Funcionários</a>
+    <a href="#relatorio" data-aba="relatorio">Relatório do mês</a>
+  </nav>
+
+  <section id="v-registros" aria-label="Registros">
+    <div class="filtros">
+      <label>Dia <input type="date" id="r-dia"></label>
+      <label>Funcionário <select id="r-func"><option value="">Todos</option></select></label>
+    </div>
+    <div id="r-pendentes"></div>
+    <p class="hint" id="r-hint"></p>
+    <div class="lista" id="r-lista"></div>
+  </section>
+
+  <section id="v-funcionarios" aria-label="Funcionários" hidden>
+    <form class="bloco" id="f-func" novalidate>
+      <h2 id="fu-titulo">Novo funcionário</h2>
+      <div class="campos">
+        <label>Nome <input id="fu-nome" autocomplete="off"></label>
+        <label>CPF <input id="fu-cpf" inputmode="numeric" placeholder="000.000.000-00" autocomplete="off"></label>
+        <label>Cargo <input id="fu-cargo" autocomplete="off"></label>
+        <label>Jornada do dia <input id="fu-jornada" placeholder="8:48" autocomplete="off"></label>
+        <label>Situação <select id="fu-sit"><option value="ativo">Ativo</option><option value="desligado">Desligado</option></select></label>
+      </div>
+      <div class="botoes"><button class="btn" type="submit">Salvar</button><button class="btn sec" type="button" data-acao="cancelar-func" id="fu-cancelar" hidden>Cancelar</button></div>
+    </form>
+    <div class="rolar"><table class="tabela" id="t-func"></table></div>
+  </section>
+
+  <section id="v-relatorio" aria-label="Relatório do mês" hidden>
+    <div class="filtros">
+      <label>Mês <input type="month" id="m-mes"></label>
+      <div class="botoes"><button class="btn" type="button" data-acao="excel">Baixar Excel</button><button class="btn sec" type="button" data-acao="imprimir">Imprimir ou salvar PDF</button></div>
+    </div>
+    <div id="m-conteudo" class="lista"></div>
+  </section>
+</main>
+
+<dialog id="d-cor" aria-labelledby="co-titulo">
+  <form id="f-cor" novalidate>
+    <h2 id="co-titulo">Corrigir registro</h2>
+    <p class="hint" id="co-sobre"></p>
+    <div class="campos">
+      <label>Tipo <select id="co-tipo"><option value="entrada">Entrada</option><option value="saida">Saída</option></select></label>
+      <label>Dia <input type="date" id="co-data"></label>
+      <label>Hora <input type="time" id="co-hora"></label>
+    </div>
+    <label class="check" id="co-anular-l"><input type="checkbox" id="co-anular"> Desconsiderar este registro</label>
+    <label>Justificativa (obrigatória) <textarea id="co-just" rows="3"></textarea></label>
+    <p class="hint">O registro original não some: fica guardado com quem mudou, quando e por quê.</p>
+    <p class="msg erro" id="co-msg" role="status"></p>
+    <div class="botoes"><button class="btn" type="submit">Gravar</button><button class="btn sec" type="button" data-acao="fechar-cor">Cancelar</button></div>
+  </form>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const COLS = ['funcionarios', 'pontos', 'links'];
+const D = { funcionarios: new Map(), pontos: new Map(), links: new Map() };
+const todos = c => [...D[c].values()];
+const FUSO = 'America/Sao_Paulo'; // o dia do ponto é o de Xanxerê, como no servidor
+const hojeISO = () => new Intl.DateTimeFormat('en-CA', { timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const dataBR = s => (s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '');
+const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const diaSemana = s => SEMANA[new Date(s + 'T12:00:00Z').getUTCDay()];
+const minutos = h => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
+const fmtHoras = m => Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+const fmtCPF = c => (/^\d{11}$/.test(c || '') ? c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : c || '');
+const fmtQuando = iso => { const d = new Date(iso); return d.toLocaleDateString('pt-BR', { timeZone: FUSO }) + ' ' + d.toLocaleTimeString('pt-BR', { timeZone: FUSO, hour: '2-digit', minute: '2-digit' }); };
+const NOME_TIPO = { entrada: 'Entrada', saida: 'Saída' };
+const porNome = (a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR');
+const novoId = p => p + Array.from(crypto.getRandomValues(new Uint8Array(8)), b => b.toString(16).padStart(2, '0')).join('');
+// "8:48", "8h48" ou "8" → minutos
+function lerJornada(t) {
+  const m = String(t || '').trim().toLowerCase().match(/^(\d{1,2})(?:\s*[:h]\s*(\d{2}))?\s*h?$/);
+  if (!m) return null;
+  const h = Number(m[1]), min = Number(m[2] || 0);
+  return min < 60 && h * 60 + min > 0 && h * 60 + min <= 24 * 60 ? h * 60 + min : null;
+}
+
+/* ---------- servidor ---------- */
+async function api(metodo, caminho, corpo) {
+  let r;
+  try {
+    r = await fetch(caminho, { method: metodo, credentials: 'same-origin', headers: corpo !== undefined ? { 'Content-Type': 'application/json' } : {}, body: corpo !== undefined ? JSON.stringify(corpo) : undefined });
+  } catch (e) { throw new Error('O servidor não respondeu. Confira a internet.'); }
+  if (r.status === 401) { location.href = '/entrar'; throw new Error('Entre de novo.'); }
+  const d = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((d && d.erro) || 'Não deu certo. Tente de novo.');
+  return d;
+}
+function aplicar(op) {
+  if (!op || !COLS.includes(op.col)) return;
+  if (op.tipo === 'set' && op.obj && op.obj.id) D[op.col].set(op.obj.id, op.obj);
+  else if (op.tipo === 'del') D[op.col].delete(op.id);
+}
+/* Avisos ao vivo: ao abrir, baixa tudo (o que chega enquanto baixa espera na fila); se o navegador
+   desistir da conexão (502 enquanto o servidor reinicia), abre outra daqui a 3 s. */
+let fonte = null, reabrir = null, conectado = false;
+function ouvir() {
+  clearTimeout(reabrir);
+  reabrir = null;
+  if (fonte) fonte.close();
+  const es = fonte = new EventSource('api/eventos');
+  let fila = null, abriu = false;
+  const msg = m => { for (const op of m.tipo === 'lote' ? m.ops : [m]) aplicar(op); };
+  es.onopen = async () => {
+    abriu = true;
+    fila = [];
+    try {
+      const d = await api('GET', 'api/dados');
+      COLS.forEach(c => { D[c] = new Map((d[c] || []).filter(x => x && x.id).map(x => [x.id, x])); });
+      fila.forEach(msg);
+      conectado = true;
+    } catch (e) {
+      conectado = false;
+      setTimeout(() => { if (es === fonte && es.readyState === EventSource.OPEN) es.onopen(); }, 3000); // tenta baixar de novo
+    }
+    fila = null;
+    render();
+  };
+  es.onmessage = ev => {
+    let m = null;
+    try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (fila) fila.push(m); else { msg(m); render(); }
+  };
+  es.onerror = () => {
+    conectado = false;
+    mostrarEstado();
+    if (!abriu) api('GET', 'api/dados').catch(() => {}); // a entrada pode ter vencido: a API leva para o login
+    if (es.readyState === EventSource.CLOSED && es === fonte && !reabrir) reabrir = setTimeout(ouvir, 3000);
+  };
+}
+function mostrarEstado() {
+  const e = $('#estado');
+  e.textContent = conectado ? 'Salvo no servidor' : 'Sem conexão: tentando de novo…';
+  e.className = 'estado' + (conectado ? ' ok' : '');
+}
+
+/* ---------- cálculo do dia ---------- */
+/* Índice feito uma vez por desenho da tela: troca = quem corrigiu cada registro (id do original →
+   registro novo); porDia = registros de cada funcionário em cada dia (um ano de registros de 50
+   pessoas levava segundos sem ele). */
+function trocas() {
+  const troca = new Map(), porDia = new Map();
+  for (const p of D.pontos.values()) {
+    if (p.substitui) troca.set(p.substitui, p);
+    if (p.anulado || !p.data) continue;
+    const k = p.funcionarioId + '|' + p.data;
+    if (!porDia.has(k)) porDia.set(k, []);
+    porDia.get(k).push(p);
+  }
+  return { get: id => troca.get(id), has: id => troca.has(id), dia: (fid, data) => porDia.get(fid + '|' + data) || [] };
+}
+const ordemHora = (a, b) => a.hora.localeCompare(b.hora) || String(a.em || a.alteradoEm).localeCompare(String(b.em || b.alteradoEm));
+/* O dia de um funcionário: regs = tudo o que aparece (os corrigidos riscados); marcas = só os que valem.
+   Pares entrada → saída na ordem da hora; entrada sem saída não soma e fica marcada. */
+function diaDe(fid, data, troca = trocas()) {
+  const regs = troca.dia(fid, data).slice().sort(ordemHora);
+  const marcas = regs.filter(p => !troca.has(p.id));
+  let aberta = null, soma = 0;
+  const problemas = new Set();
+  for (const m of marcas) {
+    if (m.tipo === 'entrada') { if (aberta) problemas.add('entrada sem saída'); aberta = m; }
+    else if (aberta) { soma += minutos(m.hora) - minutos(aberta.hora); aberta = null; }
+    else problemas.add('saída sem entrada');
+  }
+  if (aberta) problemas.add('entrada sem saída');
+  const f = D.funcionarios.get(fid), jornada = f && f.jornadaMin;
+  return { regs, marcas, minutos: soma, extra: marcas.length && jornada ? Math.max(0, soma - jornada) : 0, problemas: [...problemas] };
+}
+
+/* ---------- Registros ---------- */
+function linhaRegistro(p, troca) {
+  const novo = troca.get(p.id), orig = p.substitui ? D.pontos.get(p.substitui) : null;
+  const notas = [];
+  if (p.origem === 'rh') {
+    let n = (orig ? 'Corrigido' : 'Incluído') + ' por ' + p.por + ' em ' + fmtQuando(p.alteradoEm) + ': ' + p.justificativa;
+    if (orig) n += ' · era ' + orig.hora + (orig.tipo !== p.tipo ? ' (' + NOME_TIPO[orig.tipo].toLowerCase() + ')' : '') + (orig.data !== p.data ? ' de ' + dataBR(orig.data) : '');
+    notas.push(n);
+  }
+  if (novo) notas.push((novo.anulado ? 'Desconsiderado' : 'Corrigido') + ' por ' + novo.por + ' em ' + fmtQuando(novo.alteradoEm) + ': ' + novo.justificativa);
+  const foto = p.foto && p.foto.id ? `<a class="foto" href="api/arquivos/${esc(p.foto.id)}" target="_blank" rel="noopener"><img src="api/arquivos/${esc(p.foto.id)}" alt="Foto do registro das ${esc(p.hora)}" width="56" height="56"></a>` : '';
+  const mapa = p.lat != null && p.lon != null
+    ? ` · <a href="https://www.google.com/maps?q=${esc(p.lat)},${esc(p.lon)}" target="_blank" rel="noopener">ver no mapa</a>${p.precisao ? ` <span class="hint">(±${esc(p.precisao)} m)</span>` : ''}` : '';
+  return `<li class="reg ${esc(p.tipo)}${novo ? ' riscado' : ''}">${foto}<div class="reg-txt"><div><span class="tipo">${NOME_TIPO[p.tipo]}</span> <b>${esc(p.hora)}</b>${mapa}</div>${notas.map(n => `<small>${esc(n)}</small>`).join('')}</div>`
+    + (novo ? '' : `<button type="button" class="btn sec mini" data-acao="corrigir" data-id="${esc(p.id)}">Corrigir</button>`) + '</li>';
+}
+function blocoDia(f, data, r, troca) {
+  const linhas = r.regs.map(p => linhaRegistro(p, troca)).join('') || '<li class="sem">Sem registro neste dia.</li>';
+  const horas = r.marcas.length ? `<span class="horas-dia">Horas: ${fmtHoras(r.minutos)}</span>` : '';
+  const extra = r.extra ? `<span class="pill warn">+${fmtHoras(r.extra)} acima da jornada</span>` : '';
+  return `<article class="dia" data-func="${esc(f.id)}" data-dia="${data}"><header><div><strong>${esc(f.nome)}</strong><span class="hint">${diaSemana(data)}, ${dataBR(data)}</span></div>`
+    + `<div class="soma">${horas}${extra}${r.problemas.map(x => `<span class="pill bad">${esc(x)}</span>`).join('')}</div></header>`
+    + `<ul class="marcas">${linhas}</ul><button type="button" class="btn sec mini" data-acao="incluir" data-id="${esc(f.id)}" data-dia="${data}">Incluir registro</button></article>`;
+}
+// entrada sem saída nos últimos 31 dias (hoje não conta: a pessoa pode estar trabalhando)
+function pendentes(troca) {
+  const hoje = hojeISO(), desde = new Date(Date.now() - 31 * 86400000).toISOString().slice(0, 10), vistos = new Set(), out = [];
+  for (const p of todos('pontos')) {
+    const k = p.funcionarioId + '|' + p.data;
+    if (!p.data || p.data >= hoje || p.data < desde || vistos.has(k) || !D.funcionarios.has(p.funcionarioId)) continue;
+    vistos.add(k);
+    if (diaDe(p.funcionarioId, p.data, troca).problemas.length) out.push({ f: D.funcionarios.get(p.funcionarioId), data: p.data });
+  }
+  return out.sort((a, b) => b.data.localeCompare(a.data) || porNome(a.f, b.f));
+}
+function renderRegistros() {
+  if (!$('#r-dia').value) $('#r-dia').value = hojeISO();
+  const dia = $('#r-dia').value, fsel = $('#r-func').value, troca = trocas();
+  const funcs = todos('funcionarios').filter(f => !fsel || f.id === fsel).sort(porNome);
+  // um funcionário: os dias do mês com registro; todos: o dia escolhido
+  const dias = fsel ? [...new Set(todos('pontos').filter(p => p.funcionarioId === fsel && p.data && p.data.slice(0, 7) === dia.slice(0, 7)).map(p => p.data))].sort() : [dia];
+  const blocos = [];
+  for (const f of funcs) for (const d of dias) {
+    const r = diaDe(f.id, d, troca);
+    if (!r.regs.length && f.situacao === 'desligado') continue;
+    blocos.push(blocoDia(f, d, r, troca));
+  }
+  $('#r-hint').textContent = fsel ? 'Dias com registro no mês de ' + dataBR(dia).slice(3) + '.' : diaSemana(dia) + ', ' + dataBR(dia) + ': todos os funcionários.';
+  $('#r-lista').innerHTML = blocos.join('') || `<p class="vazio">${D.funcionarios.size ? 'Nenhum registro.' : 'Nenhum funcionário ainda: cadastre em Funcionários.'}</p>`;
+  const pend = pendentes(troca);
+  $('#r-pendentes').innerHTML = pend.length ? `<p class="alerta">Entrada sem saída: ${pend.slice(0, 12).map(x => `<button type="button" data-acao="ver-dia" data-dia="${x.data}">${esc(x.f.nome)} (${dataBR(x.data).slice(0, 5)})</button>`).join(', ')}${pend.length > 12 ? ' e mais ' + (pend.length - 12) : ''}.</p>` : '';
+}
+
+/* ---------- correção e inclusão ---------- */
+let corAlvo = null; // { substitui } para corrigir, { funcionarioId, data } para incluir
+function abrirCorrecao(alvo) {
+  corAlvo = alvo;
+  const p = alvo.substitui ? D.pontos.get(alvo.substitui) : null;
+  const f = D.funcionarios.get(p ? p.funcionarioId : alvo.funcionarioId);
+  const r = p ? null : diaDe(alvo.funcionarioId, alvo.data);
+  $('#co-titulo').textContent = p ? 'Corrigir registro' : 'Incluir registro';
+  $('#co-sobre').textContent = (f ? f.nome : '') + (p ? ' · ' + NOME_TIPO[p.tipo] + ' de ' + dataBR(p.data) + ' às ' + p.hora : '');
+  $('#co-tipo').value = p ? p.tipo : (r.marcas.length && r.marcas[r.marcas.length - 1].tipo === 'entrada' ? 'saida' : 'entrada');
+  $('#co-data').value = p ? p.data : alvo.data;
+  $('#co-hora').value = p ? p.hora : '';
+  $('#co-anular').checked = false;
+  $('#co-anular-l').hidden = !p;
+  $('#co-just').value = '';
+  $('#co-msg').textContent = '';
+  $('#d-cor').showModal();
+}
+// um envio por vez: clique duplo em Salvar ou Gravar não grava duas vezes
+async function umEnvio(form, fn) {
+  const b = form.querySelector('button[type="submit"]');
+  if (b.disabled) return;
+  b.disabled = true;
+  try { await fn(); } finally { b.disabled = false; }
+}
+$('#f-cor').addEventListener('submit', e => { e.preventDefault(); umEnvio(e.target, gravarCorrecao); });
+async function gravarCorrecao() {
+  const justificativa = $('#co-just').value.trim(), anular = !$('#co-anular-l').hidden && $('#co-anular').checked;
+  if (!justificativa) { $('#co-msg').textContent = 'Escreva a justificativa: ela fica guardada junto com a mudança.'; return; }
+  if (!anular && (!$('#co-data').value || !$('#co-hora').value)) { $('#co-msg').textContent = 'Preencha o dia e a hora.'; return; }
+  const corpo = Object.assign({}, corAlvo, { justificativa }, anular ? { anulado: true } : { tipo: $('#co-tipo').value, data: $('#co-data').value, hora: $('#co-hora').value.slice(0, 5) });
+  try {
+    const d = await api('POST', 'api/pontos', corpo);
+    D.pontos.set(d.ponto.id, d.ponto);
+    $('#d-cor').close();
+    toast(anular ? 'Registro desconsiderado. O original continua guardado.' : corAlvo.substitui ? 'Registro corrigido. O original continua guardado.' : 'Registro incluído.');
+    render();
+  } catch (er) { $('#co-msg').textContent = er.message; }
+}
+
+/* ---------- Funcionários ---------- */
+let editando = null;
+function limparFunc() {
+  editando = null;
+  $('#f-func').reset();
+  $('#fu-titulo').textContent = 'Novo funcionário';
+  $('#fu-cancelar').hidden = true;
+}
+function editarFunc(id) {
+  const f = D.funcionarios.get(id);
+  if (!f) return;
+  editando = id;
+  $('#fu-nome').value = f.nome || '';
+  $('#fu-cpf').value = fmtCPF(f.cpf);
+  $('#fu-cargo').value = f.cargo || '';
+  $('#fu-jornada').value = f.jornadaMin ? fmtHoras(f.jornadaMin) : '';
+  $('#fu-sit').value = f.situacao === 'desligado' ? 'desligado' : 'ativo';
+  $('#fu-titulo').textContent = 'Editar ' + f.nome;
+  $('#fu-cancelar').hidden = false;
+  $('#fu-nome').focus();
+}
+// um pedido de link por vez para cada funcionário: copiar logo depois de cadastrar não gera um segundo link
+const linkPedido = new Map();
+function gerarLink(fid) {
+  if (!linkPedido.has(fid)) {
+    linkPedido.set(fid, api('POST', 'api/link/' + encodeURIComponent(fid), {})
+      .then(d => { D.links.set(fid, { id: fid, token: d.token }); return d.token; })
+      .finally(() => linkPedido.delete(fid)));
+  }
+  return linkPedido.get(fid);
+}
+$('#f-func').addEventListener('submit', e => { e.preventDefault(); umEnvio(e.target, salvarFunc); });
+async function salvarFunc() {
+  const nome = $('#fu-nome').value.trim(), cpf = $('#fu-cpf').value.replace(/\D/g, ''), jornadaMin = lerJornada($('#fu-jornada').value);
+  if (!nome) return toast('Escreva o nome do funcionário.', true);
+  if (cpf && cpf.length !== 11) return toast('O CPF tem 11 números.', true);
+  if (!jornadaMin) return toast('Escreva a jornada do dia em horas, como 8:48.', true);
+  const id = editando || novoId('fu-'), antes = D.funcionarios.get(id), agora = new Date().toISOString();
+  const obj = Object.assign({ criadoEm: agora }, antes, { id, nome, cpf, cargo: $('#fu-cargo').value.trim(), jornadaMin, situacao: $('#fu-sit').value, alteradoEm: agora });
+  try {
+    await api('PUT', 'api/dados/funcionarios/' + encodeURIComponent(id), obj);
+    D.funcionarios.set(id, obj);
+    editando = id; // se o link falhar, o próximo Salvar mexe neste mesmo funcionário
+    if (!D.links.has(id)) await gerarLink(id);
+    toast(antes ? 'Funcionário salvo.' : 'Funcionário cadastrado. Copie o link do ponto e mande para ele.');
+    limparFunc();
+    render();
+  } catch (er) { toast(er.message, true); }
+}
+async function copiarLink(fid) {
+  let tok;
+  try { tok = linkPedido.has(fid) ? await linkPedido.get(fid) : (D.links.get(fid) || {}).token || await gerarLink(fid); } catch (e) { toast(e.message, true); return; }
+  const url = location.origin + '/ponto/' + tok;
+  try { await navigator.clipboard.writeText(url); toast('Link do ponto copiado. Mande para o funcionário pelo WhatsApp.'); }
+  catch (e) { window.prompt('Copie o link do ponto:', url); }
+}
+async function novoLink(fid) {
+  const f = D.funcionarios.get(fid);
+  if (!f || !confirm('Gerar um link novo para ' + f.nome + '? O link antigo para de funcionar na hora.')) return;
+  try { await gerarLink(fid); toast('Link novo gerado. O antigo não vale mais: copie e mande o novo.'); render(); }
+  catch (e) { toast(e.message, true); }
+}
+function renderFuncionarios() {
+  const fs = todos('funcionarios').sort(porNome);
+  $('#t-func').innerHTML = fs.length
+    ? '<thead><tr><th>Nome</th><th>Cargo</th><th class="num">Jornada</th><th>Situação</th><th>Link do ponto</th></tr></thead><tbody>' + fs.map(f => {
+      const ativo = f.situacao !== 'desligado', id = esc(f.id);
+      return `<tr><td><strong>${esc(f.nome)}</strong><br><span class="hint">${esc(fmtCPF(f.cpf))}</span></td><td>${esc(f.cargo)}</td><td class="num">${f.jornadaMin ? fmtHoras(f.jornadaMin) : ''}</td>`
+        + `<td>${ativo ? '<span class="pill ok">Ativo</span>' : '<span class="pill">Desligado</span>'}</td><td><div class="acoes">`
+        + (ativo ? `<button type="button" class="btn mini" data-acao="copiar-link" data-id="${id}">Copiar link do ponto</button><button type="button" class="btn sec mini" data-acao="novo-link" data-id="${id}">Gerar link novo</button>` : '')
+        + `<button type="button" class="btn sec mini" data-acao="editar" data-id="${id}">Editar</button></div></td></tr>`;
+    }).join('') + '</tbody>'
+    : '<tbody><tr><td class="vazio">Nenhum funcionário cadastrado.</td></tr></tbody>';
+}
+
+/* ---------- Relatório do mês ---------- */
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const nomeMes = mes => MESES[Number(mes.slice(5, 7)) - 1] + ' de ' + mes.slice(0, 4);
+function diasDoMes(mes) {
+  const n = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0)).getUTCDate();
+  return Array.from({ length: n }, (_, i) => mes + '-' + String(i + 1).padStart(2, '0'));
+}
+const emitido = () => 'emitido em ' + fmtQuando(new Date().toISOString());
+const obsDia = l => [...l.problemas, l.ajustado ? 'ajustado pelo RH' : ''].filter(Boolean).join('; ');
+/* Por funcionário (os ativos e quem teve registro no mês), cada dia do mês com entradas, saídas,
+   horas e o que passou da jornada daquele dia; os totais somam só os pares completos. */
+function relatorioMes(mes) {
+  const troca = trocas(), dias = diasDoMes(mes);
+  const comRegistro = new Set(todos('pontos').filter(p => p.data && p.data.slice(0, 7) === mes).map(p => p.funcionarioId));
+  return todos('funcionarios').filter(f => f.situacao !== 'desligado' || comRegistro.has(f.id)).sort(porNome).map(f => {
+    const linhas = dias.map(data => {
+      const r = diaDe(f.id, data, troca);
+      return { data, tem: r.marcas.length > 0, entradas: r.marcas.filter(m => m.tipo === 'entrada').map(m => m.hora), saidas: r.marcas.filter(m => m.tipo === 'saida').map(m => m.hora),
+        minutos: r.minutos, extra: r.extra, problemas: r.problemas, ajustado: r.regs.length !== r.marcas.length || r.marcas.some(m => m.origem === 'rh') };
+    });
+    const soma = k => linhas.reduce((t, l) => t + l[k], 0);
+    return { f, linhas, minutos: soma('minutos'), extra: soma('extra'), dias: linhas.filter(l => l.tem).length, pendentes: linhas.filter(l => l.problemas.length).length };
+  });
+}
+function renderRelatorio() {
+  if (!$('#m-mes').value) $('#m-mes').value = hojeISO().slice(0, 7);
+  const mes = $('#m-mes').value, R = relatorioMes(mes);
+  const num = (v, cls) => `<td class="num${cls ? ' ' + cls : ''}">${v}</td>`;
+  const resumo = `<section class="bloco"><h2>Resumo de ${nomeMes(mes)}</h2><div class="rolar"><table class="tabela" id="m-resumo"><thead><tr><th>Funcionário</th><th>Cargo</th><th class="num">Jornada do dia</th><th class="num">Dias com registro</th><th class="num">Horas do mês</th><th class="num">Acima da jornada</th><th>Pendências</th></tr></thead><tbody>`
+    + (R.map(x => `<tr data-func="${esc(x.f.id)}"><td><strong>${esc(x.f.nome)}</strong><br><span class="hint">${esc(fmtCPF(x.f.cpf))}</span></td><td>${esc(x.f.cargo)}</td>${num(fmtHoras(x.f.jornadaMin || 0))}${num(x.dias)}${num(fmtHoras(x.minutos))}${num(fmtHoras(x.extra))}`
+      + `<td>${x.pendentes ? `<span class="pill bad">${x.pendentes} ${x.pendentes === 1 ? 'dia' : 'dias'} com marcação incompleta</span>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="vazio">Nenhum funcionário.</td></tr>')
+    + '</tbody></table></div></section>';
+  const blocos = R.map(x => `<section class="bloco rel-func" data-func="${esc(x.f.id)}"><h2>${esc(x.f.nome)}</h2>`
+    + `<p class="hint">${esc([x.f.cpf ? 'CPF ' + fmtCPF(x.f.cpf) : '', x.f.cargo, 'jornada do dia ' + fmtHoras(x.f.jornadaMin || 0), nomeMes(mes)].filter(Boolean).join(' · '))}</p>`
+    + '<div class="rolar"><table class="tabela"><thead><tr><th>Dia</th><th>Entradas</th><th>Saídas</th><th class="num">Horas</th><th class="num">Acima da jornada</th><th>Observação</th></tr></thead><tbody>'
+    + x.linhas.map(l => `<tr data-dia="${l.data}"${l.problemas.length ? ' class="marcado"' : ''}><td>${diaSemana(l.data)} ${dataBR(l.data).slice(0, 5)}</td><td>${l.entradas.join(', ')}</td><td>${l.saidas.join(', ')}</td>`
+      + `${num(l.tem ? fmtHoras(l.minutos) : '')}${num(l.extra ? fmtHoras(l.extra) : '')}<td>${esc(obsDia(l))}</td></tr>`).join('')
+    + `<tr class="total"><td colspan="3">Total do mês</td>${num(fmtHoras(x.minutos), 'total-horas')}${num(fmtHoras(x.extra), 'total-extra')}<td></td></tr></tbody></table></div></section>`).join('');
+  $('#m-conteudo').innerHTML = `<p class="so-impressao"><strong>Deconto · Controle interno de ponto · ${nomeMes(mes)}</strong> · ${emitido()} · não é o ponto oficial (REP-P)</p>` + resumo + blocos;
+}
+
+/* ---------- Excel (xlsx feito aqui mesmo: zip sem compressão, como no Controle de Operação) ---------- */
+const XLSX_TIPO = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const TABELA_CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = TABELA_CRC[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipar(arquivos) {
+  const enc = new TextEncoder(), partes = [], central = [];
+  let pos = 0;
+  for (const a of arquivos) {
+    const nome = enc.encode(a.nome), dados = enc.encode(a.texto), crc = crc32(dados);
+    const loc = new DataView(new ArrayBuffer(30));
+    loc.setUint32(0, 0x04034b50, true); loc.setUint16(4, 20, true); loc.setUint16(6, 0x0800, true); loc.setUint16(8, 0, true);
+    loc.setUint16(10, 0, true); loc.setUint16(12, 0x5B79, true); loc.setUint32(14, crc, true); loc.setUint32(18, dados.length, true);
+    loc.setUint32(22, dados.length, true); loc.setUint16(26, nome.length, true); loc.setUint16(28, 0, true);
+    partes.push(new Uint8Array(loc.buffer), nome, dados);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true);
+    cen.setUint16(10, 0, true); cen.setUint16(12, 0, true); cen.setUint16(14, 0x5B79, true); cen.setUint32(16, crc, true);
+    cen.setUint32(20, dados.length, true); cen.setUint32(24, dados.length, true); cen.setUint16(28, nome.length, true);
+    cen.setUint32(42, pos, true);
+    central.push(new Uint8Array(cen.buffer), nome);
+    pos += 30 + nome.length + dados.length;
+  }
+  const tamCentral = central.reduce((t, p) => t + p.length, 0), fim = new DataView(new ArrayBuffer(22));
+  fim.setUint32(0, 0x06054b50, true); fim.setUint16(8, arquivos.length, true); fim.setUint16(10, arquivos.length, true);
+  fim.setUint32(12, tamCentral, true); fim.setUint32(16, pos, true);
+  return new Blob([...partes, ...central, new Uint8Array(fim.buffer)], { type: XLSX_TIPO });
+}
+const XS = { cab: 1, txt: 2, forte: 3, titulo: 4, fraco: 5, hora: 6, horaTotal: 7, marcado: 8, data: 9, totalTxt: 10 };
+const ESTILOS_XLSX = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+  + '<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="[h]:mm"/></numFmts>'
+  + '<fonts count="6"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>'
+  + '<font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="16"/><color rgb="FF151A23"/><name val="Calibri"/><family val="2"/></font>'
+  + '<font><sz val="10"/><color rgb="FF535E72"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFBA2E29"/><name val="Calibri"/><family val="2"/></font></fonts>'
+  + '<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+  + '<fill><patternFill patternType="solid"><fgColor rgb="FF171C24"/><bgColor indexed="64"/></patternFill></fill>'
+  + '<fill><patternFill patternType="solid"><fgColor rgb="FFFBE2E0"/><bgColor indexed="64"/></patternFill></fill>'
+  + '<fill><patternFill patternType="solid"><fgColor rgb="FFE4E8EF"/><bgColor indexed="64"/></patternFill></fill></fills>'
+  + '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style="thin"><color rgb="FFD3D9E3"/></bottom><diagonal/></border></borders>'
+  + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="11">'
+  + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+  + '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
+  + '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>'
+  + '<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>'
+  + '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+  + '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+  + '<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>'
+  + '<xf numFmtId="165" fontId="2" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'
+  + '<xf numFmtId="0" fontId="5" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>'
+  + '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top"/></xf>'
+  + '<xf numFmtId="0" fontId="2" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'
+  + '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+const xmlEsc = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function letraColuna(i) { let s = ''; for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s; return s; }
+const serialExcel = d => Math.round((Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 86400000);
+// célula: texto ou número, ou { v, s } com estilo, ou { d: 'aaaa-mm-dd' } para data
+function celulaXlsx(ref, c) {
+  if (c == null || c === '') return '';
+  let v = c, s = 0;
+  if (typeof c === 'object') {
+    if ('d' in c) return `<c r="${ref}" s="${XS.data}"><v>${serialExcel(c.d)}</v></c>`;
+    v = c.v; s = c.s || 0;
+  }
+  const est = s ? ` s="${s}"` : '';
+  if (v == null || v === '') return s ? `<c r="${ref}"${est}/>` : '';
+  if (typeof v === 'number') return `<c r="${ref}"${est}><v>${v}</v></c>`;
+  return `<c r="${ref}" t="inlineStr"${est}><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+}
+function abaXlsx(aba) {
+  const linhas = aba.linhas.map((l, i) => `<row r="${i + 1}">${l.map((c, j) => celulaXlsx(letraColuna(j) + (i + 1), c)).join('')}</row>`).join('');
+  const cols = `<cols>${aba.larguras.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`;
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+    + `<sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${linhas}</sheetData>`
+    + '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>';
+}
+function nomeAbaXlsx(nome, usados) {
+  let base = String(nome).replace(/[:\\/?*[\]]/g, ' ').trim().slice(0, 31) || 'Funcionário', n = base, i = 2;
+  while (usados.has(n.toLowerCase())) { const suf = ' (' + i++ + ')'; n = base.slice(0, 31 - suf.length) + suf; }
+  usados.add(n.toLowerCase());
+  return n;
+}
+function montarXlsx(abas) {
+  const usados = new Set();
+  abas.forEach(a => { a.nome = nomeAbaXlsx(a.nome, usados); });
+  const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n', REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  return zipar([
+    { nome: '[Content_Types].xml', texto: XML + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + abas.map((a, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
+    { nome: '_rels/.rels', texto: XML + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { nome: 'xl/workbook.xml', texto: XML + `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${REL}"><bookViews><workbookView/></bookViews><sheets>`
+      + abas.map((a, i) => `<sheet name="${xmlEsc(a.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets></workbook>' },
+    { nome: 'xl/_rels/workbook.xml.rels', texto: XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + abas.map((a, i) => `<Relationship Id="rId${i + 1}" Type="${REL}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')
+      + `<Relationship Id="rId${abas.length + 1}" Type="${REL}/styles" Target="styles.xml"/></Relationships>` },
+    { nome: 'xl/styles.xml', texto: ESTILOS_XLSX },
+    ...abas.map((a, i) => ({ nome: `xl/worksheets/sheet${i + 1}.xml`, texto: abaXlsx(a) })),
+  ]);
+}
+// horas no Excel: fração do dia, com o formato [h]:mm (soma passando de 24 h)
+const xH = (min, s = XS.hora) => ({ v: min / 1440, s });
+function planilhaMes(mes) {
+  const R = relatorioMes(mes), sub = 'Controle interno de ponto (não é o REP-P) · ' + emitido();
+  const cab = l => l.map(v => ({ v, s: XS.cab }));
+  const resumo = { nome: 'Resumo', larguras: [30, 16, 24, 12, 12, 12, 14, 14], linhas: [
+    [{ v: 'Ponto de ' + nomeMes(mes), s: XS.titulo }], [{ v: sub, s: XS.fraco }], [],
+    cab(['Funcionário', 'CPF', 'Cargo', 'Jornada do dia', 'Dias com registro', 'Horas do mês', 'Acima da jornada', 'Dias com marcação incompleta']),
+    ...R.map(x => [{ v: x.f.nome, s: XS.forte }, { v: fmtCPF(x.f.cpf), s: XS.txt }, { v: x.f.cargo || '', s: XS.txt }, xH(x.f.jornadaMin || 0), { v: x.dias, s: XS.txt }, xH(x.minutos), xH(x.extra), { v: x.pendentes || '', s: x.pendentes ? XS.marcado : XS.txt }]),
+    [{ v: 'Total', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, xH(R.reduce((t, x) => t + x.minutos, 0), XS.horaTotal), xH(R.reduce((t, x) => t + x.extra, 0), XS.horaTotal), { v: '', s: XS.totalTxt }],
+  ] };
+  const abas = R.map(x => ({ nome: x.f.nome, larguras: [12, 7, 18, 18, 10, 12, 36], linhas: [
+    [{ v: x.f.nome + ' · ' + nomeMes(mes), s: XS.titulo }],
+    [{ v: [x.f.cpf ? 'CPF ' + fmtCPF(x.f.cpf) : '', x.f.cargo, 'jornada do dia ' + fmtHoras(x.f.jornadaMin || 0), sub].filter(Boolean).join(' · '), s: XS.fraco }], [],
+    cab(['Data', 'Dia', 'Entradas', 'Saídas', 'Horas', 'Acima da jornada', 'Observação']),
+    ...x.linhas.map(l => [{ d: l.data }, { v: diaSemana(l.data), s: XS.txt }, { v: l.entradas.join(', '), s: XS.txt }, { v: l.saidas.join(', '), s: XS.txt },
+      l.tem ? xH(l.minutos) : { v: '', s: XS.txt }, l.extra ? xH(l.extra) : { v: '', s: XS.txt }, { v: obsDia(l), s: l.problemas.length ? XS.marcado : XS.txt }]),
+    [{ v: 'Total do mês', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, xH(x.minutos, XS.horaTotal), xH(x.extra, XS.horaTotal), { v: '', s: XS.totalTxt }],
+  ] }));
+  return montarXlsx([resumo, ...abas]);
+}
+function baixarExcel() {
+  const mes = $('#m-mes').value || hojeISO().slice(0, 7);
+  let arq;
+  try { arq = planilhaMes(mes); } catch (e) { toast('Não consegui montar a planilha.', true); return; }
+  const url = URL.createObjectURL(arq), a = document.createElement('a');
+  a.href = url; a.download = 'ponto-' + mes + '.xlsx'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+  toast('Planilha salva.');
+}
+
+/* ---------- tela ---------- */
+let toastTimer = null;
+function toast(t, erro) {
+  const el = $('#toast');
+  el.textContent = t;
+  el.className = 'toast show' + (erro ? ' erro' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 5000);
+}
+const ABAS = ['registros', 'funcionarios', 'relatorio'];
+const abaAtual = () => (ABAS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'registros');
+function opcoesFuncionario() {
+  const sel = $('#r-func'), v = sel.value;
+  sel.innerHTML = '<option value="">Todos</option>' + todos('funcionarios').sort(porNome).map(f => `<option value="${esc(f.id)}">${esc(f.nome)}</option>`).join('');
+  sel.value = D.funcionarios.has(v) ? v : '';
+}
+function render() {
+  const a = abaAtual();
+  for (const x of ABAS) {
+    $('#v-' + x).hidden = x !== a;
+    const link = document.querySelector(`[data-aba="${x}"]`);
+    if (x === a) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+  }
+  opcoesFuncionario();
+  if (a === 'registros') renderRegistros();
+  else if (a === 'funcionarios') renderFuncionarios();
+  else renderRelatorio();
+  mostrarEstado();
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-acao]');
+  if (!b) return;
+  const { acao, id } = b.dataset;
+  if (acao === 'corrigir') abrirCorrecao({ substitui: id });
+  else if (acao === 'incluir') abrirCorrecao({ funcionarioId: id, data: b.dataset.dia });
+  else if (acao === 'fechar-cor') $('#d-cor').close();
+  else if (acao === 'ver-dia') { $('#r-dia').value = b.dataset.dia; $('#r-func').value = ''; render(); }
+  else if (acao === 'copiar-link') copiarLink(id);
+  else if (acao === 'novo-link') novoLink(id);
+  else if (acao === 'editar') editarFunc(id);
+  else if (acao === 'cancelar-func') limparFunc();
+  else if (acao === 'imprimir') window.print();
+  else if (acao === 'excel') baixarExcel();
+  else if (acao === 'sair') api('POST', '/api/sair', {}).catch(() => {}).then(() => { location.href = '/entrar'; });
+});
+['#r-dia', '#r-func', '#m-mes'].forEach(s => $(s).addEventListener('change', render));
+window.addEventListener('hashchange', render);
+if (window.PAINEL) {
+  $('#quem-nome').textContent = window.PAINEL.nome || window.PAINEL.usuario || '';
+  render();
+  ouvir();
+} else {
+  document.querySelector('main').innerHTML = '<p class="bloco">A central do RH abre pelo Painel Deconto.</p>';
+}
+</script>

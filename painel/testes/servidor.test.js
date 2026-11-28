@@ -22,6 +22,7 @@ fs.mkdirSync(PUBLICO, { recursive: true });
 fs.mkdirSync(CARGA, { recursive: true });
 fs.writeFileSync(path.join(PUBLICO, 'frota.html'), '<title>DECONTO</title>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow">\n<p>pagina da frota</p>');
 fs.writeFileSync(path.join(PUBLICO, 'operacao.html'), '<title>Controle de Operação</title>\n<p>pagina da operacao</p>');
+fs.writeFileSync(path.join(PUBLICO, 'rh.html'), '<title>RH</title>\n<p>pagina do rh</p>');
 // carga inicial da frota: um documento com PDF embutido e um caminhão
 const PDF = Buffer.from('%PDF-1.4\n% teste\n');
 fs.writeFileSync(path.join(CARGA, 'frota.json'), JSON.stringify({
@@ -33,7 +34,8 @@ fs.writeFileSync(path.join(CARGA, 'frota.json'), JSON.stringify({
   arquivos: { 'arq-x': { tipo: 'application/pdf', nome: 'CRLV-TST1A00.pdf', dados: PDF.toString('base64') } },
 }));
 
-const ambiente = (pastas = {}) => Object.assign({}, process.env, { PORTA: String(PORTA), HOST: '127.0.0.1', PAINEL_SENHA: 'senhaTeste1', PASTA_DADOS: DADOS, PASTA_PUBLICO: PUBLICO, PASTA_CARGA: CARGA }, pastas);
+// PONTO_INTERVALO_S=0: entrada e saída seguidas nos testes; o teste do intervalo sobe um servidor com o padrão (60 s)
+const ambiente = (pastas = {}) => Object.assign({}, process.env, { PORTA: String(PORTA), HOST: '127.0.0.1', PAINEL_SENHA: 'senhaTeste1', PASTA_DADOS: DADOS, PASTA_PUBLICO: PUBLICO, PASTA_CARGA: CARGA, PONTO_INTERVALO_S: '0' }, pastas);
 function subir() {
   return new Promise((ok, falha) => {
     proc = spawn(process.execPath, [SERVIDOR], { env: ambiente(), stdio: ['ignore', 'pipe', 'pipe'] });
@@ -144,7 +146,7 @@ test('/frota sem barra vai para /frota/ e a página traz window.PAINEL', async (
   assert.match(html, /pagina da frota/);
 });
 test('sistema em desenvolvimento ou desconhecido dá 404', async () => {
-  assert.strictEqual((await pedir('/rh/')).status, 404);
+  assert.strictEqual((await pedir('/financeiro/')).status, 404);
   assert.strictEqual((await pedir('/xyz/')).status, 404);
 });
 test('o Controle não tem mais mapa', async () => {
@@ -473,5 +475,234 @@ test('achado 7: carga com defeito no meio não deixa nada e continua na pasta da
     }
     assert.ok(fs.existsSync(path.join(PASTA_CARGA, 'frota.json')), 'a carga continua em carga/');
     assert.match(r.saida(), /não entrou/);
+  });
+});
+
+// ---------- RH: funcionários, link do ponto e correção ----------
+const lerRH = async () => (await pedir('/rh/api/dados')).json();
+async function funcionario(id, extra = {}) {
+  const r = await json('PUT', '/rh/api/dados/funcionarios/' + id, Object.assign({ nome: 'Func ' + id, cpf: '12345678901', cargo: 'Motorista', jornadaMin: 528, situacao: 'ativo' }, extra));
+  assert.strictEqual(r.status, 200);
+  const l = await json('POST', '/rh/api/link/' + id, {});
+  assert.strictEqual(l.status, 200);
+  return (await l.json()).token;
+}
+test('RH: abre com login e a API do RH sem login dá 401', async () => {
+  const p = await pedir('/rh/');
+  assert.strictEqual(p.status, 200);
+  assert.match(await p.text(), /"sistema":"rh"/);
+  for (const [metodo, rota] of [['GET', '/rh/api/dados'], ['POST', '/rh/api/link/f1'], ['POST', '/rh/api/pontos'], ['GET', '/rh/api/arquivos/arq-' + '0'.repeat(32)]]) {
+    const r = await fetch(BASE + rota, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: metodo === 'GET' ? undefined : '{}' });
+    assert.strictEqual(r.status, 401, metodo + ' ' + rota);
+  }
+});
+test('RH: pontos e links só o servidor grava (403 pela API de dados e pelo lote)', async () => {
+  for (const col of ['pontos', 'links']) {
+    assert.strictEqual((await json('PUT', `/rh/api/dados/${col}/x1`, { a: 1 })).status, 403, 'PUT ' + col);
+    assert.strictEqual((await json('DELETE', `/rh/api/dados/${col}/x1`)).status, 403, 'DELETE ' + col);
+    assert.strictEqual((await json('POST', '/rh/api/lote', { ops: [{ tipo: 'set', col: 'funcionarios', obj: { id: 'f-lote' } }, { tipo: 'set', col, obj: { id: 'x1' } }] })).status, 403, 'lote ' + col);
+  }
+  const d = await lerRH();
+  assert.ok(!d.funcionarios.some(f => f.id === 'f-lote'), 'o lote recusado não gravou nada');
+});
+test('RH: gerar link novo troca o token', async () => {
+  const t1 = await funcionario('f-link');
+  assert.match(t1, /^[A-Za-z0-9_-]{32}$/);
+  const t2 = (await (await json('POST', '/rh/api/link/f-link', {})).json()).token;
+  assert.match(t2, /^[A-Za-z0-9_-]{32}$/);
+  assert.notStrictEqual(t1, t2);
+  assert.strictEqual((await lerRH()).links.find(l => l.id === 'f-link').token, t2);
+  assert.strictEqual((await json('POST', '/rh/api/link/nao-existe', {})).status, 404);
+});
+test('RH: inclusão e correção pedem justificativa, guardam quem e quando, e o original continua', async () => {
+  await funcionario('f-cor');
+  const base = { funcionarioId: 'f-cor', tipo: 'entrada', data: '2026-10-05', hora: '08:00' };
+  const com = extra => Object.assign({}, base, extra);
+  assert.strictEqual((await json('POST', '/rh/api/pontos', base)).status, 400, 'sem justificativa');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', com({ justificativa: '   ' }))).status, 400, 'justificativa em branco');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', com({ hora: '25:00', justificativa: 'x' }))).status, 400, 'hora errada');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', com({ tipo: 'almoco', justificativa: 'x' }))).status, 400, 'tipo errado');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', com({ data: '2026-02-30', justificativa: 'x' }))).status, 400, 'data errada');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', com({ funcionarioId: 'nao-existe', justificativa: 'x' }))).status, 404);
+  let r = await json('POST', '/rh/api/pontos', com({ justificativa: 'Esqueceu de bater', por: 'outro', alteradoEm: '2000-01-01T00:00:00Z', origem: 'celular' }));
+  assert.strictEqual(r.status, 200);
+  const inc = (await r.json()).ponto;
+  assert.strictEqual(inc.origem, 'rh');
+  assert.strictEqual(inc.por, 'admin', 'quem mudou é quem está logado');
+  assert.ok(Math.abs(Date.now() - Date.parse(inc.alteradoEm)) < 60000, 'quando mudou é a hora do servidor');
+  assert.strictEqual(inc.justificativa, 'Esqueceu de bater');
+  r = await json('POST', '/rh/api/pontos', { substitui: inc.id, tipo: 'entrada', data: '2026-10-05', hora: '07:55', justificativa: 'Chegou antes' });
+  assert.strictEqual(r.status, 200);
+  const cor = (await r.json()).ponto;
+  assert.strictEqual(cor.substitui, inc.id);
+  assert.strictEqual(cor.funcionarioId, 'f-cor');
+  assert.strictEqual(cor.hora, '07:55');
+  assert.deepStrictEqual((await lerRH()).pontos.find(p => p.id === inc.id), inc, 'o original continua igual');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', { substitui: inc.id, anulado: true, justificativa: 'de novo' })).status, 409, 'o original já foi corrigido');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', { substitui: 'pt-nao-existe', anulado: true, justificativa: 'x' })).status, 404);
+  r = await json('POST', '/rh/api/pontos', { substitui: cor.id, anulado: true, justificativa: 'Registro duplicado' });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual((await r.json()).ponto.anulado, true);
+});
+
+// ---------- RH: ponto pelo celular (sem login, só com o link pessoal) ----------
+const JPEG = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.alloc(200, 7), Buffer.from([0xFF, 0xD9])]);
+const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]), Buffer.alloc(100, 3)]);
+const LOCAL = { 'X-Lat': '-26.8766', 'X-Lon': '-52.4036', 'X-Precisao': '12' };
+// fetch sem cookie: o ponto não usa login
+const registrar = (token, foto = JPEG, tipo = 'image/jpeg', cab = LOCAL) => fetch(`${BASE}/ponto/${token}/registrar`, { method: 'POST', headers: Object.assign({ 'Content-Type': tipo }, cab), body: foto });
+const fotosNoDisco = () => { const p = path.join(DADOS, 'arquivos', 'rh'); return fs.existsSync(p) ? fs.readdirSync(p).length : 0; };
+const pontosDe = async fid => (await lerRH()).pontos.filter(p => p.funcionarioId === fid);
+const diaNoFuso = iso => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+
+test('Ponto: token válido registra entrada e depois saída, com a hora do servidor', async () => {
+  const tok = await funcionario('f-ponto', { nome: 'Ana <Souza>' });
+  const pg = await fetch(`${BASE}/ponto/${tok}`);
+  assert.strictEqual(pg.status, 200);
+  const html = await pg.text();
+  assert.ok(html.includes('Ana &lt;Souza&gt;'), 'o nome aparece como texto');
+  assert.ok(!html.includes('<Souza>'), 'o nome não vira HTML');
+  assert.match(html, /capture="user"/);
+  assert.match(html, /"proximo":"entrada"/);
+  const antes = Date.now();
+  // a hora que o celular mandar não conta
+  let r = await registrar(tok, JPEG, 'image/jpeg', Object.assign({ 'X-Hora': '2000-01-01T03:00:00Z', Date: 'Sat, 01 Jan 2000 03:00:00 GMT' }, LOCAL));
+  assert.strictEqual(r.status, 200);
+  const c1 = await r.json();
+  assert.strictEqual(c1.tipo, 'entrada');
+  assert.strictEqual(c1.proximo, 'saida');
+  assert.strictEqual(c1.nome, 'Ana <Souza>');
+  assert.match(c1.hora, /^\d{2}:\d{2}$/);
+  r = await registrar(tok, PNG, 'image/png');
+  assert.strictEqual(r.status, 200);
+  const c2 = await r.json();
+  assert.strictEqual(c2.tipo, 'saida');
+  assert.strictEqual(c2.proximo, 'entrada');
+  const depois = Date.now();
+  const meus = await pontosDe('f-ponto');
+  assert.deepStrictEqual(meus.map(p => p.tipo), ['entrada', 'saida']);
+  for (const [p, foto, tipo] of [[meus[0], JPEG, 'image/jpeg'], [meus[1], PNG, 'image/png']]) {
+    const t = Date.parse(p.em);
+    assert.ok(t >= antes - 1000 && t <= depois + 1000, 'hora do servidor: ' + p.em);
+    assert.strictEqual(p.data, diaNoFuso(p.em), 'o dia é o de Xanxerê');
+    assert.strictEqual(p.origem, 'celular');
+    assert.strictEqual(p.lat, -26.8766);
+    assert.strictEqual(p.lon, -52.4036);
+    assert.strictEqual(p.precisao, 12);
+    const b = await pedir('/rh/api/arquivos/' + p.foto.id);
+    assert.strictEqual(b.status, 200);
+    assert.strictEqual(b.headers.get('content-type'), tipo);
+    assert.ok(Buffer.from(await b.arrayBuffer()).equals(foto), 'a foto guardada é a enviada');
+  }
+  assert.match(await (await fetch(`${BASE}/ponto/${tok}`)).text(), /"proximo":"entrada"/);
+});
+test('Ponto: token inválido dá 404', async () => {
+  for (const tok of ['nao-vale', 'A'.repeat(32)]) {
+    assert.strictEqual((await fetch(`${BASE}/ponto/${tok}`)).status, 404, 'página ' + tok);
+    assert.strictEqual((await registrar(tok)).status, 404, 'registrar ' + tok);
+  }
+  assert.strictEqual((await fetch(`${BASE}/ponto/`, { redirect: 'manual' })).status, 404);
+});
+test('Ponto: link trocado faz o antigo parar de valer', async () => {
+  const velho = await funcionario('f-troca');
+  assert.strictEqual((await fetch(`${BASE}/ponto/${velho}`)).status, 200);
+  const novo = (await (await json('POST', '/rh/api/link/f-troca', {})).json()).token;
+  assert.strictEqual((await fetch(`${BASE}/ponto/${velho}`)).status, 404);
+  assert.strictEqual((await registrar(velho)).status, 404);
+  assert.strictEqual((await fetch(`${BASE}/ponto/${novo}`)).status, 200);
+  assert.deepStrictEqual(await pontosDe('f-troca'), []);
+});
+test('Ponto: funcionário desligado dá 404', async () => {
+  const tok = await funcionario('f-desl');
+  assert.strictEqual((await json('PUT', '/rh/api/dados/funcionarios/f-desl', { nome: 'Func f-desl', situacao: 'desligado' })).status, 200);
+  assert.strictEqual((await fetch(`${BASE}/ponto/${tok}`)).status, 404);
+  assert.strictEqual((await registrar(tok)).status, 404);
+});
+test('Ponto: foto grande demais, de outro tipo ou vazia é recusada e nada fica gravado', async () => {
+  const tok = await funcionario('f-foto');
+  const fotos = fotosNoDisco();
+  const grande = Buffer.concat([JPEG.subarray(0, 4), Buffer.alloc(3 * 1024 * 1024)]);
+  assert.strictEqual((await registrar(tok, grande)).status, 413, 'mais de 3 MB');
+  assert.strictEqual((await registrar(tok, Buffer.from('GIF89a' + 'x'.repeat(50)), 'image/gif')).status, 415, 'GIF');
+  assert.strictEqual((await registrar(tok, Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'), 'image/svg+xml')).status, 415, 'SVG');
+  assert.strictEqual((await registrar(tok, Buffer.from('<html>não é foto</html>'), 'image/jpeg')).status, 415, 'diz que é JPEG e não é');
+  assert.strictEqual((await registrar(tok, PNG, 'image/jpeg')).status, 415, 'PNG dizendo que é JPEG');
+  const vazia = await registrar(tok, Buffer.alloc(0));
+  assert.strictEqual(vazia.status, 400, 'sem foto');
+  assert.match((await vazia.json()).erro, /foto/i);
+  assert.deepStrictEqual(await pontosDe('f-foto'), []);
+  assert.strictEqual(fotosNoDisco(), fotos, 'nenhuma foto ficou no disco');
+});
+test('Ponto: sem localização não registra e explica', async () => {
+  const tok = await funcionario('f-local');
+  const fotos = fotosNoDisco();
+  for (const cab of [{}, { 'X-Lat': '', 'X-Lon': '' }, { 'X-Lat': 'abc', 'X-Lon': '-52.4' }, { 'X-Lat': '-95', 'X-Lon': '-52.4' }, { 'X-Lat': '-26.8', 'X-Lon': '181' }, { 'X-Lat': '-26.8' }]) {
+    const r = await registrar(tok, JPEG, 'image/jpeg', cab);
+    assert.strictEqual(r.status, 400, JSON.stringify(cab));
+    assert.match((await r.json()).erro, /localiza/i);
+  }
+  assert.deepStrictEqual(await pontosDe('f-local'), []);
+  assert.strictEqual(fotosNoDisco(), fotos);
+});
+test('Ponto: a rota do ponto não lê nem grava outras coleções', async () => {
+  const tok = await funcionario('f-iso', { cpf: '98765432100' });
+  const tokOutro = await funcionario('f-outro', { nome: 'Outro Funcionário Secreto' });
+  const disco = sis => fs.readFileSync(path.join(DADOS, sis + '.json'));
+  const frota = disco('frota'), operacao = disco('operacao');
+  const antes = await lerRH();
+  for (const rota of [`/ponto/${tok}/dados`, `/ponto/${tok}/api/dados`, `/ponto/${tok}/registrar`, `/ponto/${tok}/x/registrar`, `/ponto/${tok}/../rh/api/dados`]) {
+    const r = await fetch(BASE + rota, { redirect: 'manual' });
+    assert.ok(r.status === 404 || r.status === 401, rota + ' dá ' + r.status);
+    assert.doesNotMatch(await r.text(), /Outro Funcionário|98765432100|f-outro/, rota);
+  }
+  const html = await (await fetch(`${BASE}/ponto/${tok}`)).text();
+  for (const x of ['Outro Funcionário Secreto', '98765432100', tokOutro, 'f-outro', 'Motorista']) assert.ok(!html.includes(x), 'a página não traz ' + x);
+  // não dá para mandar outro funcionário nem outra coleção pelo corpo
+  assert.strictEqual((await fetch(`${BASE}/ponto/${tok}/registrar`, { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, LOCAL), body: JSON.stringify({ funcionarioId: 'f-outro', col: 'funcionarios' }) })).status, 415);
+  const r = await registrar(tok, JPEG, 'image/jpeg', Object.assign({ 'X-Funcionario': 'f-outro' }, LOCAL));
+  assert.strictEqual(r.status, 200);
+  assert.deepStrictEqual(Object.keys(await r.json()).sort(), ['data', 'hora', 'nome', 'ok', 'proximo', 'tipo'], 'o comprovante não traz mais nada');
+  const depois = await lerRH();
+  assert.deepStrictEqual(depois.funcionarios, antes.funcionarios, 'funcionários iguais');
+  assert.deepStrictEqual(depois.links, antes.links, 'links iguais');
+  const novos = depois.pontos.filter(p => !antes.pontos.some(a => a.id === p.id));
+  assert.strictEqual(novos.length, 1);
+  assert.strictEqual(novos[0].funcionarioId, 'f-iso');
+  assert.ok(disco('frota').equals(frota), 'frota.json igual');
+  assert.ok(disco('operacao').equals(operacao), 'operacao.json igual');
+});
+test('Ponto: registro do RH com data no futuro não muda o botão de hoje', async () => {
+  const tok = await funcionario('f-futuro');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', { funcionarioId: 'f-futuro', tipo: 'entrada', data: '2099-01-01', hora: '08:00', justificativa: 'data digitada errada' })).status, 200);
+  assert.match(await (await fetch(`${BASE}/ponto/${tok}`)).text(), /"ultimo":null/, 'o último registro é o de hoje ou de antes');
+  assert.strictEqual((await (await registrar(tok)).json()).tipo, 'entrada');
+  assert.strictEqual((await (await registrar(tok)).json()).tipo, 'saida');
+});
+test('Ponto: dois toques seguidos ou ao mesmo tempo viram um registro só, e o celular tem limite por dia', async () => {
+  const hoje = diaNoFuso(new Date().toISOString());
+  const TOK_DUP = 'D'.repeat(32), TOK_CAP = 'C'.repeat(32);
+  const pontos = {};
+  for (let i = 0; i < 12; i++) pontos['pt-cap' + i] = { id: 'pt-cap' + i, funcionarioId: 'f-cap', tipo: i % 2 ? 'saida' : 'entrada', data: hoje, hora: '00:' + String(i).padStart(2, '0'), em: new Date(Date.now() - 600000).toISOString(), origem: 'celular' };
+  await comServidorAParte('ponto-intervalo', pastas => {
+    pastas.PONTO_INTERVALO_S = ''; // o padrão do servidor
+    fs.writeFileSync(path.join(pastas.PASTA_DADOS, 'rh.json'), JSON.stringify({
+      funcionarios: { 'f-dup': { id: 'f-dup', nome: 'Dup', situacao: 'ativo' }, 'f-cap': { id: 'f-cap', nome: 'Cap', situacao: 'ativo' } },
+      links: { 'f-dup': { id: 'f-dup', token: TOK_DUP }, 'f-cap': { id: 'f-cap', token: TOK_CAP } },
+      pontos,
+    }));
+  }, async (r, { PASTA_DADOS }) => {
+    assert.ok(r.subiu, r.saida());
+    const st = (await Promise.all([registrar(TOK_DUP), registrar(TOK_DUP)])).map(x => x.status).sort();
+    assert.deepStrictEqual(st, [200, 409], 'ao mesmo tempo');
+    const outro = await registrar(TOK_DUP);
+    assert.strictEqual(outro.status, 409, 'logo depois');
+    const d = await outro.json();
+    assert.match(d.erro, /já registrou entrada às \d{2}:\d{2}/);
+    assert.strictEqual(d.proximo, 'saida');
+    const noDisco = JSON.parse(fs.readFileSync(path.join(PASTA_DADOS, 'rh.json'), 'utf8')).pontos;
+    assert.strictEqual(Object.values(noDisco).filter(p => p.funcionarioId === 'f-dup').length, 1);
+    const fotos = fs.readdirSync(path.join(PASTA_DADOS, 'arquivos', 'rh')).length;
+    assert.strictEqual((await registrar(TOK_CAP)).status, 429, 'mais de 12 pelo celular no dia');
+    assert.strictEqual(fs.readdirSync(path.join(PASTA_DADOS, 'arquivos', 'rh')).length, fotos, 'a foto recusada não fica no disco');
   });
 });
