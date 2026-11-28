@@ -387,6 +387,38 @@ teste('DECONTO no arquivo (file://): só peça comprada, e o total soma', async 
   assert.deepStrictEqual(await l.evaluate(() => { const m = todos('manutencoes')[0]; return [m.valor, m.servico, m.pecas[0].nome]; }), [80, 50, 'Palheta']);
 });
 
+// ---------- Controle de Operação: peças na manutenção ----------
+teste('Controle: manutenção com peça do estoque tira do saldo, total na lista; corrigir não desconta as próprias', async () => {
+  const ctx = await logado();
+  const mid = await criarMaterial(ctx, { nome: 'Mangueira hidráulica', categoria: 'Peças' });
+  await entrada(ctx, mid, 3, 40);
+  await pedir(ctx, 'PUT', '/operacao/api/dados/caminhoes/cam-mk', { placa: 'MNK1A00', situacao: 'ativo' });
+  const p = await abrir(ctx, '/operacao/#manutencao');
+  await esperarServidor(p);
+  await p.waitForFunction(() => ESTOQUE.ok, null, { timeout: 6000 });
+  await p.selectOption('#man-cam', 'cam-mk');
+  assert.match(await texto(p, 'label[for="man-valor"]'), /Mão de obra \/ serviço/);
+  await p.fill('#man-valor', '50');
+  const l0 = await novaPeca(p, 0, { mat: mid, qtd: '1' });
+  assert.match(await l0.locator('.p-info').textContent(), /Em estoque: 3/);
+  await esperarTexto(p, '#man-total', 'R$ 90,00');
+  await limparToast(p);
+  await p.click('#f-man button[type="submit"]');
+  await esperarToast(p, 'Manutenção salva');
+  const [m] = (await pedir(ctx, 'GET', '/operacao/api/dados')).manutencoes.filter(x => x.caminhaoId === 'cam-mk');
+  assert.deepStrictEqual([m.valor, m.servico, m.pecas[0].materialId, m.pecas[0].qtd, m.pecas[0].preco], [90, 50, mid, 1, 40]);
+  assert.strictEqual((await material(ctx, 'Mangueira hidráulica')).saldo, 2);
+  await esperarTexto(p, '#t-man', 'R$ 90,00');
+  await p.waitForFunction(x => ESTOQUE.porId.get(x).saldo === 2, mid, { timeout: 6000 });
+  await p.evaluate(x => editar('manutencoes', x), m.id);
+  await esperarTexto(p, '#man-pecas .peca .p-info', 'Em estoque: 3');
+  const e = await abrir(ctx, '/estoque/');
+  await esperarServidor(e);
+  await e.click(`#t-saldo tr[data-mat="${mid}"] [data-acao="historico"]`);
+  await esperarTexto(e, '#movs', 'Manutenção no Controle');
+  assert.strictEqual(await e.locator('#movs a[href="/operacao/#manutencao"]').count(), 1);
+});
+
 // ---------- no fim ----------
 teste('nenhum erro de página (pageerror) em nenhum teste', async () => {
   assert.deepStrictEqual(errosDePagina, []);

@@ -184,6 +184,15 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 [aria-invalid="true"] { border-color: var(--bad) !important; }
 .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .filtros select { width: auto; max-width: 100%; min-height: 40px; padding: 7px 10px; font-size: 0.92rem; background: var(--surface); }
+.pecas-box { display: flex; flex-direction: column; gap: 10px; }
+.pecas-cab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.pecas-cab > span { font-weight: 600; font-size: 0.9rem; }
+.pecas { display: flex; flex-direction: column; gap: 10px; }
+.pecas:empty { display: none; }
+.peca { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 8px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.peca .p-info { grid-column: 1 / -1; font-size: 0.88rem; color: var(--muted); }
+.peca .p-info:empty { display: none; }
+.peca .p-info .aviso { color: var(--warn); font-weight: 600; }
 .calc { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-variant-numeric: tabular-nums; }
 .calc:empty { display: none; }
 .calc .grande { font-family: var(--display); font-weight: 700; font-size: 1.6rem; }
@@ -500,12 +509,17 @@ button.seg { border: 0; background: transparent; }
         <div class="campo"><label for="man-desc">O que foi feito</label><input id="man-desc" name="descricao" autocomplete="off" placeholder="Ex.: troca das mangueiras do braço"></div>
         <div class="campo"><label for="man-of">Oficina</label><input id="man-of" name="oficina" list="lista-oficinas" autocomplete="off"></div>
         <div class="campo"><label for="man-km">Km no hodômetro</label><input id="man-km" name="km" data-tipo="int" inputmode="numeric" autocomplete="off"></div>
-        <div class="campo"><label for="man-valor">Valor (R$)</label><input id="man-valor" name="valor" data-tipo="dec" inputmode="decimal" autocomplete="off" placeholder="0,00"></div>
+        <div class="campo"><label for="man-valor">Mão de obra / serviço (R$)</label><input id="man-valor" name="servico" data-tipo="dec" inputmode="decimal" autocomplete="off" placeholder="0,00"><span class="dica">Sem as peças: elas somam abaixo. Garantia: 0.</span></div>
         <div class="campo"><label for="man-pkm">Próxima com km</label><input id="man-pkm" name="proximaKm" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica">Opcional.</span></div>
         <div class="campo"><label for="man-pdata">Próxima em</label><input type="date" id="man-pdata" name="proximaData"><span class="dica">Opcional. Ex.: laudo do munck todo ano.</span></div>
         <div class="campo largo"><label for="man-obs">Observação</label><input id="man-obs" name="obs" autocomplete="off"></div>
       </div>
       <div class="calc" id="man-calc" aria-live="polite"></div>
+      <div class="pecas-box">
+        <div class="pecas-cab"><span>Peças</span><button class="btn ghost small" type="button" data-acao="add-peca">+ Peça</button></div>
+        <div class="pecas" id="man-pecas"></div>
+        <div class="calc" id="man-total" aria-live="polite"></div>
+      </div>
       <div class="acoes-linha">
         <button class="btn" type="submit" data-novo="Salvar manutenção" data-editar="Salvar alteração">Salvar manutenção</button>
         <button class="btn ghost" type="button" data-acao="cancelar-edicao" hidden>Cancelar edição</button>
@@ -649,6 +663,7 @@ button.seg { border: 0; background: transparent; }
   <datalist id="lista-clientes"></datalist>
   <ul id="sug-destino" class="sugestoes" role="listbox" hidden></ul>
   <datalist id="lista-oficinas"></datalist>
+  <datalist id="lista-pecas"></datalist>
 </main>
 <div class="toast" id="toast" role="status" hidden></div>
 
@@ -909,6 +924,7 @@ function ouvirServidor() {
   const es = avisosAoVivo = new EventSource('api/eventos');
   let fila = null, abriu = false, conferindo = false;
   const aplicarAviso = m => {
+    if (m && m.tipo === 'estoque') { pedirEstoque(); return; }
     for (const op of (m.tipo === 'lote' ? m.ops : [m])) {
       if (!op || !COLS.includes(op.col)) continue;
       if (op.tipo === 'set' && op.obj && op.obj.id) D[op.col].set(op.obj.id, op.obj);
@@ -924,6 +940,7 @@ function ouvirServidor() {
       f.forEach(aplicarAviso);
       Armazem.modo = 'servidor';
       Armazem.semConexao = false;
+      pedirEstoque();
       agendarRender();
     }).catch(e => {
       fila = null;
@@ -949,6 +966,136 @@ function ouvirServidor() {
     if (es.readyState === EventSource.CLOSED && es === avisosAoVivo && !reabrirAvisos) reabrirAvisos = setTimeout(ouvirServidor, 3000);
   };
 }
+/* ---------- Estoque (sistema do Painel): peças na manutenção ----------
+   O saldo vem calculado do servidor (/estoque/api/saldos). Sem Estoque (arquivo local, ou Painel sem ele),
+   "Do estoque" some e o resto funciona como antes. */
+const ESTOQUE = { ok: false, sistema: 'operacao', materiais: [], movimentos: [], porId: new Map() };
+async function lerEstoque() {
+  if (!NO_PAINEL) return;
+  let r, d = null;
+  try { r = await fetch('/estoque/api/saldos', { credentials: 'same-origin' }); } catch (e) { return; } // sem internet: fica o que já tinha
+  if (r.status === 404) ESTOQUE.ok = false;
+  else if (!r.ok || !(d = await r.json().catch(() => null))) return;
+  else Object.assign(ESTOQUE, { ok: true, materiais: d.materiais || [], movimentos: d.movimentos || [], porId: new Map((d.materiais || []).map(m => [m.id, m])) });
+  calcPecas();
+  agendarRender();
+}
+let lerEstoqueTimer = null;
+function pedirEstoque() { clearTimeout(lerEstoqueTimer); lerEstoqueTimer = setTimeout(lerEstoque, 300); }
+// quanto tem, sem contar o que o próprio registro (sendo corrigido) já tirou
+function emEstoque(materialId, registroId) {
+  const m = ESTOQUE.porId.get(materialId);
+  if (!m) return null;
+  let s = m.saldo;
+  if (registroId) for (const x of ESTOQUE.movimentos) if (x.sistema === ESTOQUE.sistema && x.id === registroId && x.materialId === materialId && x.conta) s -= x.qtd;
+  return Math.round(s * 1000) / 1000;
+}
+const fQtd = (n, un) => n == null ? '—' : nf1.format(n).replace(/,0$/, '') + ' ' + (un || '');
+/* ---------- peças da manutenção (o mesmo bloco no DECONTO e no Controle) ----------
+   Do estoque: escolhe o material, sai do saldo e custa qtd × preço médio (o preço fica gravado na linha).
+   Comprada para esta manutenção: nome, qtd, valor e fornecedor; não mexe no estoque.
+   Total da manutenção = serviço + peças; é o "valor" que os relatórios já usam. */
+const centavos = n => Math.round(n * 100) / 100;
+const numPeca = x => nf1.format(x).replace(/,0$/, '');
+function htmlPeca(p) {
+  const v = x => (x != null ? esc(String(x).replace('.', ',')) : '');
+  return `<div class="peca" data-mat="${esc(p.materialId || '')}" data-preco="${p.preco != null ? p.preco : ''}" data-nome="${esc(p.nome || '')}" data-un="${esc(p.unidade || '')}">
+    <select class="p-origem" aria-label="De onde veio a peça">${ESTOQUE.ok || p.origem === 'estoque' ? '<option value="estoque">Do estoque</option>' : ''}<option value="comprada">Comprada para esta manutenção</option></select>
+    <select class="p-mat" aria-label="Peça do estoque"></select>
+    <input class="p-nome" list="lista-pecas" autocomplete="off" aria-label="Peça comprada" placeholder="Nome da peça" value="${p.origem === 'estoque' ? '' : esc(p.nome || '')}">
+    <input class="p-qtd" inputmode="decimal" autocomplete="off" aria-label="Quantidade" placeholder="Quantidade" value="${v(p.qtd)}">
+    <input class="p-valor" inputmode="decimal" autocomplete="off" aria-label="Valor da peça (R$)" placeholder="Valor (R$)" value="${v(p.valor)}">
+    <input class="p-forn" autocomplete="off" aria-label="Fornecedor" placeholder="Fornecedor" value="${esc(p.fornecedor || '')}">
+    <button class="lnk perigo" type="button" data-acao="tirar-peca">Tirar</button>
+    <div class="p-info"></div>
+  </div>`;
+}
+function addPeca(p, depois) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = htmlPeca(p);
+  const row = tmp.firstElementChild;
+  if (depois) depois.after(row); else $('#man-pecas').appendChild(row);
+  $('.p-origem', row).value = p.origem === 'estoque' ? 'estoque' : 'comprada';
+  return row;
+}
+function mostrarPecas(lista) {
+  $('#man-pecas').innerHTML = '';
+  lista.forEach(p => addPeca(p));
+  const nomes = new Set([...ESTOQUE.materiais.filter(m => !m.tanque && m.ativo !== false).map(m => m.nome), ...todos('manutencoes').flatMap(m => (Array.isArray(m.pecas) ? m.pecas : []).map(p => p && p.nome))].filter(Boolean));
+  $('#lista-pecas').innerHTML = [...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR')).slice(0, 300).map(n => `<option value="${esc(n)}">`).join('');
+  calcPecas();
+}
+function lerPecas() {
+  return $$('#man-pecas .peca').map(row => {
+    const origem = $('.p-origem', row).value, mat = $('.p-mat', row).value, m = ESTOQUE.porId.get(mat), igual = row.dataset.mat === mat;
+    const base = { origem, qtd: lerNumero($('.p-qtd', row).value) };
+    if (origem !== 'estoque') return Object.assign(base, { nome: $('.p-nome', row).value.trim(), valor: lerNumero($('.p-valor', row).value), fornecedor: $('.p-forn', row).value.trim() });
+    // a linha já gravada fica com o preço que tinha; peça nova ou trocada, com o preço médio de agora
+    const preco = igual && row.dataset.preco !== '' ? Number(row.dataset.preco) : m && m.precoMedio != null ? m.precoMedio : 0;
+    return Object.assign(base, { materialId: mat, nome: m ? m.nome : igual ? row.dataset.nome : '', unidade: m ? m.unidade : igual ? row.dataset.un : '', preco });
+  });
+}
+const custoPeca = p => (p.origem === 'estoque' ? (p.qtd > 0 ? p.qtd * (p.preco || 0) : 0) : p.valor > 0 ? p.valor : 0);
+function calcPecas() {
+  const editando = $('#f-man').dataset.editando, usado = new Map();
+  for (const row of $$('#man-pecas .peca')) {
+    const estoque = $('.p-origem', row).value === 'estoque', sel = $('.p-mat', row);
+    const atual = sel.options.length ? sel.value : row.dataset.mat;
+    const mats = ESTOQUE.materiais.filter(m => !m.tanque && (m.ativo !== false || m.id === atual)).sort(porNome);
+    let html = '<option value="">Escolha a peça</option>' + mats.map(m => `<option value="${esc(m.id)}">${esc(m.nome)}</option>`).join('');
+    if (atual && !mats.some(m => m.id === atual)) html += `<option value="${esc(atual)}">${esc(row.dataset.nome || 'Peça do estoque')}</option>`;
+    if (sel.dataset.html !== html) { sel.innerHTML = html; sel.dataset.html = html; sel.value = atual || ''; }
+    sel.hidden = !estoque;
+    ['.p-nome', '.p-valor', '.p-forn'].forEach(s => { $(s, row).hidden = estoque; });
+    const info = $('.p-info', row), q = lerNumero($('.p-qtd', row).value);
+    info.innerHTML = '';
+    if (!estoque || !sel.value) continue;
+    const tem = ESTOQUE.ok ? emEstoque(sel.value, editando) : null;
+    if (tem == null) { info.textContent = ESTOQUE.ok ? '' : 'Peça do estoque. Para ver quanto tem, abra pelo Painel Deconto.'; continue; }
+    // a mesma peça em duas linhas: a segunda vê o que a primeira já pegou
+    const disp = Math.round((tem - (usado.get(sel.value) || 0)) * 1000) / 1000;
+    if (q > 0) usado.set(sel.value, (usado.get(sel.value) || 0) + q);
+    row.dataset.disp = disp;
+    if (q > disp) info.innerHTML = `<span class="aviso">Em estoque: ${numPeca(disp)}, pediu ${numPeca(q)}.</span> ` + (disp > 0
+      ? `<button class="lnk" type="button" data-acao="dividir-peca">Dividir: ${numPeca(disp)} do estoque e ${numPeca(centavos(q - disp))} comprada</button>`
+      : '<button class="lnk" type="button" data-acao="peca-comprada">Marcar como comprada</button>');
+    else info.textContent = `Em estoque: ${fQtd(disp, (ESTOQUE.porId.get(sel.value) || {}).unidade)}.`;
+  }
+  const servico = lerNumero($('#man-valor').value), pecas = lerPecas(), tp = pecas.reduce((t, p) => t + custoPeca(p), 0), s = servico > 0 ? servico : 0;
+  $('#man-total').innerHTML = pecas.length || s ? `<span class="grande">${fR(centavos(s + tp))}</span><span class="info">total da manutenção${pecas.length ? `: serviço ${fR(s)} + peças ${fR(centavos(tp))}` : ''}</span>` : '';
+}
+/* lê e confere as peças do formulário; devolve a lista ou null (com o erro mostrado) */
+function pecasDoForm(f) {
+  const linhas = $$('#man-pecas .peca'), out = [];
+  for (const [i, p] of lerPecas().entries()) {
+    if (p.qtd == null && !p.materialId && !p.nome && p.valor == null) continue; // linha em branco
+    const erro = (sel, txt) => { const el = $(sel, linhas[i]); el.setAttribute('aria-invalid', 'true'); el.focus(); msgForm(f, txt, 'erro'); return null; };
+    if (p.origem === 'estoque' && !p.materialId) return erro('.p-mat', 'Escolha a peça do estoque.');
+    if (p.origem !== 'estoque' && !p.nome) return erro('.p-nome', 'Escreva o nome da peça comprada.');
+    if (!(p.qtd > 0)) return erro('.p-qtd', 'Escreva a quantidade da peça (ex.: 2 ou 1,5).');
+    if (p.origem !== 'estoque' && p.valor != null && (isNaN(p.valor) || p.valor < 0)) return erro('.p-valor', 'O valor da peça tem que ser só números, como 80,00.');
+    if (p.origem !== 'estoque') p.valor = p.valor || 0;
+    out.push(p);
+  }
+  return out;
+}
+function acaoPeca(acao, b) {
+  const row = b.closest('.peca');
+  if (acao === 'add-peca') { const r = addPeca({ origem: ESTOQUE.ok ? 'estoque' : 'comprada' }); calcPecas(); $(ESTOQUE.ok ? '.p-mat' : '.p-nome', r).focus(); return; }
+  if (!row) return;
+  const m = ESTOQUE.porId.get($('.p-mat', row).value), q = lerNumero($('.p-qtd', row).value);
+  if (acao === 'tirar-peca') row.remove();
+  else if (acao === 'dividir-peca' && m) {
+    const disp = Number(row.dataset.disp);
+    $('.p-qtd', row).value = numPeca(disp);
+    $('.p-valor', addPeca({ origem: 'comprada', nome: m.nome, qtd: centavos(q - disp) }, row)).focus();
+  } else if (acao === 'peca-comprada') {
+    $('.p-origem', row).value = 'comprada';
+    if (m && !$('.p-nome', row).value) $('.p-nome', row).value = m.nome;
+  }
+  calcPecas();
+}
+
 async function gravar(col, obj) {
   if (UI.somenteLeitura) throw { code: 'invalid_argument' };
   const antes = D[col].get(obj.id);
@@ -1748,7 +1895,7 @@ function renderManut() {
   $('#man-resumo').textContent = lista.length ? `${plural(lista.length, 'serviço', 'serviços')}, ${fR(total)}.` : '';
   tabela('#t-man', [['Data'], ['Caminhão'], ['Serviço'], ['O que foi feito'], ['Oficina'], ['Km', 'n'], ['Valor', 'n'], ['', 'n']], lista.map(m => `<tr>
     <td class="d">${esc(fmtData(m.data))}</td><td>${celCam(cam(m.caminhaoId))}</td><td class="forte">${esc(m.tipo)}</td>
-    <td>${esc(m.descricao || '')}${m.obs ? `<div class="fraco">${esc(m.obs)}</div>` : ''}</td><td>${esc(m.oficina || '')}</td>
+    <td>${esc(m.descricao || '')}${Array.isArray(m.pecas) && m.pecas.length ? `<div class="fraco">Peças: ${esc(m.pecas.map(p => p.nome + ' ×' + numPeca(p.qtd)).join(', '))}</div>` : ''}${m.obs ? `<div class="fraco">${esc(m.obs)}</div>` : ''}</td><td>${esc(m.oficina || '')}</td>
     <td class="n">${m.km ? esc(nf0.format(m.km)) : '—'}</td><td class="n forte">${esc(fR(m.valor))}</td>
     <td class="acoes">${acoesHTML('manutencoes', m.id)}</td></tr>`),
     lista.length > 1 ? `<tr><td colspan="6">Total</td><td class="n">${esc(fR(total))}</td><td></td></tr>` : '',
@@ -2033,6 +2180,7 @@ function limparForm(f, manter) {
   const msg = $('.f-msg', f);
   if (msg) { msg.textContent = ''; msg.className = 'f-msg'; }
   aposPreencher(f);
+  if (f.id === 'f-man') mostrarPecas([]);
 }
 function aposPreencher(f) {
   if (f.id === 'f-km') { ajustarHor(); calcKm(); }
@@ -2074,9 +2222,12 @@ function editar(col, id) {
     dados.usouMunck = (reg.usouMunck != null ? reg.usouMunck === true : reg.horimetroInicial != null) ? 'sim' : 'nao';
   }
   if (col === 'documentos') dados.temSeguro = reg.temSeguro === true ? 'sim' : 'nao';
+  // manutenção de antes das peças: o valor que tinha era tudo, vira o serviço
+  if (col === 'manutencoes' && dados.servico == null) dados.servico = reg.valor;
   preencherForm(f, dados);
   modoForm(f, id);
   aposPreencher(f);
+  if (col === 'manutencoes') mostrarPecas(Array.isArray(reg.pecas) ? reg.pecas : []);
 }
 
 async function salvarForm(f) {
@@ -2145,7 +2296,13 @@ async function salvarForm(f) {
     if (!o.data) return marcarErro(f, 'data', 'Escolha a data.');
     if (!o.caminhaoId) return marcarErro(f, 'caminhaoId', 'Escolha o caminhão.');
     if (o.km != null && isNaN(o.km)) return marcarErro(f, 'km', 'O km tem que ser só números.');
-    if (o.valor == null || isNaN(o.valor) || o.valor < 0) return marcarErro(f, 'valor', 'Escreva o valor (0 se foi na garantia).');
+    const pecas = pecasDoForm(f);
+    if (!pecas) return;
+    if (o.servico != null && (isNaN(o.servico) || o.servico < 0)) return marcarErro(f, 'servico', 'O serviço tem que ser só números, como 250,00 (0 se foi na garantia).');
+    if (o.servico == null && !pecas.length) return marcarErro(f, 'servico', 'Escreva o valor da mão de obra ou do serviço (0 se foi na garantia), ou lance as peças.');
+    o.servico = o.servico || 0;
+    o.pecas = pecas;
+    o.valor = centavos(o.servico + pecas.reduce((t, p) => t + custoPeca(p), 0)); // o total: é o que os relatórios usam
     if (o.proximaKm != null && isNaN(o.proximaKm)) return marcarErro(f, 'proximaKm', 'O km da próxima tem que ser só números.');
     if (o.proximaKm && o.km && o.proximaKm <= o.km) return marcarErro(f, 'proximaKm', 'A próxima precisa ser com mais km do que agora.');
     if (o.proximaData && o.proximaData <= o.data) return marcarErro(f, 'proximaData', 'A data da próxima precisa ser depois desta.');
@@ -2568,6 +2725,7 @@ function ligarEventos() {
         api('DELETE', 'api/usuarios/' + encodeURIComponent(b.dataset.usuario)).then(l => { usuariosServidor = l; toast('Acesso tirado.'); render(); }, er => toast((er && er.message) || msgErro(er), true));
         break;
       case 'restaurar': $('#arquivo-copia').click(); break;
+      case 'add-peca': case 'tirar-peca': case 'dividir-peca': case 'peca-comprada': acaoPeca(acao, b); break;
     }
   });
   document.addEventListener('change', e => {
@@ -2583,7 +2741,11 @@ function ligarEventos() {
       }
       return;
     }
-    if (f && f.id === 'f-man') { calcMan(); return; }
+    if (f && f.id === 'f-man') {
+      const row = el.closest('.peca'), m = row && ESTOQUE.porId.get($('.p-mat', row).value);
+      if (row && el.classList.contains('p-origem') && el.value === 'comprada' && m && !$('.p-nome', row).value) $('.p-nome', row).value = m.nome;
+      calcMan(); calcPecas(); return;
+    }
     if (['fa-quando', 'fa-cam', 'fa-cliente', 'fk-cam', 'fk-cliente', 'fk-pago', 'fk-mes', 'fm-cam', 'fm-mes', 'rel-cam'].includes(el.id)) { UI.confirmar = null; render(); }
     else if (el.id === 'p-ini' || el.id === 'p-fim') { UI.pIni = $('#p-ini').value; UI.pFim = $('#p-fim').value; render(); }
     else if (el.id === 'arquivo-copia') { const a = el.files && el.files[0]; el.value = ''; if (a) carregarCopia(a); }
@@ -2596,7 +2758,7 @@ function ligarEventos() {
     if (el.dataset.sugere === 'destino') abrirSugestoes(el);
     if (f.id === 'f-km') calcKm();
     else if (f.id === 'f-ag') calcAg();
-    else if (f.id === 'f-man') calcMan();
+    else if (f.id === 'f-man') { calcMan(); calcPecas(); }
   });
   // lista de sugestões do Destino: setas, Enter (escolhe e não envia o formulário), Esc
   document.addEventListener('keydown', e => {
