@@ -446,6 +446,62 @@ teste('DECONTO: Painel mostra tanque abaixo do mínimo e material no mínimo, e 
   assert.match(await texto(p, '#bloco-alertas'), /Óleo 15W40/);
 });
 
+// ---------- revisão final ----------
+teste('revisão: preço estranho gravado numa peça não vira HTML ao corrigir (DECONTO e Controle)', async () => {
+  const ctx = await logado();
+  const mid = await criarMaterial(ctx, { nome: 'Peça XSS' });
+  const ruim = '"><img src=x onerror="window.__xss=1">';
+  await camFrota(ctx, 'cam-xs', 'XSS1A00');
+  await pedir(ctx, 'PUT', '/frota/api/dados/manutencoes/man-xss', { data: '2026-11-05', veiculoTipo: 'caminhao', veiculoId: 'cam-xs', tipo: 'Outro', servico: 0, valor: 0, pecas: [{ origem: 'estoque', materialId: mid, nome: 'Peça XSS', qtd: 1, preco: ruim }] });
+  await pedir(ctx, 'PUT', '/operacao/api/dados/caminhoes/cam-xs', { placa: 'XSS1A00', situacao: 'ativo' });
+  await pedir(ctx, 'PUT', '/operacao/api/dados/manutencoes/man-xss', { data: '2026-11-05', caminhaoId: 'cam-xs', tipo: 'Outro', servico: 0, valor: 0, pecas: [{ origem: 'estoque', materialId: mid, nome: 'Peça XSS', qtd: 1, preco: ruim }] });
+  for (const rota of ['/frota/#manutencao', '/operacao/#manutencao']) {
+    const p = await abrir(ctx, rota);
+    await esperarServidor(p);
+    await p.waitForFunction(() => D.manutencoes.has('man-xss'), null, { timeout: 6000 });
+    await p.evaluate(() => editar('manutencoes', 'man-xss'));
+    await p.waitForSelector('#man-pecas .peca');
+    await p.waitForTimeout(300);
+    assert.strictEqual(await p.locator('#man-pecas img').count(), 0, rota + ': sem HTML injetado');
+    assert.strictEqual(await p.evaluate(() => window.__xss), undefined, rota + ': o script não rodou');
+  }
+});
+
+teste('revisão: dividir com quantidade quebrada (litros) não arredonda; o valor da peça comprada é o total', async () => {
+  const ctx = await logado();
+  const mid = await criarMaterial(ctx, { nome: 'Óleo de câmbio', categoria: 'Óleos', unidade: 'L' });
+  await entrada(ctx, mid, 2.25, 60);
+  await camFrota(ctx, 'cam-fr', 'FRC1A00');
+  const p = await abrirManutencao(ctx, 'caminhao:cam-fr');
+  await p.fill('#man-valor', '0');
+  const l0 = await novaPeca(p, 0, { mat: mid, qtd: '5' });
+  assert.match(await l0.locator('.p-info').textContent(), /Em estoque: 2,25, pediu 5/);
+  await l0.locator('[data-acao="dividir-peca"]').click();
+  assert.deepStrictEqual([await l0.locator('.p-qtd').inputValue(), await linha(p, 1).locator('.p-qtd').inputValue()], ['2,25', '2,75']);
+  assert.match(await linha(p, 1).locator('.p-valor').getAttribute('placeholder'), /Valor total/);
+  await linha(p, 1).locator('.p-valor').fill('170');
+  await limparToast(p);
+  await p.click('#f-man button[type="submit"]');
+  await esperarToast(p, 'Manutenção salva');
+  assert.strictEqual((await material(ctx, 'Óleo de câmbio')).saldo, 0);
+});
+
+teste('revisão: medição com data depois de hoje não é aceita', async () => {
+  const ctx = await logado();
+  const mid = await criarMaterial(ctx, { nome: 'Pneu 295/80 R22.5', categoria: 'Pneus' });
+  const p = await abrir(ctx, '/estoque/');
+  await esperarServidor(p);
+  await esperarTexto(p, '#mov-mat', 'Pneu 295/80 R22.5');
+  await p.selectOption('#mov-tipo', 'medicao');
+  await p.selectOption('#mov-mat', mid);
+  const amanha = await p.evaluate(() => { const d = new Date(); d.setDate(d.getDate() + 1); return iso(d); });
+  await p.fill('#mov-data', amanha);
+  await p.fill('#mov-qtd', '8');
+  await p.click('#f-mov button[type="submit"]');
+  await esperarTexto(p, '#f-mov .f-msg', 'depois de hoje');
+  assert.strictEqual((await saldos(ctx)).movimentos.filter(x => x.materialId === mid).length, 0);
+});
+
 // ---------- no fim ----------
 teste('nenhum erro de página (pageerror) em nenhum teste', async () => {
   assert.deepStrictEqual(errosDePagina, []);

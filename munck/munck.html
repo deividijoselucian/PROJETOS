@@ -990,21 +990,23 @@ function emEstoque(materialId, registroId) {
   if (registroId) for (const x of ESTOQUE.movimentos) if (x.sistema === ESTOQUE.sistema && x.id === registroId && x.materialId === materialId && x.conta) s -= x.qtd;
   return Math.round(s * 1000) / 1000;
 }
-const fQtd = (n, un) => n == null ? '—' : nf1.format(n).replace(/,0$/, '') + ' ' + (un || '');
+// até 3 casas: litros, kg e metros quebrados não arredondam (2,25 L fica 2,25)
+const nf3 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
+const fQtd = (n, un) => n == null ? '—' : nf3.format(n) + ' ' + (un || '');
 /* ---------- peças da manutenção (o mesmo bloco no DECONTO e no Controle) ----------
    Do estoque: escolhe o material, sai do saldo e custa qtd × preço médio (o preço fica gravado na linha).
    Comprada para esta manutenção: nome, qtd, valor e fornecedor; não mexe no estoque.
    Total da manutenção = serviço + peças; é o "valor" que os relatórios já usam. */
 const centavos = n => Math.round(n * 100) / 100;
-const numPeca = x => nf1.format(x).replace(/,0$/, '');
+const numPeca = x => nf3.format(x);
 function htmlPeca(p) {
   const v = x => (x != null ? esc(String(x).replace('.', ',')) : '');
-  return `<div class="peca" data-mat="${esc(p.materialId || '')}" data-preco="${p.preco != null ? p.preco : ''}" data-nome="${esc(p.nome || '')}" data-un="${esc(p.unidade || '')}">
+  return `<div class="peca" data-mat="${esc(p.materialId || '')}" data-preco="${p.preco != null && Number.isFinite(Number(p.preco)) ? Number(p.preco) : ''}" data-nome="${esc(p.nome || '')}" data-un="${esc(p.unidade || '')}">
     <select class="p-origem" aria-label="De onde veio a peça">${ESTOQUE.ok || p.origem === 'estoque' ? '<option value="estoque">Do estoque</option>' : ''}<option value="comprada">Comprada para esta manutenção</option></select>
     <select class="p-mat" aria-label="Peça do estoque"></select>
     <input class="p-nome" list="lista-pecas" autocomplete="off" aria-label="Peça comprada" placeholder="Nome da peça" value="${p.origem === 'estoque' ? '' : esc(p.nome || '')}">
     <input class="p-qtd" inputmode="decimal" autocomplete="off" aria-label="Quantidade" placeholder="Quantidade" value="${v(p.qtd)}">
-    <input class="p-valor" inputmode="decimal" autocomplete="off" aria-label="Valor da peça (R$)" placeholder="Valor (R$)" value="${v(p.valor)}">
+    <input class="p-valor" inputmode="decimal" autocomplete="off" aria-label="Valor total da peça (R$)" placeholder="Valor total (R$)" value="${v(p.valor)}">
     <input class="p-forn" autocomplete="off" aria-label="Fornecedor" placeholder="Fornecedor" value="${esc(p.fornecedor || '')}">
     <button class="lnk perigo" type="button" data-acao="tirar-peca">Tirar</button>
     <div class="p-info"></div>
@@ -1057,7 +1059,7 @@ function calcPecas() {
     if (q > 0) usado.set(sel.value, (usado.get(sel.value) || 0) + q);
     row.dataset.disp = disp;
     if (q > disp) info.innerHTML = `<span class="aviso">Em estoque: ${numPeca(disp)}, pediu ${numPeca(q)}.</span> ` + (disp > 0
-      ? `<button class="lnk" type="button" data-acao="dividir-peca">Dividir: ${numPeca(disp)} do estoque e ${numPeca(centavos(q - disp))} comprada</button>`
+      ? `<button class="lnk" type="button" data-acao="dividir-peca">Dividir: ${numPeca(disp)} do estoque e ${numPeca(q - disp)} comprada</button>`
       : '<button class="lnk" type="button" data-acao="peca-comprada">Marcar como comprada</button>');
     else info.textContent = `Em estoque: ${fQtd(disp, (ESTOQUE.porId.get(sel.value) || {}).unidade)}.`;
   }
@@ -1087,8 +1089,8 @@ function acaoPeca(acao, b) {
   if (acao === 'tirar-peca') row.remove();
   else if (acao === 'dividir-peca' && m) {
     const disp = Number(row.dataset.disp);
-    $('.p-qtd', row).value = numPeca(disp);
-    $('.p-valor', addPeca({ origem: 'comprada', nome: m.nome, qtd: centavos(q - disp) }, row)).focus();
+    $('.p-qtd', row).value = String(disp).replace('.', ',');
+    $('.p-valor', addPeca({ origem: 'comprada', nome: m.nome, qtd: Math.round((q - disp) * 1000) / 1000 }, row)).focus();
   } else if (acao === 'peca-comprada') {
     $('.p-origem', row).value = 'comprada';
     if (m && !$('.p-nome', row).value) $('.p-nome', row).value = m.nome;

@@ -474,6 +474,8 @@ async function salvarMov(f) {
   const m = S.porId.get(materialId);
   if (!data) return erroCampo(f, '#mov-data', 'Escolha a data.');
   if (!m) return erroCampo(f, '#mov-mat', 'Escolha o material ou o tanque.');
+  // medição no futuro deixaria tudo o que vem antes dela "dentro" dela: o saldo pararia
+  if (tipo === 'medicao' && data > hojeISO()) return erroCampo(f, '#mov-data', 'A medição não pode ter data depois de hoje.');
   if (tipo === 'medicao' ? q == null || isNaN(q) || q < 0 : !(q > 0)) return erroCampo(f, '#mov-qtd', tipo === 'medicao' ? 'Escreva quanto tem agora (0 se acabou).' : 'Escreva a quantidade (ex.: 3 ou 350,5).');
   const reg = { id: novoId('mv'), tipo, data, materialId, obs: $('#mov-obs').value.trim(), criadoEm: new Date().toISOString() };
   if (tipo === 'entrada') {
