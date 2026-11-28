@@ -142,11 +142,15 @@ document.getElementById('f-senha').addEventListener('submit', async e => {
 }
 
 /* A página do sistema (feita para o claude.ai, sem <head>) ganha o <head> com título, fontes
-   e window.PAINEL, que liga o modo servidor dela. */
+   e window.PAINEL, que liga o modo servidor dela. O título e as fontes só saem das linhas do
+   começo, antes do primeiro <style> (ou <script>): o JavaScript da página também escreve
+   <title> e <link> dentro de textos, e esses não podem ser mexidos. */
 const RESET = '*,*::before,*::after{box-sizing:border-box}body{margin:0}img{max-width:100%}[hidden]{display:none!important}';
 function paginaSistema(htmlSistema, u, s) {
   const cab = [];
-  const corpo = htmlSistema.replace(/<title>[\s\S]*?<\/title>\n?|<meta name="claude:[^>]*>\n?|<link rel="(?:preconnect|stylesheet)"[^>]*>\n?/g, m => { if (!m.includes('claude:')) cab.push(m.trim()); return ''; });
+  const fim = htmlSistema.search(/<(?:style|script)[\s>]/i);
+  const topo = fim < 0 ? htmlSistema : htmlSistema.slice(0, fim), resto = fim < 0 ? '' : htmlSistema.slice(fim);
+  const corpo = topo.replace(/<title>[\s\S]*?<\/title>\n?|<meta name="claude:[^>]*>\n?|<link rel="(?:preconnect|stylesheet)"[^>]*>\n?/g, m => { if (!m.includes('claude:')) cab.push(m.trim()); return ''; }) + resto;
   const painel = JSON.stringify({ usuario: u.usuario, nome: u.nome, admin: !!u.admin, sistema: s.id, nomeSistema: s.nome }).replace(/</g, '\\u003c');
   return '<!doctype html>\n<html lang="pt-BR">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
     + ICONE + '\n' + cab.join('\n') + `\n<style>${RESET}</style>\n<script>window.PAINEL = ${painel};</script>\n</head>\n<body>\n` + corpo + '\n</body>\n</html>\n';

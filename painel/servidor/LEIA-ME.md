@@ -19,7 +19,8 @@ mexe neles.
 - Processo no PM2: `painel-deconto`
 - Endereço: `https://painel.SEU-IP-COM-TRAÇOS.sslip.io` (o instalador mostra no fim)
 - Dados: `/opt/painel-deconto/data` (`frota.json`, `operacao.json`, as fotos e PDFs do DECONTO em
-  `arquivos/frota`, e uma cópia por dia de cada sistema em `copias`, guardando as últimas 30)
+  `arquivos/frota`, os PDFs apagados por 30 dias em `lixeira/frota`, e uma cópia por dia de cada
+  sistema em `copias`, guardando as últimas 30)
 - Nenhum pacote do npm: o programa usa só o Node.js.
 
 ## 1. Preparar a VM na Locaweb
@@ -61,6 +62,10 @@ Ele só usa a carga se o DECONTO do servidor ainda estiver vazio; se já tiver d
 deixado de lado e nada é apagado. No fim ele mostra quantos registros e arquivos entraram, por
 exemplo "Carga de DECONTO: 40 registros e 20 arquivos.". Depois disso pode apagar o arquivo da
 sua pasta: o servidor guarda uma cópia dele em `/opt/painel-deconto/data`.
+
+A carga entra inteira ou não entra: se algum registro ou PDF dela estiver com defeito, nada é
+gravado, o arquivo fica em `/opt/painel-deconto/carga` e o log diz qual registro deu problema.
+Corrija o arquivo (ou gere de novo no DECONTO) e reinicie o painel.
 
 Se esquecer a carga, dá para levar os dados depois pela tela: no DECONTO do painel, use
 "Carregar uma cópia" e escolha o arquivo.
@@ -116,6 +121,30 @@ sudo pm2 restart painel-deconto
 
 Se o endereço não abrir: confira as portas 80 e 443 no painel da Locaweb (redirecionamento e
 firewall) e rode o comando de instalação de novo (ele também tenta o HTTPS de novo).
+
+### O painel não sobe: "arquivo com defeito"
+
+Se o log mostrar `O Painel Deconto NÃO subiu: o arquivo ... está com defeito`, um arquivo de dados
+ficou cortado ou estragado (por exemplo, numa queda de energia ou com o disco cheio). O painel não
+sobe de propósito: se subisse vazio, apagaria os dados na primeira gravação. O arquivo não é
+mexido. Para voltar a cópia mais nova do sistema (o exemplo é do DECONTO; troque a data pela da
+cópia mais nova que aparecer no `ls`):
+
+```bash
+ls /opt/painel-deconto/data/copias
+sudo mv /opt/painel-deconto/data/frota.json /opt/painel-deconto/data/frota-com-defeito.json
+sudo cp /opt/painel-deconto/data/copias/frota-2026-11-27.json /opt/painel-deconto/data/frota.json
+sudo pm2 restart painel-deconto
+```
+
+O `usuarios.json` e o `sessoes.json` não têm cópia por dia; o log diz o que fazer com cada um.
+
+### Trazer de volta um PDF apagado
+
+O PDF apagado no DECONTO fica 30 dias em `/opt/painel-deconto/data/lixeira/frota` e só depois sai
+de vez. Para trazê-lo de volta, mova os dois arquivos dele (`arq-...` e `arq-....json`) para
+`/opt/painel-deconto/data/arquivos/frota`. O documento que aponta para ele (por exemplo, numa cópia
+antiga dos dados que você voltou) passa a abrir o PDF de novo.
 
 ## Usar outro endereço
 
