@@ -372,8 +372,8 @@ button.seg { border: 0; background: transparent; }
         <div class="campo"><label for="ag-cam">Caminhão</label><select id="ag-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
         <div class="campo"><label for="ag-mot">Motorista</label><select id="ag-mot" name="motoristaId" data-lista="mot-opc"></select></div>
         <div class="campo"><label for="ag-cliente">Cliente</label><input id="ag-cliente" name="cliente" list="lista-clientes" autocomplete="off"></div>
-        <div class="campo"><label for="ag-dest-a">Destino A</label><input id="ag-dest-a" name="destinoA" data-sugere="destino" autocomplete="off" placeholder="De onde sai"></div>
-        <div class="campo"><label for="ag-dest-b">Destino B</label><input id="ag-dest-b" name="destinoB" data-sugere="destino" autocomplete="off" placeholder="Para onde vai"></div>
+        <div class="campo"><label for="ag-dest-a">Destino A</label><input id="ag-dest-a" name="destinoA" data-sugere="destino" role="combobox" aria-autocomplete="list" aria-controls="sug-destino" aria-expanded="false" autocomplete="off" placeholder="De onde sai"></div>
+        <div class="campo"><label for="ag-dest-b">Destino B</label><input id="ag-dest-b" name="destinoB" data-sugere="destino" role="combobox" aria-autocomplete="list" aria-controls="sug-destino" aria-expanded="false" autocomplete="off" placeholder="Para onde vai"></div>
         <div class="campo"><label for="ag-serv">O que vai fazer</label><input id="ag-serv" name="servico" list="lista-servicos" autocomplete="off" placeholder="Ex.: Içar transformador"></div>
         <div class="campo"><label for="ag-sit">Situação</label><select id="ag-sit" name="situacao"></select></div>
         <div class="campo largo"><label for="ag-obs">Observação</label><input id="ag-obs" name="obs" autocomplete="off"></div>
@@ -424,8 +424,8 @@ button.seg { border: 0; background: transparent; }
         <div class="campo"><label for="km-cam">Caminhão</label><select id="km-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
         <div class="campo"><label for="km-mot">Motorista</label><select id="km-mot" name="motoristaId" data-lista="mot-opc"></select></div>
         <div class="campo"><label for="km-cliente">Cliente</label><input id="km-cliente" name="cliente" list="lista-clientes" autocomplete="off"></div>
-        <div class="campo"><label for="km-dest-a">Destino A</label><input id="km-dest-a" name="destinoA" data-sugere="destino" autocomplete="off" placeholder="De onde sai"></div>
-        <div class="campo"><label for="km-dest-b">Destino B</label><input id="km-dest-b" name="destinoB" data-sugere="destino" autocomplete="off" placeholder="Para onde vai"></div>
+        <div class="campo"><label for="km-dest-a">Destino A</label><input id="km-dest-a" name="destinoA" data-sugere="destino" role="combobox" aria-autocomplete="list" aria-controls="sug-destino" aria-expanded="false" autocomplete="off" placeholder="De onde sai"></div>
+        <div class="campo"><label for="km-dest-b">Destino B</label><input id="km-dest-b" name="destinoB" data-sugere="destino" role="combobox" aria-autocomplete="list" aria-controls="sug-destino" aria-expanded="false" autocomplete="off" placeholder="Para onde vai"></div>
         <div class="campo"><label for="km-valor">Valor (R$)</label><input id="km-valor" name="valor" data-tipo="moeda" inputmode="decimal" autocomplete="off" placeholder="Ex.: 1.500,00"></div>
         <div class="campo"><label for="km-pago">Pago?</label><select id="km-pago" name="pago"><option value="nao">Não, a receber</option><option value="sim">Sim, pago</option></select></div>
         <div class="campo"><label for="km-ini">Km inicial</label><input id="km-ini" name="kmInicial" data-tipo="int" inputmode="numeric" autocomplete="off"></div>
@@ -1156,11 +1156,20 @@ const semAcento = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]
 function sugestoesDestino(texto) {
   const q = semAcento(texto).trim();
   if (q.length < 2) return [];
-  const usados = [...new Set([...todos('km'), ...todos('agenda')].flatMap(x => [x.destinoA, x.destinoB]).map(v => String(v || '').trim()).filter(Boolean))];
-  const out = [];
-  for (const v of [...usados.filter(u => semAcento(u).includes(q)), ...CIDADES.filter(c => semAcento(c).startsWith(q)), ...CIDADES.filter(c => semAcento(c).includes(q))]) {
-    if (!out.includes(v)) out.push(v);
+  // usados: quem começa com o texto antes de quem só contém; dentro de cada grupo, o mais recente
+  // primeiro; sem repetir por acento/maiúscula; no máximo 5, para sempre sobrar lugar para cidades
+  const regs = [...todos('km'), ...todos('agenda')].sort((x, y) => String(y.data || '').localeCompare(String(x.data || '')));
+  const vistos = new Set(), comeca = [], contem = [];
+  for (const r of regs) for (const v0 of [r.destinoA, r.destinoB]) {
+    const v = String(v0 || '').trim(), k = semAcento(v);
+    if (!v || vistos.has(k) || !k.includes(q)) continue;
+    vistos.add(k);
+    (k.startsWith(q) ? comeca : contem).push(v);
+  }
+  const out = [...comeca, ...contem].slice(0, 5);
+  for (const c of [...CIDADES.filter(c => semAcento(c).startsWith(q)), ...CIDADES.filter(c => semAcento(c).includes(q))]) {
     if (out.length === 8) break;
+    if (!out.includes(c) && !vistos.has(semAcento(c))) out.push(c);
   }
   return out;
 }
@@ -1171,15 +1180,18 @@ function abrirSugestoes(el) {
   if (!SUG.itens.length) { fecharSugestoes(); return; }
   ul.replaceChildren(...SUG.itens.map((t, i) => {
     const li = document.createElement('li');
-    li.textContent = t; li.setAttribute('role', 'option'); li.dataset.i = String(i);
+    li.textContent = t; li.setAttribute('role', 'option'); li.dataset.i = String(i); li.id = 'sug-' + i;
     return li;
   }));
   const r = el.getBoundingClientRect();
   Object.assign(ul.style, { left: (r.left + window.scrollX) + 'px', top: (r.bottom + window.scrollY + 2) + 'px', width: r.width + 'px' });
   ul.hidden = false;
+  el.setAttribute('aria-expanded', 'true');
+  el.removeAttribute('aria-activedescendant');
 }
 function fecharSugestoes() {
   const ul = $('#sug-destino');
+  if (SUG.el) { SUG.el.setAttribute('aria-expanded', 'false'); SUG.el.removeAttribute('aria-activedescendant'); }
   ul.hidden = true; ul.replaceChildren();
   SUG.el = null; SUG.itens = []; SUG.marcado = -1;
 }
@@ -1189,6 +1201,7 @@ function marcarSugestao(i) {
   SUG.marcado = (i + lis.length) % lis.length;
   lis.forEach((li, j) => li.setAttribute('aria-selected', String(j === SUG.marcado)));
   lis[SUG.marcado].scrollIntoView({ block: 'nearest' });
+  if (SUG.el) SUG.el.setAttribute('aria-activedescendant', lis[SUG.marcado].id);
 }
 function escolherSugestao(i) {
   const el = SUG.el, v = SUG.itens[i];

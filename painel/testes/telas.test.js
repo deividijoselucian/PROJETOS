@@ -565,17 +565,17 @@ teste('Destino: puxa a cidade sem acento; destinos já usados vêm primeiro; Ent
   await a.fill('#km-dest-a', 'xanx');
   await a.waitForSelector('#sug-destino li');
   const l1 = await itens();
-  assert.strictEqual(l1[0], 'Pátio Deconto - Xanxerê', 'usado primeiro');
+  assert.ok(l1.includes('Pátio Deconto - Xanxerê') && l1.indexOf('Pátio Deconto - Xanxerê') < l1.indexOf('Xanxerê - SC'), 'usado antes das cidades');
   assert.ok(l1.includes('Xanxerê - SC'));
   assert.ok(l1.length <= 8);
   await a.fill('#km-dest-a', 'sao d');
   await a.waitForFunction(() => [...document.querySelectorAll('#sug-destino li')].some(x => x.textContent === 'São Domingos - SC'));
-  const antes = (await dados(ctx, 'operacao')).km.length;
+  await a.evaluate(() => { window.__envios = 0; document.addEventListener('submit', () => { window.__envios++; }, true); });
   await a.press('#km-dest-a', 'ArrowDown');
   await a.press('#km-dest-a', 'Enter');
   assert.match(await a.inputValue('#km-dest-a'), / - (PR|SC|RS)$/, 'Enter escolheu uma cidade');
   assert.strictEqual(await a.isVisible('#sug-destino'), false, 'lista fecha ao escolher');
-  assert.strictEqual((await dados(ctx, 'operacao')).km.length, antes, 'Enter não enviou o formulário');
+  assert.strictEqual(await a.evaluate(() => window.__envios), 0, 'Enter não enviou o formulário');
   await a.fill('#km-dest-b', '<b');
   await a.waitForSelector('#sug-destino li');
   assert.ok((await itens()).includes('<b>x</b> & y'), 'texto, não HTML');
@@ -588,6 +588,38 @@ teste('Destino: puxa a cidade sem acento; destinos já usados vêm primeiro; Ent
   await a.fill('#ag-dest-b', 'chapec');
   await a.click('#sug-destino li:has-text("Chapecó - SC")');
   assert.strictEqual(await a.inputValue('#ag-dest-b'), 'Chapecó - SC');
+});
+
+teste('Destino: leitor de tela; usados que começam e mais recentes primeiro, sem repetir, no máximo 5', async () => {
+  const ctx = await logado();
+  const a = await abrir(ctx, '/operacao/#operacao');
+  await esperarServidor(a);
+  await caminhoesDeTeste(a);
+  await a.evaluate(async () => {
+    const agora = new Date().toISOString();
+    for (let i = 1; i <= 9; i++) await gravar('km', { id: 'km-xanx-' + i, data: '2025-03-0' + i, caminhaoId: 'cam-sem', cliente: 'C', destinoA: 'Obra ' + i + ' - Ipumirim', kmInicial: i, kmFinal: i + 1, criadoEm: agora });
+    await gravar('km', { id: 'km-xanx-dup', data: '2025-01-01', caminhaoId: 'cam-sem', cliente: 'C', destinoA: 'OBRA 9 - IPUMIRIM', kmInicial: 1, kmFinal: 2, criadoEm: agora });
+    await gravar('km', { id: 'km-xanx-pat', data: '2024-06-01', caminhaoId: 'cam-sem', cliente: 'C', destinoB: 'Ipumirim - Pátio', kmInicial: 1, kmFinal: 2, criadoEm: agora });
+  });
+  const campo = '#km-dest-a';
+  assert.strictEqual(await a.getAttribute(campo, 'role'), 'combobox');
+  assert.strictEqual(await a.getAttribute(campo, 'aria-expanded'), 'false');
+  await a.fill(campo, 'ipumi');
+  await a.waitForSelector('#sug-destino li');
+  const l = await a.$$eval('#sug-destino li', x => x.map(y => y.textContent));
+  assert.strictEqual(l[0], 'Ipumirim - Pátio', 'usado que começa com o texto vem antes');
+  assert.strictEqual(l[1], 'Obra 9 - Ipumirim', 'depois o mais recente');
+  assert.ok(!l.includes('OBRA 9 - IPUMIRIM'), 'sem repetir por acento ou maiúscula');
+  assert.ok(l.filter(x => x !== 'Ipumirim - SC').length <= 5, 'no máximo 5 usados');
+  assert.ok(l.includes('Ipumirim - SC'), 'a cidade sempre aparece');
+  assert.strictEqual(await a.getAttribute(campo, 'aria-expanded'), 'true');
+  await a.press(campo, 'ArrowDown');
+  const ativo = await a.getAttribute(campo, 'aria-activedescendant');
+  assert.ok(ativo, 'aria-activedescendant aponta o item marcado');
+  assert.strictEqual(await a.$eval('#' + ativo, li => li.getAttribute('aria-selected')), 'true');
+  await a.press(campo, 'Escape');
+  assert.strictEqual(await a.getAttribute(campo, 'aria-expanded'), 'false');
+  assert.strictEqual(await a.getAttribute(campo, 'aria-activedescendant'), null);
 });
 
 teste('Destino: sugestoesDestino ordena quem começa antes de quem contém', async () => {
