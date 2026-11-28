@@ -15,6 +15,9 @@ DEST="$TMP/painel-deconto"
 mkdir -p "$DEST/publico"
 cp "$AQUI/servidor.js" "$AQUI/sistemas.js" "$AQUI/banco.js" "$AQUI/paginas.js" \
    "$AQUI/instalar-no-servidor.sh" "$AQUI/.env.example" "$AQUI/LEIA-ME.md" "$DEST/"
+# Estoque: o cálculo do saldo e a página
+cp "$AQUI/estoque.js" "$DEST/"
+cp "$RAIZ/estoque/estoque.html" "$DEST/publico/estoque.html"
 cp "$RAIZ/sistema-carlise/frota.html" "$DEST/publico/frota.html"
 cp "$RAIZ/munck/munck.html" "$DEST/publico/operacao.html"
 cp "$RAIZ/rh/rh.html" "$DEST/publico/rh.html"

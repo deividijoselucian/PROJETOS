@@ -18,9 +18,12 @@ com gráficos e o extrato de cada caminhão.
    1.500 km num dia.
 3. **Abastecer**: diesel S10, S500 ou Arla 32, litros, valor, km do hodômetro, posto, e se
    completou o tanque. Com tanque cheio, calcula o km/l de um tanque ao outro e marca o
-   tanque que ficou abaixo da média do caminhão.
-4. **Manutenção**: serviço, valor, oficina, km, e a próxima por km ou por data. A lista de
-   próximas manutenções avisa quando está perto ou vencida.
+   tanque que ficou abaixo da média do caminhão. No Painel Deconto, "Onde abasteceu" escolhe o posto
+   ou um tanque do Estoque: os litros saem do tanque e o valor vem pelo preço médio das compras.
+4. **Manutenção**: serviço, mão de obra / serviço, peças, oficina, km, e a próxima por km ou por data.
+   Cada peça vem "do estoque" (no Painel Deconto; sai do saldo do Estoque) ou é "comprada para esta
+   manutenção"; o total (serviço + peças) é o que os relatórios usam. A lista de próximas manutenções
+   avisa quando está perto ou vencida. O Painel também avisa tanque abaixo do mínimo e material no mínimo.
 5. **Documentos**: os documentos de cada caminhão e de cada semirreboque, separados por
    veículo: CRLV, IPVA, seguro, RNTRC, aferição do tacógrafo, AET, CIV, CIPP, licença
    ambiental, rastreador, extintor, laudo de opacidade ou outro. Cada um tem número,

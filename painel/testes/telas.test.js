@@ -116,7 +116,8 @@ teste('login e tela inicial mostram os 6 cartões; DECONTO abre pelo cartão e m
   await p.click('#ir');
   await p.waitForURL(BASE + '/');
   const nomes = await p.$$eval('.cartao h2', hs => hs.map(h => h.textContent.trim()));
-  assert.deepStrictEqual(nomes, ['DECONTO', 'Controle de Operação', 'RH', 'Financeiro', 'Cargas', 'Monitoramento de Frota']);
+  assert.deepStrictEqual(nomes, ['DECONTO', 'Controle de Operação', 'RH', 'Financeiro', 'Cargas', 'Monitoramento de Frota', 'Estoque']);
+  assert.strictEqual(await p.locator('a.cartao[href="/estoque/"]').count(), 1);
   assert.strictEqual(await p.locator('a.cartao[href="/frota/"]').count(), 1);
   assert.strictEqual(await p.locator('a.cartao[href="/operacao/"]').count(), 1);
   assert.strictEqual(await p.locator('a.cartao[href="/rh/"]').count(), 1);
@@ -269,7 +270,7 @@ teste('"← Painel Deconto" volta para a tela inicial e "Sair" leva para /entrar
     assert.strictEqual(await link.getAttribute('href'), '/');
     await link.click();
     await p.waitForURL(BASE + '/');
-    assert.strictEqual(await p.locator('.cartao').count(), 6, 'tela inicial depois de ' + sis);
+    assert.strictEqual(await p.locator('.cartao').count(), 7, 'tela inicial depois de ' + sis);
     await p.goto(`${BASE}/${sis}/`);
     await esperarServidor(p);
     await p.click('#quem [data-acao="sair"]');

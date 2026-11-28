@@ -26,4 +26,11 @@ module.exports = [
   { id: 'financeiro', numero: 4, nome: 'Financeiro', pronto: false, descricao: 'Em desenvolvimento.', cor: '#8A5300', cols: [] },
   { id: 'cargas', numero: 5, nome: 'Cargas', pronto: false, descricao: 'Em desenvolvimento.', cor: '#BA2E29', cols: [] },
   { id: 'monitoramento', numero: 6, nome: 'Monitoramento de Frota', pronto: false, descricao: 'Em desenvolvimento.', cor: '#0E7490', cols: [] },
+  {
+    id: 'estoque', numero: 7, nome: 'Estoque', pronto: true,
+    descricao: 'Materiais, pneus e tanques de diesel: compras, saídas, medições, saldo e avisos. Ligado ao DECONTO e ao Controle.',
+    pagina: 'estoque.html', arquivos: false, extras: [], cor: '#4D7C0F',
+    // o saldo não é guardado: o servidor calcula (estoque.js) com o Abastecimento e as Manutenções dos outros
+    cols: ['materiais', 'movimentos'],
+  },
 ];

@@ -36,8 +36,10 @@ compartilhado com o DECONTO.
 4. **Documento**: uma linha por caminhão com o número do documento, o vencimento, se tem
    seguro e o vencimento do seguro. O Painel avisa 30 dias antes de vencer.
 5. **Manutenção**: data, caminhão, serviço (do caminhão ou do munck: hidráulico, cabo de aço,
-   lubrificação, inspeção e laudo NR-11/NR-12, estrutura), o que foi feito, oficina, km, valor e
-   a próxima por km ou por data. "Próximas manutenções" mostra a última de cada serviço em cada
+   lubrificação, inspeção e laudo NR-11/NR-12, estrutura), o que foi feito, oficina, km, mão de obra /
+   serviço, peças e a próxima por km ou por data. No Painel Deconto, cada peça vem "do estoque" (sai
+   do saldo do Estoque, pelo preço médio) ou "comprada para esta manutenção"; o total (serviço + peças)
+   é o que entra no relatório. "Próximas manutenções" mostra a última de cada serviço em cada
    caminhão com o que falta; a aba mostra quantas estão vencidas.
 6. **Relatório**: período (este mês, mês passado, últimos 30 dias, este ano ou datas
    escolhidas) e caminhão. Números: km rodados, faturado, a receber, horas de munck, dias

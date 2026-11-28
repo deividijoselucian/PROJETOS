@@ -1,0 +1,777 @@
+<title>Estoque</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+:root {
+  /* Estoque: a mesma barra escura e os mesmos cartões do Controle; verde-oliva do cartão do Estoque. */
+  --bg: #F2F4EE; --surface: #FFFFFF; --sunk: #E6EADF; --ink: #171A14; --muted: #555C4E; --line: #D6DBCD;
+  --accent: #4D7C0F; --accent-hover: #3F6212; --accent-ink: #FFFFFF; --accent-soft: #E7F0D8;
+  --ok: #0B7550; --ok-soft: #DBF2E7; --warn: #8A5300; --warn-soft: #FBEDD3; --bad: #BA2E29; --bad-soft: #FBE2E0;
+  --barra: #1A1D17; --barra-ink: #F3F5F0; --barra-muted: #ABB2A3; --barra-line: #2F3529; --faixa: #F2C230;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sombra: 0 1px 2px rgba(23, 26, 20, 0.06), 0 6px 18px rgba(23, 26, 20, 0.05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10120E; --surface: #181B15; --sunk: #21251C; --ink: #ECEFE7; --muted: #A2AA98; --line: #2F3529;
+    --accent: #A3D977; --accent-hover: #BDE89A; --accent-ink: #10120E; --accent-soft: #26331A;
+    --ok: #4FCB96; --ok-soft: #12372A; --warn: #F1B65C; --warn-soft: #3A2A0F; --bad: #FF8F87; --bad-soft: #421D1C;
+    --barra: #0B0C09; --barra-line: #24291F; --sombra: none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10120E; --surface: #181B15; --sunk: #21251C; --ink: #ECEFE7; --muted: #A2AA98; --line: #2F3529;
+  --accent: #A3D977; --accent-hover: #BDE89A; --accent-ink: #10120E; --accent-soft: #26331A;
+  --ok: #4FCB96; --ok-soft: #12372A; --warn: #F1B65C; --warn-soft: #3A2A0F; --bad: #FF8F87; --bad-soft: #421D1C;
+  --barra: #0B0C09; --barra-line: #24291F; --sombra: none; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; min-height: 100vh; }
+h1, h2, h3, p { margin: 0; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.barra { position: sticky; top: 0; z-index: 5; background: var(--barra); color: var(--barra-ink); border-bottom: 1px solid var(--barra-line); }
+.barra-in, .wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.barra-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-block: 10px; }
+.marca { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.marca svg { width: 34px; height: 34px; flex: none; }
+.marca-nome { font-family: var(--display); font-weight: 700; font-size: 1.35rem; line-height: 1.1; }
+.marca-sub { font-size: 0.8rem; color: var(--barra-muted); line-height: 1.2; }
+.barra-dir { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; min-width: 0; margin-left: auto; }
+.quem { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--barra-muted); white-space: nowrap; }
+.quem button, .quem a { font: 600 0.85rem var(--body); color: var(--barra-ink); background: transparent; border: 1px solid var(--barra-line); border-radius: 8px; padding: 5px 10px; min-height: 34px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+.quem button:hover, .quem a:hover { border-color: var(--faixa); }
+.estado { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: var(--barra-muted); border: 1px solid var(--barra-line); border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+.estado::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--barra-muted); }
+.estado[data-modo="nuvem"]::before { background: #4FCB96; }
+.estado[data-modo="erro"]::before { background: #FF8F87; }
+@media (max-width: 520px) { .estado { font-size: 0; gap: 0; padding: 7px; } .marca-sub, .quem #quem-nome, .quem .longo { display: none; } }
+.wrap { padding-block: 20px 64px; display: flex; flex-direction: column; gap: 20px; }
+.h1 { font-family: var(--display); font-weight: 700; font-size: 1.9rem; line-height: 1.1; }
+.h2 { font-family: var(--display); font-weight: 600; font-size: 1.35rem; line-height: 1.15; }
+.hint { color: var(--muted); font-size: 0.92rem; }
+.bloco { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.bloco-cab { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: end; justify-content: space-between; }
+.bloco-cab > div:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.avisos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.avisos li { border-radius: 10px; padding: 9px 12px; font-weight: 600; border-left: 5px solid currentColor; }
+.avisos li.warn { background: var(--warn-soft); color: var(--warn); }
+.avisos li.bad { background: var(--bad-soft); color: var(--bad); }
+.tanques { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.tanque { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--sombra); min-width: 0; }
+.tq-cab { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tq-cab strong { font-family: var(--display); font-size: 1.3rem; }
+.tq-litros { font-family: var(--display); font-weight: 700; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+.nivel { position: relative; height: 16px; border-radius: 8px; background: var(--sunk); overflow: hidden; }
+.nivel span { position: absolute; inset: 0 auto 0 0; background: var(--ok); border-radius: 8px; }
+.nivel span.baixo { background: var(--warn); }
+.nivel span.vazio { background: var(--bad); }
+.nivel i { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: 0.55; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; background: var(--sunk); color: var(--muted); line-height: 1.5; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.warn { background: var(--warn-soft); color: var(--warn); }
+.pill.bad { background: var(--bad-soft); color: var(--bad); }
+.tabela-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.tabela { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+.tabela th, .tabela td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tabela th { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); background: var(--sunk); white-space: nowrap; }
+.tabela td.n, .tabela th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tabela td.d { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tabela tbody tr:last-child td { border-bottom: 0; }
+.tabela td.acoes { white-space: nowrap; text-align: right; }
+.tabela .fraco { color: var(--muted); font-size: 0.86rem; }
+.tabela .forte { font-weight: 700; }
+.tabela tr.neg td.saldo { color: var(--bad); }
+.tabela tr.apagado td { color: var(--muted); }
+.tabela tr.escolhido td { background: var(--accent-soft); }
+.vazio-txt { color: var(--muted); padding: 18px; text-align: center; }
+.btn { font: 700 0.98rem var(--body); border-radius: 9px; padding: 10px 18px; min-height: 44px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.ghost:hover { background: var(--accent-soft); }
+.btn.small { font-size: 0.88rem; padding: 7px 12px; min-height: 40px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.lnk { font: 600 0.9rem var(--body); background: none; border: 0; color: var(--accent); cursor: pointer; padding: 8px 6px; min-height: 36px; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.lnk.perigo { color: var(--bad); }
+.acoes-linha { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.ficha { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--sombra); scroll-margin-top: 90px; }
+.ficha.editando { border: 2px dashed var(--accent); }
+.ficha-cab { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 14px; }
+.campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.campo.largo { grid-column: 1 / -1; }
+.campo > label { font-weight: 600; font-size: 0.9rem; }
+.campo .dica { font-size: 0.82rem; color: var(--muted); }
+input[type="text"], input[type="date"], input[type="time"], input:not([type]), select {
+  font: inherit; font-size: 1rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 9px 11px; min-height: 44px; width: 100%; min-width: 0;
+}
+select { cursor: pointer; }
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); background: var(--surface); }
+[aria-invalid="true"] { border-color: var(--bad) !important; }
+.filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filtros select, .filtros input { width: auto; max-width: 100%; min-height: 40px; padding: 7px 10px; font-size: 0.92rem; background: var(--surface); }
+.f-msg { font-weight: 600; font-size: 0.95rem; }
+.f-msg.erro { color: var(--bad); }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 20; background: var(--ink); color: var(--bg); font-weight: 600; padding: 11px 18px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.22); max-width: calc(100% - 32px); width: max-content; }
+.toast.erro { background: var(--bad); color: #FFFFFF; }
+@media (pointer: coarse) { .lnk { min-height: 44px; padding: 10px 8px; } .btn.small, .filtros select, .filtros input { min-height: 44px; } }
+@media (max-width: 560px) { .h1 { font-size: 1.6rem; } .ficha { padding: 14px; } .tabela th, .tabela td { padding: 8px; } }
+</style>
+
+<header class="barra">
+  <div class="barra-in">
+    <div class="marca">
+      <svg viewBox="0 0 34 34" aria-hidden="true">
+        <rect x="0.5" y="0.5" width="33" height="33" rx="7" fill="#4D7C0F"/>
+        <path d="M6 12.5L17 7l11 5.5V27H6z" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linejoin="round"/>
+        <rect x="10" y="17" width="6" height="5" fill="#F2C230"/><rect x="18" y="17" width="6" height="5" fill="#FFFFFF"/><rect x="14" y="22" width="6" height="5" fill="#F2C230"/>
+      </svg>
+      <div><div class="marca-nome">Estoque</div><div class="marca-sub">Materiais, pneus e tanques de diesel</div></div>
+    </div>
+    <div class="barra-dir">
+      <span class="quem" id="quem" hidden><a href="/" title="Voltar ao Painel Deconto">← Painel<span class="longo">&nbsp;Deconto</span></a><span id="quem-nome"></span><button type="button" data-acao="sair">Sair</button></span>
+      <span class="estado" id="estado" data-modo="carregando" role="status">Carregando…</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="bloco" id="sem-painel" hidden>
+    <h1 class="h1">Estoque</h1>
+    <p>O Estoque funciona dentro do Painel Deconto: o saldo é calculado no servidor, junto com o DECONTO e o Controle de Operação.</p>
+  </section>
+
+  <div id="tudo" hidden>
+  <div class="bloco" style="gap:4px"><h1 class="h1">Estoque</h1><p class="hint">O saldo é calculado sozinho: compras, saídas e medições daqui, mais o diesel abastecido no DECONTO e as peças usadas nas manutenções do DECONTO e do Controle.</p></div>
+
+  <section class="bloco" id="bloco-avisos" hidden>
+    <h2 class="h2">Avisos</h2>
+    <ul class="avisos" id="avisos"></ul>
+  </section>
+
+  <section class="bloco" id="bloco-tanques" hidden>
+    <h2 class="h2">Tanques</h2>
+    <div class="tanques" id="tanques"></div>
+  </section>
+
+  <form class="ficha" id="f-mov" novalidate>
+    <div class="ficha-cab"><h2 class="h2">Lançar no estoque</h2></div>
+    <div class="campos">
+      <div class="campo"><label for="mov-tipo">O que aconteceu</label><select id="mov-tipo"><option value="entrada">Compra (entrada)</option><option value="saida">Saída avulsa</option><option value="medicao">Medição ou contagem</option></select></div>
+      <div class="campo"><label for="mov-data">Data</label><input type="date" id="mov-data"></div>
+      <div class="campo" data-so="medicao"><label for="mov-hora">Hora</label><input type="time" id="mov-hora"></div>
+      <div class="campo"><label for="mov-mat">Material ou tanque</label><select id="mov-mat"></select></div>
+      <div class="campo"><label for="mov-qtd" id="mov-qtd-rot">Quantidade</label><input id="mov-qtd" inputmode="decimal" autocomplete="off"><span class="dica" id="mov-qtd-dica"></span></div>
+      <div class="campo" data-so="entrada"><label for="mov-vu">Valor unitário (R$)</label><input id="mov-vu" inputmode="decimal" autocomplete="off" placeholder="Ex.: 5,89"></div>
+      <div class="campo" data-so="entrada"><label for="mov-forn">Fornecedor</label><input id="mov-forn" autocomplete="off" list="lista-fornecedores"></div>
+      <div class="campo" data-so="entrada"><label for="mov-nota">Nota</label><input id="mov-nota" autocomplete="off"></div>
+      <div class="campo" data-so="saida"><label for="mov-cam">Caminhão (opcional)</label><select id="mov-cam"></select><span class="dica">Não entra no custo do caminhão. Para isso, lance como peça na Manutenção.</span></div>
+      <div class="campo" data-so="saida"><label for="mov-quem">Quem pegou</label><input id="mov-quem" autocomplete="off"></div>
+      <div class="campo largo"><label for="mov-obs">Observação</label><input id="mov-obs" autocomplete="off"></div>
+    </div>
+    <div class="acoes-linha"><button class="btn" type="submit">Salvar</button><span class="f-msg" role="status"></span></div>
+  </form>
+
+  <section class="bloco">
+    <div class="bloco-cab">
+      <div><h2 class="h2">Saldo</h2><p class="hint" id="saldo-resumo"></p></div>
+      <div class="filtros">
+        <select id="f-cat" aria-label="Categoria"></select>
+        <input id="busca" type="text" placeholder="Buscar" aria-label="Buscar material" autocomplete="off">
+        <button class="btn ghost small" type="button" data-acao="excel">Baixar no Excel (.xlsx)</button>
+        <button class="btn small" type="button" data-acao="novo-mat">Cadastrar material ou tanque</button>
+      </div>
+    </div>
+    <div class="tabela-box"><table class="tabela" id="t-saldo"></table></div>
+  </section>
+
+  <form class="ficha" id="f-mat" novalidate hidden>
+    <div class="ficha-cab"><h2 class="h2" id="mat-titulo">Cadastrar material ou tanque</h2></div>
+    <div class="campos">
+      <div class="campo"><label for="mat-nome">Nome</label><input id="mat-nome" autocomplete="off" placeholder="Ex.: Filtro de óleo, Pneu 295/80 R22.5"></div>
+      <div class="campo"><label for="mat-cat">Categoria</label><select id="mat-cat"></select></div>
+      <div class="campo"><label for="mat-un">Unidade</label><select id="mat-un"></select></div>
+      <div class="campo"><label for="mat-local">Local</label><input id="mat-local" autocomplete="off" placeholder="Ex.: Prateleira A"></div>
+      <div class="campo"><label for="mat-min">Mínimo</label><input id="mat-min" inputmode="decimal" autocomplete="off"><span class="dica">Avisa quando chegar nele.</span></div>
+      <div class="campo" data-tanque><label for="mat-cap">Capacidade do tanque (L)</label><input id="mat-cap" inputmode="decimal" autocomplete="off"><span class="dica">Em branco se não for tanque.</span></div>
+      <div class="campo" data-tanque><label for="mat-comb">Combustível</label><select id="mat-comb"></select></div>
+    </div>
+    <div class="acoes-linha"><button class="btn" type="submit">Salvar</button><button class="btn ghost" type="button" data-acao="fechar-mat">Cancelar</button><span class="f-msg" role="status"></span></div>
+  </form>
+
+  <section class="bloco" id="bloco-movs" hidden>
+    <div class="bloco-cab"><div><h2 class="h2" id="movs-titulo">Histórico</h2><p class="hint">De onde veio cada entrada e saída. O que tem data igual ou antes de uma medição já está dentro dela.</p></div><button class="btn ghost small" type="button" data-acao="fechar-movs">Fechar</button></div>
+    <div class="tabela-box"><table class="tabela" id="movs"></table></div>
+  </section>
+  </div>
+</main>
+<datalist id="lista-fornecedores"></datalist>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+'use strict';
+/* ====================================================================
+   Estoque do Painel Deconto. O saldo não é guardado aqui: o servidor calcula
+   (GET api/saldos) com o que este sistema grava (materiais e movimentos) e com o
+   Abastecimento e as Manutenções do DECONTO e do Controle. Qualquer gravação nos
+   três chega pelos avisos ao vivo e a página busca os saldos de novo.
+   ==================================================================== */
+const PAINEL = window.PAINEL || null;
+const CATEGORIAS = ['Peças', 'Filtros', 'Óleos', 'Pneus', 'EPI', 'Combustível', 'Outros'];
+const UNIDADES = ['un', 'L', 'kg', 'm'];
+const COMBUSTIVEIS = ['Diesel S10', 'Diesel S500', 'Arla 32'];
+const SITUACAO = { ok: ['ok', 'Ok'], baixo: ['warn', 'Baixo'], zerado: ['bad', 'Zerado'], negativo: ['bad', 'Negativo'] };
+const CAMPOS_MAT = ['nome', 'categoria', 'unidade', 'local', 'minimo', 'capacidade', 'combustivel', 'ativo', 'criadoEm'];
+const S = { materiais: [], movimentos: [], caminhoes: [], porId: new Map() };
+const UI = { mat: '', confirmar: '', modo: 'carregando', semConexao: false };
+
+/* ---------- utilidades ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function novoId(prefixo) { return prefixo + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+const hojeISO = () => iso(new Date());
+const agoraHM = () => { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+const fmtData = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '';
+const nf = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+const nf2 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const fR = n => n == null ? '—' : brl.format(n);
+const fQ = (n, un) => n == null ? '—' : nf.format(n) + (un ? ' ' + un : '');
+const plural = (n, um, varios) => nf.format(n) + ' ' + (n === 1 ? um : varios);
+function lerNumero(txt) {
+  let s = String(txt ?? '').trim().replace(/\s|R\$/g, '');
+  if (!s) return null;
+  if (/[^\d.,-]/.test(s)) return NaN;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+function mostraPlaca(p) { return /^[A-Z]{3}\d{4}$/.test(p || '') ? p.slice(0, 3) + '-' + p.slice(3) : p || ''; }
+const nomeTanque = n => (/^tanque\b/i.test(n) ? n : 'Tanque ' + n);
+const ativos = () => S.materiais.filter(m => m.ativo !== false);
+const temMovimento = id => S.movimentos.some(x => x.materialId === id);
+// só os campos do cadastro: o que o servidor calcula (saldo, situação...) não vai para o registro
+const cru = m => Object.fromEntries(CAMPOS_MAT.filter(k => m[k] !== undefined).map(k => [k, m[k]]));
+let toastTimer = null;
+function toast(txt, erro) {
+  const t = $('#toast');
+  t.textContent = txt;
+  t.className = 'toast' + (erro ? ' erro' : '');
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, erro ? 7000 : 3500);
+}
+function msgForm(f, txt, tipo) { const m = $('.f-msg', f); m.textContent = txt; m.className = 'f-msg ' + (tipo || ''); }
+function erroCampo(f, sel, txt) { const el = $(sel); el.setAttribute('aria-invalid', 'true'); el.focus(); msgForm(f, txt, 'erro'); return false; }
+
+/* ---------- servidor ---------- */
+async function api(metodo, caminho, corpo) {
+  let r;
+  try {
+    r = await fetch(caminho, { method: metodo, credentials: 'same-origin', headers: corpo !== undefined ? { 'Content-Type': 'application/json' } : {}, body: corpo !== undefined ? JSON.stringify(corpo) : undefined });
+  } catch (e) { throw { code: 'servidor' }; }
+  if (r.status === 401) { location.href = '/entrar'; throw { code: 'sessao' }; }
+  if (r.status === 403) { location.href = '/'; throw { code: 'proibido' }; }
+  let dados = null;
+  try { dados = await r.json(); } catch (e) { dados = null; }
+  if (!r.ok) throw { code: 'servidor', message: dados && dados.erro };
+  return dados;
+}
+const msgErro = e => (e && e.message) || 'O servidor não respondeu. Confira a internet e tente de novo.';
+async function lerSaldos() {
+  const d = await api('GET', 'api/saldos');
+  S.materiais = (d.materiais || []).map(m => Object.assign(m, { nome: String(m.nome || '(sem nome)') })); // registro sem nome não quebra a tela
+  S.movimentos = d.movimentos || [];
+  S.caminhoes = d.caminhoes || [];
+  S.porId = new Map(S.materiais.map(m => [m.id, m]));
+  UI.modo = 'servidor';
+  UI.semConexao = false;
+  render();
+}
+let pedido = null;
+function pedirSaldos() { clearTimeout(pedido); pedido = setTimeout(() => lerSaldos().catch(semConexao), 250); }
+function semConexao(e) {
+  if (e && (e.code === 'sessao' || e.code === 'proibido')) return;
+  UI.semConexao = true;
+  renderEstado();
+}
+/* Atrás do nginx, enquanto o Node reinicia, a reconexão recebe 502 e o navegador desiste de vez:
+   abrimos outra daqui a 3 s. Uma conexão só por vez. */
+let avisosAoVivo = null, reabrir = null;
+function ouvirServidor() {
+  clearTimeout(reabrir);
+  reabrir = null;
+  if (avisosAoVivo) avisosAoVivo.close();
+  const es = avisosAoVivo = new EventSource('api/eventos');
+  let abriu = false;
+  es.onmessage = () => pedirSaldos();
+  es.onopen = () => { abriu = true; lerSaldos().catch(semConexao); };
+  es.onerror = () => {
+    UI.semConexao = true;
+    renderEstado();
+    if (!abriu) api('GET', 'api/saldos').catch(() => {}); // a entrada pode ter vencido: a API leva para o login
+    if (es.readyState === EventSource.CLOSED && es === avisosAoVivo && !reabrir) reabrir = setTimeout(ouvirServidor, 3000);
+  };
+}
+async function gravar(col, obj) { await api('PUT', `api/dados/${col}/${encodeURIComponent(obj.id)}`, obj); pedirSaldos(); }
+async function apagar(col, id) { await api('DELETE', `api/dados/${col}/${encodeURIComponent(id)}`); pedirSaldos(); }
+
+/* ---------- avisos ---------- */
+function avisosEstoque() {
+  const out = [];
+  for (const m of ativos()) {
+    const q = fQ(m.saldo, m.unidade), min = fQ(m.minimo, m.unidade);
+    const nome = m.tanque ? nomeTanque(m.nome) : m.nome;
+    if (m.situacao === 'negativo') out.push(['bad', `${nome} com saldo negativo: ${q}. Lance a compra ou confira a ${m.tanque ? 'medição' : 'contagem'}.`]);
+    else if (m.situacao === 'zerado') out.push(['bad', m.tanque ? `${nome} vazio.` : `${nome} zerado no estoque.`]);
+    else if (m.situacao === 'baixo') out.push(['warn', m.tanque ? `${nome} abaixo do mínimo: ${q} (mínimo ${min}).` : `${nome} no mínimo: ${q} (mínimo ${min}).`]);
+  }
+  return out.sort((a, b) => (a[0] === 'bad' ? 0 : 1) - (b[0] === 'bad' ? 0 : 1));
+}
+
+/* ---------- tela ---------- */
+function renderEstado() {
+  const el = $('#estado');
+  let modo = 'carregando', txt = 'Carregando…';
+  if (!PAINEL) { modo = 'erro'; txt = 'Só no Painel Deconto'; }
+  else if (UI.semConexao) { modo = 'erro'; txt = UI.modo === 'servidor' ? 'Sem conexão com o servidor' : 'Tentando falar com o servidor…'; }
+  else if (UI.modo === 'servidor') { modo = 'nuvem'; txt = 'Salvo no servidor'; }
+  el.dataset.modo = modo;
+  el.textContent = txt;
+  $$('form.ficha button[type="submit"]').forEach(b => { b.disabled = UI.modo !== 'servidor' || !!b.form.dataset.salvando; });
+}
+function trocarOpcoes(sel, html) {
+  if (sel.dataset.html === html) return;
+  const v = sel.value;
+  sel.innerHTML = html;
+  sel.dataset.html = html;
+  if ([...sel.options].some(o => o.value === v)) sel.value = v;
+}
+function renderListas() {
+  const mats = ativos().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  trocarOpcoes($('#mov-mat'), '<option value="">Escolha</option>' + mats.map(m => `<option value="${esc(m.id)}">${esc(m.nome)} (${esc(fQ(m.saldo, m.unidade))})</option>`).join(''));
+  trocarOpcoes($('#mov-cam'), '<option value="">Nenhum</option>' + S.caminhoes.filter(c => c.situacao !== 'fora').sort((a, b) => String(a.placa).localeCompare(String(b.placa))).map(c => `<option value="${esc(c.id)}">${esc(mostraPlaca(c.placa))}</option>`).join(''));
+  const forn = new Set(S.movimentos.filter(x => x.tipo === 'entrada' && x.texto).map(x => x.texto.split(' · ')[0]));
+  $('#lista-fornecedores').innerHTML = [...forn].slice(0, 200).map(x => `<option value="${esc(x)}">`).join('');
+  ajustarMov();
+}
+function renderAvisos() {
+  const av = avisosEstoque();
+  $('#bloco-avisos').hidden = !av.length;
+  $('#avisos').innerHTML = av.map(([nivel, txt]) => `<li class="${nivel}">${esc(txt)}</li>`).join('');
+}
+function renderTanques() {
+  const tqs = ativos().filter(m => m.tanque).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  $('#bloco-tanques').hidden = !tqs.length;
+  $('#tanques').innerHTML = tqs.map(t => {
+    const pct = Math.max(0, Math.min(100, (t.saldo / t.capacidade) * 100)), minPct = t.minimo ? Math.min(100, (t.minimo / t.capacidade) * 100) : null;
+    const cls = t.situacao === 'ok' ? '' : t.situacao === 'baixo' ? 'baixo' : 'vazio';
+    const med = t.ultimaMedicao ? `Medido em ${fmtData(t.ultimaMedicao.data)}${t.ultimaMedicao.hora ? ' às ' + t.ultimaMedicao.hora : ''}` : 'Sem medição ainda';
+    return `<div class="tanque" data-mat="${esc(t.id)}">
+      <div class="tq-cab"><strong>${esc(t.nome)}</strong>${t.combustivel ? `<span class="pill">${esc(t.combustivel)}</span>` : ''}</div>
+      <div class="tq-litros${t.saldo < 0 ? ' neg' : ''}">${esc(fQ(t.saldo, 'L'))} de ${esc(fQ(t.capacidade, 'L'))} <span class="hint">(${nf.format(Math.round(pct))}%)</span></div>
+      <div class="nivel" role="meter" aria-valuemin="0" aria-valuemax="${t.capacidade}" aria-valuenow="${Math.max(0, t.saldo)}" aria-label="Nível do ${esc(t.nome)}"><span class="${cls}" style="width:${pct}%"></span>${minPct != null ? `<i style="left:${minPct}%" title="Mínimo"></i>` : ''}</div>
+      <p class="hint">${t.dias != null ? `Dá para ~${esc(plural(t.dias, 'dia', 'dias'))} (média dos últimos 30 dias).` : 'Sem consumo nos últimos 30 dias.'}</p>
+      <p class="hint">${t.precoMedio != null ? `Preço médio ${esc(fR(t.precoMedio))}/L · ` : ''}${esc(med)}${t.minimo ? ` · mínimo ${esc(fQ(t.minimo, 'L'))}` : ''}</p>
+      <div class="acoes-linha"><button class="btn small ghost" type="button" data-acao="lancar" data-tipo="entrada" data-mat="${esc(t.id)}">Lançar compra</button><button class="btn small ghost" type="button" data-acao="lancar" data-tipo="medicao" data-mat="${esc(t.id)}">Lançar medição</button></div>
+    </div>`;
+  }).join('');
+}
+function renderSaldo() {
+  const sel = $('#f-cat');
+  trocarOpcoes(sel, '<option value="">Todas as categorias</option>' + CATEGORIAS.map(c => `<option>${esc(c)}</option>`).join(''));
+  const cat = sel.value, busca = $('#busca').value.trim().toLowerCase();
+  const lista = S.materiais.filter(m => (!cat || m.categoria === cat) && (!busca || [m.nome, m.local, m.categoria].join(' ').toLowerCase().includes(busca)))
+    .sort((a, b) => (a.ativo === false) - (b.ativo === false) || a.nome.localeCompare(b.nome, 'pt-BR'));
+  const valor = ativos().reduce((t, m) => t + (m.saldo > 0 && m.precoMedio ? m.saldo * m.precoMedio : 0), 0);
+  $('#saldo-resumo').textContent = S.materiais.length ? `${plural(ativos().length, 'material', 'materiais')} · ${fR(valor)} em estoque pelo preço médio` : '';
+  const cab = '<thead><tr><th>Material</th><th>Categoria</th><th class="n">Saldo</th><th class="n">Mínimo</th><th>Situação</th><th class="n">Preço médio</th><th class="n"></th></tr></thead>';
+  if (!lista.length) { $('#t-saldo').innerHTML = cab + `<tbody><tr><td colspan="7" class="vazio-txt">${S.materiais.length ? 'Nada com esse filtro.' : 'Nenhum material cadastrado. Comece por “Cadastrar material ou tanque”.'}</td></tr></tbody>`; return; }
+  $('#t-saldo').innerHTML = cab + '<tbody>' + lista.map(m => {
+    const desativado = m.ativo === false, [pc, ptxt] = desativado ? ['', 'Desativado'] : SITUACAO[m.situacao] || ['', ''];
+    const cls = [m.saldo < 0 ? 'neg' : '', desativado ? 'apagado' : '', UI.mat === m.id ? 'escolhido' : ''].filter(Boolean).join(' ');
+    const fim = desativado ? `<button class="lnk" type="button" data-acao="reativar" data-mat="${esc(m.id)}">Reativar</button>`
+      : temMovimento(m.id) ? `<button class="lnk perigo" type="button" data-acao="desativar" data-mat="${esc(m.id)}">Desativar</button>`
+      : `<button class="lnk perigo" type="button" data-acao="apagar-mat" data-mat="${esc(m.id)}">Apagar</button>`;
+    return `<tr data-mat="${esc(m.id)}"${cls ? ` class="${cls}"` : ''}><td class="forte">${esc(m.nome)}${m.local ? `<div class="fraco">${esc(m.local)}</div>` : ''}</td><td>${esc(m.categoria || '')}</td>
+      <td class="n forte saldo">${esc(fQ(m.saldo, m.unidade))}</td><td class="n">${m.minimo != null ? esc(fQ(m.minimo, m.unidade)) : '—'}</td>
+      <td>${ptxt ? `<span class="pill ${pc}">${esc(ptxt)}</span>` : ''}</td><td class="n">${m.precoMedio != null ? esc(fR(m.precoMedio)) : '—'}</td>
+      <td class="acoes"><button class="lnk" type="button" data-acao="historico" data-mat="${esc(m.id)}">Histórico</button><button class="lnk" type="button" data-acao="editar-mat" data-mat="${esc(m.id)}">Editar</button>${fim}</td></tr>`;
+  }).join('') + '</tbody>';
+}
+const ORIGEM = { estoque: '', frota: 'no DECONTO', operacao: 'no Controle' };
+const LINK = { 'frota:abastecimentos': ['/frota/#abastecer', 'Abrir no DECONTO'], 'frota:manutencoes': ['/frota/#manutencao', 'Abrir no DECONTO'], 'operacao:manutencoes': ['/operacao/#manutencao', 'Abrir no Controle'] };
+function nomeMov(x, m) {
+  if (x.tipo === 'entrada') return 'Compra';
+  if (x.tipo === 'saida') return 'Saída avulsa';
+  if (x.tipo === 'medicao') return m && m.tanque ? 'Medição' : 'Contagem';
+  return (x.tipo === 'abastecimento' ? 'Abastecimento ' : 'Manutenção ') + ORIGEM[x.sistema];
+}
+function renderMovs() {
+  const m = S.porId.get(UI.mat);
+  $('#bloco-movs').hidden = !m;
+  if (!m) return;
+  $('#movs-titulo').textContent = 'Histórico: ' + m.nome;
+  const lista = S.movimentos.filter(x => x.materialId === m.id);
+  const cab = '<thead><tr><th>Data</th><th>O quê</th><th class="n">Quantidade</th><th>Detalhe</th><th class="n"></th></tr></thead>';
+  $('#movs').innerHTML = cab + '<tbody>' + (lista.length ? lista.map(x => {
+    const qtd = x.tipo === 'medicao' ? '= ' + fQ(x.qtd, m.unidade) : (x.qtd > 0 ? '+' : '') + fQ(x.qtd, m.unidade);
+    const det = [x.texto, x.tipo === 'entrada' && x.valorUnit != null ? fR(x.valorUnit) + ' cada' : ''].filter(Boolean).map(esc).join(' · ');
+    const marca = !x.conta && x.depoisMedicao ? ' <span class="pill warn">lançado depois da medição</span>' : x.tipo === 'medicao' && !x.conta ? ' <span class="pill">medição antiga</span>' : '';
+    const link = LINK[x.sistema + ':' + x.col];
+    const chave = x.sistema + ':' + x.id;
+    const acao = link ? `<a class="lnk" href="${link[0]}">${link[1]}</a>`
+      : UI.confirmar === chave ? `<button class="lnk perigo" type="button" data-acao="apagar-mov-sim" data-id="${esc(x.id)}">Apagar mesmo</button><button class="lnk" type="button" data-acao="apagar-mov-nao">Não</button>`
+      : `<button class="lnk perigo" type="button" data-acao="apagar-mov" data-id="${esc(x.id)}">Apagar</button>`;
+    return `<tr${x.conta ? '' : ' class="apagado"'}><td class="d">${esc(fmtData(x.data))}${x.hora ? ' ' + esc(x.hora) : ''}</td><td class="forte">${esc(nomeMov(x, m))}</td><td class="n">${esc(qtd)}</td><td>${det}${marca}</td><td class="acoes">${acao}</td></tr>`;
+  }).join('') : '<tr><td colspan="5" class="vazio-txt">Nenhum movimento ainda.</td></tr>') + '</tbody>';
+}
+function ajustarMov() {
+  const tipo = $('#mov-tipo').value, m = S.porId.get($('#mov-mat').value);
+  $$('#f-mov [data-so]').forEach(el => { el.hidden = el.dataset.so !== tipo; });
+  $('#mov-qtd-rot').textContent = tipo === 'medicao' ? (m && m.tanque ? 'Litros medidos agora' : 'Quanto tem agora (contado)') : m && m.unidade === 'L' ? 'Litros' : 'Quantidade';
+  $('#mov-qtd-dica').textContent = m ? `Saldo agora: ${fQ(m.saldo, m.unidade)}.${tipo === 'medicao' ? ' A medição vale como verdade nesta data.' : ''}` : '';
+}
+function ajustarMat() {
+  const comb = $('#mat-cat').value === 'Combustível';
+  $$('#f-mat [data-tanque]').forEach(el => { el.hidden = !comb; });
+}
+function render() {
+  $('#sem-painel').hidden = !!PAINEL;
+  $('#tudo').hidden = !PAINEL;
+  renderEstado();
+  if (!PAINEL) return;
+  renderListas();
+  renderAvisos();
+  renderTanques();
+  renderSaldo();
+  renderMovs();
+}
+
+/* ---------- formulários ---------- */
+function limparMov(manterTipo) {
+  const tipo = manterTipo ? $('#mov-tipo').value : 'entrada', data = $('#mov-data').value || hojeISO();
+  ['#mov-qtd', '#mov-vu', '#mov-forn', '#mov-nota', '#mov-quem', '#mov-obs'].forEach(s => { $(s).value = ''; });
+  $('#mov-cam').value = '';
+  $('#mov-tipo').value = tipo;
+  $('#mov-data').value = data;
+  $('#mov-hora').value = agoraHM();
+  msgForm($('#f-mov'), '', '');
+  ajustarMov();
+}
+async function salvarMov(f) {
+  $$('[aria-invalid]', f).forEach(el => el.removeAttribute('aria-invalid'));
+  const tipo = $('#mov-tipo').value, data = $('#mov-data').value, materialId = $('#mov-mat').value, q = lerNumero($('#mov-qtd').value);
+  const m = S.porId.get(materialId);
+  if (!data) return erroCampo(f, '#mov-data', 'Escolha a data.');
+  if (!m) return erroCampo(f, '#mov-mat', 'Escolha o material ou o tanque.');
+  // medição no futuro deixaria tudo o que vem antes dela "dentro" dela: o saldo pararia
+  if (tipo === 'medicao' && data > hojeISO()) return erroCampo(f, '#mov-data', 'A medição não pode ter data depois de hoje.');
+  if (tipo === 'medicao' ? q == null || isNaN(q) || q < 0 : !(q > 0)) return erroCampo(f, '#mov-qtd', tipo === 'medicao' ? 'Escreva quanto tem agora (0 se acabou).' : 'Escreva a quantidade (ex.: 3 ou 350,5).');
+  const reg = { id: novoId('mv'), tipo, data, materialId, obs: $('#mov-obs').value.trim(), criadoEm: new Date().toISOString() };
+  if (tipo === 'entrada') {
+    const vu = lerNumero($('#mov-vu').value);
+    if (vu != null && (isNaN(vu) || vu < 0)) return erroCampo(f, '#mov-vu', 'O valor tem que ser só números, como 5,89.');
+    Object.assign(reg, { qtd: q, valorUnit: vu, fornecedor: $('#mov-forn').value.trim(), nota: $('#mov-nota').value.trim() });
+  } else if (tipo === 'saida') Object.assign(reg, { qtd: q, caminhaoId: $('#mov-cam').value, quem: $('#mov-quem').value.trim() });
+  else Object.assign(reg, { valor: q, hora: $('#mov-hora').value || agoraHM() });
+  f.dataset.salvando = '1';
+  renderEstado();
+  try {
+    await gravar('movimentos', reg);
+    toast(`${{ entrada: 'Compra salva', saida: 'Saída salva', medicao: 'Medição salva' }[tipo]}: ${fQ(q, m.unidade)} de ${m.nome}.`);
+    limparMov(true);
+  } catch (e) { msgForm(f, msgErro(e), 'erro'); }
+  finally { delete f.dataset.salvando; renderEstado(); }
+}
+function abrirMat(m) {
+  const f = $('#f-mat');
+  f.hidden = false;
+  if (m) f.dataset.editando = m.id; else delete f.dataset.editando;
+  f.classList.toggle('editando', !!m);
+  $('#mat-titulo').textContent = m ? 'Editar ' + m.nome : 'Cadastrar material ou tanque';
+  $('#mat-nome').value = m ? m.nome : '';
+  $('#mat-cat').value = m ? m.categoria : CATEGORIAS[0];
+  $('#mat-un').value = m ? m.unidade : 'un';
+  $('#mat-local').value = m ? m.local || '' : '';
+  $('#mat-min').value = m && m.minimo != null ? nf.format(m.minimo) : '';
+  $('#mat-cap').value = m && m.capacidade != null ? nf.format(m.capacidade) : '';
+  $('#mat-comb').value = m && m.combustivel ? m.combustivel : COMBUSTIVEIS[0];
+  msgForm(f, '', '');
+  ajustarMat();
+  f.scrollIntoView({ block: 'start' });
+  $('#mat-nome').focus({ preventScroll: true });
+}
+async function salvarMat(f) {
+  $$('[aria-invalid]', f).forEach(el => el.removeAttribute('aria-invalid'));
+  const editando = f.dataset.editando, antigo = editando ? S.porId.get(editando) : null;
+  const nome = $('#mat-nome').value.trim(), categoria = $('#mat-cat').value, comb = categoria === 'Combustível';
+  const minimo = lerNumero($('#mat-min').value), capacidade = comb ? lerNumero($('#mat-cap').value) : null;
+  if (!nome) return erroCampo(f, '#mat-nome', 'Escreva o nome.');
+  if (S.materiais.some(m => m.id !== editando && m.nome.trim().toLowerCase() === nome.toLowerCase())) return erroCampo(f, '#mat-nome', 'Já existe um material com esse nome.');
+  if (minimo != null && (isNaN(minimo) || minimo < 0)) return erroCampo(f, '#mat-min', 'O mínimo tem que ser só números.');
+  if (capacidade != null && (isNaN(capacidade) || capacidade <= 0)) return erroCampo(f, '#mat-cap', 'A capacidade tem que ser em litros, como 5.000.');
+  const reg = Object.assign(antigo ? cru(antigo) : { ativo: true, criadoEm: new Date().toISOString() }, {
+    id: editando || novoId('mat'), nome, categoria, unidade: capacidade ? 'L' : $('#mat-un').value, local: $('#mat-local').value.trim(), minimo,
+    capacidade, combustivel: capacidade ? $('#mat-comb').value : '', alteradoEm: new Date().toISOString(),
+  });
+  f.dataset.salvando = '1';
+  renderEstado();
+  try {
+    await gravar('materiais', reg);
+    toast(`${nome} salvo.`);
+    f.hidden = true;
+    delete f.dataset.editando;
+  } catch (e) { msgForm(f, msgErro(e), 'erro'); }
+  finally { delete f.dataset.salvando; renderEstado(); }
+}
+async function mudarAtivo(id, ativo) {
+  const m = S.porId.get(id);
+  if (!m) return;
+  try { await gravar('materiais', Object.assign(cru(m), { id, ativo, alteradoEm: new Date().toISOString() })); toast(`${m.nome} ${ativo ? 'reativado' : 'desativado'}.`); }
+  catch (e) { toast(msgErro(e), true); }
+}
+
+/* ---------- planilha do Excel (.xlsx), montada aqui mesmo: a mesma do Controle de Operação ---------- */
+const XLSX_TIPO = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const TABELA_CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = TABELA_CRC[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+/* zip sem compressão (método "store"), nomes em UTF-8 */
+function zipar(arquivos) {
+  const enc = new TextEncoder();
+  const partes = [], central = [];
+  let pos = 0;
+  for (const a of arquivos) {
+    const nome = enc.encode(a.nome), dados = enc.encode(a.texto), crc = crc32(dados);
+    const loc = new DataView(new ArrayBuffer(30));
+    loc.setUint32(0, 0x04034b50, true); loc.setUint16(4, 20, true); loc.setUint16(6, 0x0800, true); loc.setUint16(8, 0, true);
+    loc.setUint16(10, 0, true); loc.setUint16(12, 0x5B79, true); loc.setUint32(14, crc, true); loc.setUint32(18, dados.length, true);
+    loc.setUint32(22, dados.length, true); loc.setUint16(26, nome.length, true); loc.setUint16(28, 0, true);
+    partes.push(new Uint8Array(loc.buffer), nome, dados);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true);
+    cen.setUint16(10, 0, true); cen.setUint16(12, 0, true); cen.setUint16(14, 0x5B79, true); cen.setUint32(16, crc, true);
+    cen.setUint32(20, dados.length, true); cen.setUint32(24, dados.length, true); cen.setUint16(28, nome.length, true);
+    cen.setUint32(42, pos, true);
+    central.push(new Uint8Array(cen.buffer), nome);
+    pos += 30 + nome.length + dados.length;
+  }
+  const tamCentral = central.reduce((t, p) => t + p.length, 0);
+  const fim = new DataView(new ArrayBuffer(22));
+  fim.setUint32(0, 0x06054b50, true); fim.setUint16(8, arquivos.length, true); fim.setUint16(10, arquivos.length, true);
+  fim.setUint32(12, tamCentral, true); fim.setUint32(16, pos, true);
+  return new Blob([...partes, ...central, new Uint8Array(fim.buffer)], { type: XLSX_TIPO });
+}
+/* estilos da planilha (índices de cellXfs) */
+const XS = { cab: 1, data: 2, moeda: 3, txt: 4, forte: 5, vencido: 6, breve: 7, ok: 8, neutro: 9, titulo: 10, fraco: 11, inteiro: 12, grupo: 13, moedaForte: 14, cinza: 15, dataCinza: 16, moedaCinza: 17, intForte: 18, cabSeg: 19, grupoDoc: 20, grupoSeg: 21 };
+const ESTILOS_XLSX = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="&quot;R$&quot; #,##0.00"/></numFmts>
+<fonts count="9">
+<font><sz val="11"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="16"/><color rgb="FF151A23"/><name val="Calibri"/><family val="2"/></font>
+<font><sz val="10"/><color rgb="FF535E72"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="11"/><color rgb="FFBA2E29"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="11"/><color rgb="FF8A5300"/><name val="Calibri"/><family val="2"/></font>
+<font><b/><sz val="11"/><color rgb="FF0B7550"/><name val="Calibri"/><family val="2"/></font>
+<font><sz val="11"/><color rgb="FF7A8496"/><name val="Calibri"/><family val="2"/></font>
+</fonts>
+<fills count="9">
+<fill><patternFill patternType="none"/></fill>
+<fill><patternFill patternType="gray125"/></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF171C24"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFBE2E0"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFFBEDD3"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFDBF2E7"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE4E8EF"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FFE2E8FA"/><bgColor indexed="64"/></patternFill></fill>
+<fill><patternFill patternType="solid"><fgColor rgb="FF2B3F8C"/><bgColor indexed="64"/></patternFill></fill>
+</fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style="thin"><color rgb="FFD3D9E3"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="22">
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top"/></xf>
+<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="5" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="6" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="7" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="8" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="3" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="2" fillId="7" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="165" fontId="2" fillId="6" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="8" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>
+<xf numFmtId="164" fontId="8" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top"/></xf>
+<xf numFmtId="165" fontId="8" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>
+<xf numFmtId="0" fontId="2" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
+<xf numFmtId="0" fontId="1" fillId="8" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>
+<xf numFmtId="0" fontId="2" fillId="6" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="0" fontId="2" fillId="7" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+</cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+const xmlEsc = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function letraColuna(i) { let s = ''; for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s; return s; }
+const serialExcel = d => Math.round((Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 86400000);
+/* célula: texto ou número, ou { v, s } com estilo, ou { d: 'aaaa-mm-dd', s } para data */
+function celulaXlsx(ref, c) {
+  if (c == null || c === '') return '';
+  let v = c, s = 0;
+  if (typeof c === 'object') {
+    s = c.s || 0;
+    if ('d' in c) return c.d && /^\d{4}-\d{2}-\d{2}$/.test(c.d) ? `<c r="${ref}" s="${s || XS.data}"><v>${serialExcel(c.d)}</v></c>` : (s ? `<c r="${ref}" s="${s}"/>` : '');
+    v = c.v;
+  }
+  const est = s ? ` s="${s}"` : '';
+  if (v == null || v === '') return s ? `<c r="${ref}"${est}/>` : '';
+  if (typeof v === 'number') return isFinite(v) ? `<c r="${ref}"${est}><v>${v}</v></c>` : '';
+  return `<c r="${ref}" t="inlineStr"${est}><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+}
+/* aba: { nome, larguras, linhas, cabecalho (índice da linha do cabeçalho, para congelar e filtrar) } */
+function abaXlsx(aba) {
+  const nCols = Math.max(1, ...aba.linhas.map(l => l.length));
+  const linhas = aba.linhas.map((l, i) => `<row r="${i + 1}">${l.map((c, j) => celulaXlsx(letraColuna(j) + (i + 1), c)).join('')}</row>`).join('');
+  const cab = aba.cabecalho;
+  const painel = cab != null ? `<pane ySplit="${cab + 1}" topLeftCell="A${cab + 2}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${cab + 2}" sqref="A${cab + 2}"/>` : '';
+  aba.filtro = cab != null && aba.ultimaLinhaFiltro > cab + 1 ? `A${cab + 1}:${letraColuna(nCols - 1)}${aba.ultimaLinhaFiltro}` : '';
+  const cols = aba.larguras ? `<cols>${aba.larguras.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '';
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
+    + `<sheetViews><sheetView workbookViewId="0" showGridLines="0">${painel}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${linhas}</sheetData>`
+    + (aba.filtro ? `<autoFilter ref="${aba.filtro}"/>` : '')
+    + '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>';
+}
+function nomeAbaXlsx(nome, usados) {
+  let base = String(nome).replace(/[:\\/?*[\]]/g, ' ').trim().slice(0, 31) || 'Planilha', n = base, i = 2;
+  while (usados.has(n.toLowerCase())) { const suf = ' (' + i++ + ')'; n = base.slice(0, 31 - suf.length) + suf; }
+  usados.add(n.toLowerCase());
+  return n;
+}
+function montarXlsx(abas) {
+  const usados = new Set();
+  abas.forEach(a => { a.nome = nomeAbaXlsx(a.nome, usados); });
+  const folhas = abas.map(abaXlsx);
+  const n = abas.length;
+  const nomesFiltro = abas.map((a, i) => (a.filtro ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xmlEsc(a.nome.replace(/'/g, "''"))}'!${a.filtro.replace(/([A-Z]+)(\d+)/g, '$$$1$$$2')}</definedName>` : '')).join('');
+  const arquivos = [
+    { nome: '[Content_Types].xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + abas.map((a, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>' },
+    { nome: '_rels/.rels', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>' },
+    { nome: 'docProps/core.xml', texto: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>Estoque</dc:title><dc:creator>Painel Deconto</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0, 19)}Z</dcterms:created></cp:coreProperties>` },
+    { nome: 'docProps/app.xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Painel Deconto</Application></Properties>' },
+    { nome: 'xl/workbook.xml', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>'
+      + abas.map((a, i) => `<sheet name="${xmlEsc(a.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets>'
+      + (nomesFiltro ? `<definedNames>${nomesFiltro}</definedNames>` : '') + '</workbook>' },
+    { nome: 'xl/_rels/workbook.xml.rels', texto: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + abas.map((a, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')
+      + `<Relationship Id="rId${n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+    { nome: 'xl/styles.xml', texto: ESTILOS_XLSX },
+    ...folhas.map((x, i) => ({ nome: `xl/worksheets/sheet${i + 1}.xml`, texto: x })),
+  ];
+  return zipar(arquivos);
+}
+
+const xT = v => ({ v: v == null ? '' : v, s: XS.txt });
+const xF = v => ({ v: v == null ? '' : v, s: XS.forte });
+const xN = v => ({ v: v == null || v === '' ? '' : v, s: XS.txt });
+const xR = v => ({ v: v == null || v === '' ? '' : Math.round(v * 100) / 100, s: XS.moeda });
+function abaSimples(nome, titulo, sub, colunas, larguras, linhas) {
+  return { nome, cabecalho: 3, ultimaLinhaFiltro: linhas.length + 4, larguras,
+    linhas: [[{ v: titulo, s: XS.titulo }], [{ v: sub + ' · ' + plural(linhas.length, 'linha', 'linhas'), s: XS.fraco }], [], colunas.map(c => ({ v: c, s: XS.cab })), ...linhas] };
+}
+function planilhaEstoque() {
+  const d = new Date(), sub = 'Estoque Deconto · emitido em ' + fmtData(iso(d)) + ' às ' + agoraHM();
+  const mats = S.materiais.slice().sort((a, b) => (a.ativo === false) - (b.ativo === false) || a.nome.localeCompare(b.nome, 'pt-BR'));
+  const sit = m => m.ativo === false ? { v: 'Desativado', s: XS.neutro } : { v: (SITUACAO[m.situacao] || [, ''])[1], s: { ok: XS.ok, baixo: XS.breve }[m.situacao] || XS.vencido };
+  const saldo = mats.map(m => [xF(m.nome), xT(m.categoria), xT(m.unidade), xT(m.local), xN(m.saldo), xN(m.minimo), sit(m), xR(m.precoMedio), xR(m.saldo > 0 && m.precoMedio ? m.saldo * m.precoMedio : ''), xN(m.capacidade)]);
+  const movs = S.movimentos.map(x => { const m = S.porId.get(x.materialId) || {}; return [{ d: x.data, s: XS.data }, xF(m.nome), xT(nomeMov(x, m)), xN(x.qtd), xT(m.unidade), xR(x.valorUnit), xT(x.texto), xT(x.conta ? 'Sim' : x.depoisMedicao ? 'Não (lançado depois da medição)' : 'Não (antes da última medição)')]; });
+  return montarXlsx([
+    abaSimples('Saldo', 'Saldo do estoque', sub, ['Material', 'Categoria', 'Unidade', 'Local', 'Saldo', 'Mínimo', 'Situação', 'Preço médio', 'Valor em estoque', 'Capacidade (L)'], [30, 14, 9, 18, 11, 11, 13, 13, 15, 13], saldo),
+    abaSimples('Movimentos', 'Entradas e saídas', sub, ['Data', 'Material', 'O quê', 'Quantidade', 'Unidade', 'Valor unitário', 'Detalhe', 'Conta no saldo'], [12, 30, 26, 12, 9, 13, 40, 30], movs),
+  ]);
+}
+async function baixarExcel() {
+  let arq;
+  try { arq = planilhaEstoque(); } catch (e) { toast('Não consegui montar a planilha.', true); return; }
+  const url = URL.createObjectURL(arq), a = document.createElement('a');
+  a.href = url; a.download = 'estoque-' + hojeISO() + '.xlsx'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+  toast('Planilha salva.');
+}
+
+/* ---------- eventos ---------- */
+function ligarEventos() {
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-acao]');
+    if (!b) return;
+    const id = b.dataset.mat;
+    switch (b.dataset.acao) {
+      case 'sair': api('POST', '/api/sair', {}).catch(() => {}).then(() => { location.href = '/entrar'; }); break;
+      case 'novo-mat': abrirMat(null); break;
+      case 'editar-mat': abrirMat(S.porId.get(id)); break;
+      case 'fechar-mat': $('#f-mat').hidden = true; delete $('#f-mat').dataset.editando; break;
+      case 'desativar': mudarAtivo(id, false); break;
+      case 'reativar': mudarAtivo(id, true); break;
+      case 'apagar-mat': {
+        const m = S.porId.get(id);
+        if (!m) break;
+        if (temMovimento(id)) { toast(`${m.nome} tem movimentos: use Desativar.`, true); break; }
+        apagar('materiais', id).then(() => toast(`${m.nome} apagado.`), er => toast(msgErro(er), true));
+        break;
+      }
+      case 'historico': UI.mat = id; UI.confirmar = ''; render(); $('#bloco-movs').scrollIntoView({ block: 'start' }); break;
+      case 'fechar-movs': UI.mat = ''; render(); break;
+      case 'lancar': $('#mov-tipo').value = b.dataset.tipo; $('#mov-mat').value = id; ajustarMov(); $('#f-mov').scrollIntoView({ block: 'start' }); $('#mov-qtd').focus({ preventScroll: true }); break;
+      case 'apagar-mov': UI.confirmar = 'estoque:' + b.dataset.id; renderMovs(); break;
+      case 'apagar-mov-nao': UI.confirmar = ''; renderMovs(); break;
+      case 'apagar-mov-sim': UI.confirmar = ''; apagar('movimentos', b.dataset.id).then(() => toast('Apagado.'), er => toast(msgErro(er), true)); break;
+      case 'excel': baixarExcel(); break;
+    }
+  });
+  document.addEventListener('change', e => {
+    const el = e.target;
+    if (el.id === 'mov-tipo' || el.id === 'mov-mat') ajustarMov();
+    else if (el.id === 'mat-cat') ajustarMat();
+    else if (el.id === 'f-cat') renderSaldo();
+  });
+  document.addEventListener('input', e => { e.target.removeAttribute('aria-invalid'); if (e.target.id === 'busca') renderSaldo(); });
+  document.addEventListener('submit', e => {
+    e.preventDefault();
+    if (e.target.id === 'f-mov') salvarMov(e.target);
+    else if (e.target.id === 'f-mat') salvarMat(e.target);
+  });
+}
+
+function iniciar() {
+  $('#mat-cat').innerHTML = CATEGORIAS.map(c => `<option>${esc(c)}</option>`).join('');
+  $('#mat-un').innerHTML = UNIDADES.map(c => `<option>${esc(c)}</option>`).join('');
+  $('#mat-comb').innerHTML = COMBUSTIVEIS.map(c => `<option>${esc(c)}</option>`).join('');
+  ligarEventos();
+  limparMov(false);
+  render();
+  if (!PAINEL) return;
+  $('#quem').hidden = false;
+  $('#quem-nome').textContent = PAINEL.nome || PAINEL.usuario || '';
+  ouvirServidor();
+}
+iniciar();
+</script>

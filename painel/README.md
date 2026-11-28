@@ -24,6 +24,9 @@ para a fase 2.
 4. **Financeiro**: em desenvolvimento.
 5. **Cargas**: em desenvolvimento.
 6. **Monitoramento de Frota**: em desenvolvimento (integração futura).
+7. **Estoque** (`/estoque/`): materiais, pneus e tanques de diesel, com saldo calculado no servidor
+   junto com o Abastecimento do DECONTO e as peças das Manutenções do DECONTO e do Controle
+   ([estoque/README.md](../estoque/README.md)).
 
 ## Onde fica cada coisa
 
@@ -41,6 +44,8 @@ para a fase 2.
   `munck/munck.html` (Controle de Operação) e `rh/rh.html` (RH). A tela do ponto pelo celular
   fica em `servidor/paginas.js`.
 - `testes/servidor.test.js`: os testes do servidor.
+- Estoque: `servidor/estoque.js` (o cálculo do saldo), a página `estoque/estoque.html` e os testes
+  `testes/estoque-servidor.test.js` e `testes/estoque-telas.test.js`.
 
 ## Testes
 
