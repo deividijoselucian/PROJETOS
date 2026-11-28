@@ -33,45 +33,70 @@ function lerEnv(arq) {
 }
 fs.mkdirSync(DADOS, { recursive: true, mode: 0o700 });
 
-/* ---------- sistemas: dados, arquivos e carga inicial ---------- */
-const prontos = SISTEMAS.filter(s => s.pronto);
-const bancos = {}, arquivosDe = {}, ouvintes = {};
-for (const s of prontos) {
-  bancos[s.id] = criarBanco(DADOS, s);
-  if (s.arquivos) arquivosDe[s.id] = criarArquivos(DADOS, s.id);
-  ouvintes[s.id] = new Set();
-  const arqCarga = path.join(CARGA, s.id + '.json');
-  if (fs.existsSync(arqCarga)) {
-    if (bancos[s.id].existia) console.log(`Carga de ${s.nome} ignorada: o sistema já tem dados. (${arqCarga})`);
-    else {
-      try {
-        const r = importarCarga(arqCarga, s, bancos[s.id], arquivosDe[s.id]);
-        const guardada = path.join(DADOS, `carga-importada-${s.id}-${new Date().toISOString().slice(0, 10)}.json`);
-        fs.copyFileSync(arqCarga, guardada);
-        fs.chmodSync(guardada, 0o600);
-        fs.unlinkSync(arqCarga);
-        console.log(`Carga de ${s.nome}: ${r.registros} registros e ${r.arquivos} arquivos.`);
-      } catch (e) { console.error(`Carga de ${s.nome} não entrou: ${e.message}`); }
-    }
+/* Arquivo com defeito (cortado, ilegível): o painel não sobe. Subir vazio apagaria os dados na
+   primeira gravação e, com o usuarios.json, faria a senha inicial voltar a valer. */
+function semDefeito(ler) {
+  try { return ler(); } catch (e) {
+    if (!e.arquivoComDefeito) throw e;
+    const nome = path.basename(e.arquivoComDefeito);
+    console.error(`O Painel Deconto NÃO subiu: ${e.message}.`);
+    console.error(`Nada foi gravado e o arquivo ficou como estava. Os dados de cada sistema têm uma cópia por dia em ${path.join(DADOS, 'copias')}: conserte o arquivo ou ponha no lugar dele a cópia mais nova e reinicie o painel.`);
+    if (nome === 'usuarios.json') console.error('Se o usuarios.json não tiver conserto, apague-o: o admin volta com a PAINEL_SENHA do .env (ou com uma senha nova, mostrada aqui no log).');
+    if (nome === 'sessoes.json') console.error('O sessoes.json só guarda quem está com o painel aberto: pode apagá-lo, e todo mundo entra de novo.');
+    process.exit(1);
   }
+}
+
+/* ---------- sistemas: dados e arquivos ---------- */
+const prontos = SISTEMAS.filter(s => s.pronto);
+const bancos = {}, arquivosDe = {}, ouvintes = {}; // ouvintes: resposta aberta → chave da sessão dela
+for (const s of prontos) {
+  bancos[s.id] = semDefeito(() => criarBanco(DADOS, s));
+  if (s.arquivos) arquivosDe[s.id] = criarArquivos(DADOS, s.id);
+  ouvintes[s.id] = new Map();
 }
 const sistemaPorId = id => prontos.find(s => s.id === id);
 
 /* ---------- usuário e entradas ---------- */
 const ARQ_USU = path.join(DADOS, 'usuarios.json');
 const ARQ_SES = path.join(DADOS, 'sessoes.json');
-let usuarios = lerJSON(ARQ_USU, []);
-let sessoes = lerJSON(ARQ_SES, {});
-const hashSenha = (senha, sal) => crypto.scryptSync(String(senha), sal, 32).toString('hex');
-function novaSenha(u, senha) { u.sal = crypto.randomBytes(16).toString('hex'); u.hash = hashSenha(senha, u.sal); }
-function senhaConfere(u, senha) {
-  const a = Buffer.from(hashSenha(senha, u.sal), 'hex'), b = Buffer.from(u.hash, 'hex');
+let usuarios = semDefeito(() => lerJSON(ARQ_USU, []));
+let sessoes = semDefeito(() => lerJSON(ARQ_SES, {}));
+// scrypt assíncrono: conferir uma senha não trava o servidor para os outros
+const hashSenha = (senha, sal) => new Promise((ok, falha) => crypto.scrypt(String(senha), sal, 32, (e, b) => e ? falha(e) : ok(b.toString('hex'))));
+async function novaSenha(u, senha) { const sal = crypto.randomBytes(16).toString('hex'); u.hash = await hashSenha(senha, sal); u.sal = sal; }
+async function senhaConfere(u, senha) {
+  const a = Buffer.from(await hashSenha(senha, u.sal), 'hex'), b = Buffer.from(u.hash, 'hex');
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
+
+/* ---------- carga inicial (só depois de ler tudo: com um arquivo com defeito, nada é gravado) ---------- */
+for (const s of prontos) {
+  const arqCarga = path.join(CARGA, s.id + '.json');
+  if (!fs.existsSync(arqCarga)) continue;
+  if (bancos[s.id].existia) { console.log(`Carga de ${s.nome} ignorada: o sistema já tem dados. (${arqCarga})`); continue; }
+  let r;
+  try { r = importarCarga(arqCarga, s, bancos[s.id], arquivosDe[s.id]); } catch (e) {
+    console.error(`Carga de ${s.nome} não entrou: ${e.message}. Nada dela foi gravado; o arquivo continua em ${arqCarga}. Conserte e reinicie o painel.`);
+    continue;
+  }
+  console.log(`Carga de ${s.nome}: ${r.registros} registros e ${r.arquivos} arquivos.`);
+  try {
+    const guardada = path.join(DADOS, `carga-importada-${s.id}-${new Date().toISOString().slice(0, 10)}.json`);
+    fs.copyFileSync(arqCarga, guardada);
+    fs.chmodSync(guardada, 0o600);
+    fs.unlinkSync(arqCarga);
+  } catch (e) { console.error(`A carga de ${s.nome} entrou, mas não consegui tirá-la de ${arqCarga}: ${e.message}`); }
+}
+function limparLixeiras() { for (const id in arquivosDe) arquivosDe[id].limparLixeira(); }
+limparLixeiras();
+setInterval(limparLixeiras, 86400000).unref();
+
 if (!usuarios.length) {
   const senha = process.env.PAINEL_SENHA || crypto.randomBytes(9).toString('base64url');
   const admin = { usuario: 'admin', nome: 'Administrador', admin: true, criadoEm: new Date().toISOString() };
-  novaSenha(admin, senha);
+  admin.sal = crypto.randomBytes(16).toString('hex');
+  admin.hash = crypto.scryptSync(String(senha), admin.sal, 32).toString('hex'); // na subida, antes de abrir a porta
   usuarios.push(admin);
   gravarJSON(ARQ_USU, usuarios);
   if (!process.env.PAINEL_SENHA) console.log('Usuário admin criado. Senha: ' + senha);
@@ -107,11 +132,19 @@ function ipDe(req) {
 const tentativas = new Map(); // no máximo 8 senhas erradas a cada 15 minutos por endereço
 
 /* ---------- avisos ao vivo ---------- */
+const sessaoValida = chave => { const x = sessoes[chave]; return !!x && x.ate >= Date.now(); };
 function avisar(sisId, msg) {
   const linha = 'data: ' + JSON.stringify(msg) + '\n\n';
-  for (const res of ouvintes[sisId]) { try { res.write(linha); } catch (e) { ouvintes[sisId].delete(res); } }
+  for (const [res, chave] of ouvintes[sisId]) {
+    if (!sessaoValida(chave)) { ouvintes[sisId].delete(res); res.end(); continue; } // a entrada saiu ou venceu
+    try { res.write(linha); } catch (e) { ouvintes[sisId].delete(res); }
+  }
 }
-setInterval(() => { for (const id in ouvintes) for (const res of ouvintes[id]) { try { res.write(': ping\n\n'); } catch (e) { ouvintes[id].delete(res); } } }, 25000).unref();
+// quem sai (ou é derrubado pela troca de senha) para de receber na hora
+function fecharOuvintes(chaves) {
+  for (const id in ouvintes) for (const [res, chave] of ouvintes[id]) if (chaves.has(chave)) { ouvintes[id].delete(res); res.end(); }
+}
+setInterval(() => { for (const id in ouvintes) for (const res of ouvintes[id].keys()) { try { res.write(': ping\n\n'); } catch (e) { ouvintes[id].delete(res); } } }, 25000).unref();
 
 /* ---------- respostas ---------- */
 const SEGURANCA = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin', 'X-Frame-Options': 'SAMEORIGIN' };
@@ -136,7 +169,27 @@ async function lerJSONCorpo(req, limite) {
   if (!buf.length) return {};
   try { return JSON.parse(buf.toString('utf8')); } catch (e) { throw { status: 400 }; }
 }
+// O arquivo só ganha o cabeçalho 200 depois de aberto e conferido; se der erro antes disso
+// (apagado nesse meio tempo, pasta no lugar), é 404; se der no meio do envio, corta a resposta.
+function mandarArquivo(res, a) {
+  const leitor = fs.createReadStream(a.caminho);
+  leitor.on('error', () => { if (!res.headersSent) json(res, 404, { erro: 'Arquivo não encontrado.' }); else res.destroy(); });
+  leitor.on('open', fd => fs.fstat(fd, (e, info) => {
+    if (leitor.destroyed || res.headersSent) return;
+    if (e || !info.isFile()) return leitor.destroy(e || new Error('não é um arquivo'));
+    res.writeHead(200, Object.assign({ 'Content-Type': a.tipo, 'Content-Length': info.size, 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(a.nome)}`, 'Cache-Control': 'private, max-age=86400' }, SEGURANCA));
+    leitor.pipe(res);
+  }));
+  res.on('close', () => leitor.destroy());
+}
 const PAGINA_404 = '<!doctype html><meta charset="utf-8"><title>Não encontrado</title><p style="font-family:system-ui;padding:24px">Não encontrado. <a href="/">Voltar ao Painel Deconto</a></p>';
+
+// Só responde 200 depois que os dados estão no disco. Se a gravação falhar (o banco já escreveu o
+// erro no log), a memória já voltou ao que está no disco.
+const NAO_GRAVOU = { erro: 'O servidor não conseguiu gravar. Nada foi gravado; tente de novo.' };
+async function gravou(banco) {
+  try { await banco.salvar(); return true; } catch (e) { return false; }
+}
 
 /* ---------- rotas ---------- */
 async function rotear(req, res) {
@@ -149,14 +202,15 @@ async function rotear(req, res) {
   if (rota === '/api/entrar' && metodo === 'POST') {
     if (!ehJSON) return json(res, 415, { erro: 'Formato inválido.' });
     const ip = ipDe(req), agora = Date.now();
-    const t = tentativas.get(ip);
-    if (t && t.ate > agora && t.n >= 8) return json(res, 429, { erro: 'Muitas tentativas erradas. Espere 15 minutos.' });
+    let t = tentativas.get(ip);
+    if (!t || t.ate <= agora) { t = { n: 0, ate: 0 }; tentativas.set(ip, t); }
+    if (t.n >= 8) return json(res, 429, { erro: 'Muitas tentativas erradas. Espere 15 minutos.' });
+    // a tentativa conta já aqui, antes de esperar o corpo e o scrypt: pedidos ao mesmo tempo não passam do limite
+    t.n++;
+    t.ate = agora + 15 * 60000;
     const corpo = await lerJSONCorpo(req, 10000);
     const u = usuarios.find(x => x.usuario === String(corpo.usuario || '').trim().toLowerCase());
-    if (!u || !senhaConfere(u, corpo.senha || '')) {
-      tentativas.set(ip, { n: t && t.ate > agora ? t.n + 1 : 1, ate: agora + 15 * 60000 });
-      return json(res, 401, { erro: 'Usuário ou senha errados.' });
-    }
+    if (!u || !(await senhaConfere(u, corpo.senha || ''))) return json(res, 401, { erro: 'Usuário ou senha errados.' });
     tentativas.delete(ip);
     const tok = crypto.randomBytes(32).toString('base64url');
     for (const [k, x] of Object.entries(sessoes)) if (!x || x.ate < agora) delete sessoes[k];
@@ -179,20 +233,23 @@ async function rotear(req, res) {
   // ----- painel -----
   if (rota === '/' && metodo === 'GET') return html(res, 200, paginaInicial(u, SISTEMAS));
   if (rota === '/api/sair' && metodo === 'POST') {
-    delete sessoes[chaveSessao(s.tok)];
+    const chave = chaveSessao(s.tok);
+    delete sessoes[chave];
     gravarJSON(ARQ_SES, sessoes);
+    fecharOuvintes(new Set([chave]));
     return json(res, 200, { ok: true }, { 'Set-Cookie': cookieSessao(req, '', 0) });
   }
   if (rota === '/api/eu' && metodo === 'GET') return json(res, 200, { usuario: u.usuario, nome: u.nome, admin: !!u.admin, sistemas: prontos.map(x => x.id) });
   if (rota === '/api/minha-senha' && metodo === 'POST') {
     const corpo = await lerJSONCorpo(req, 10000);
-    if (!senhaConfere(u, corpo.atual || '')) return json(res, 400, { erro: 'A senha atual não confere.' });
+    if (!(await senhaConfere(u, corpo.atual || ''))) return json(res, 400, { erro: 'A senha atual não confere.' });
     if (String(corpo.nova || '').length < 6) return json(res, 400, { erro: 'A senha nova precisa ter pelo menos 6 letras ou números.' });
-    novaSenha(u, corpo.nova);
+    await novaSenha(u, corpo.nova);
     gravarJSON(ARQ_USU, usuarios);
-    const esta = chaveSessao(s.tok);
-    for (const [k, x] of Object.entries(sessoes)) if (x.usuario === u.usuario && k !== esta) delete sessoes[k];
+    const esta = chaveSessao(s.tok), derrubadas = new Set();
+    for (const [k, x] of Object.entries(sessoes)) if (x.usuario === u.usuario && k !== esta) { delete sessoes[k]; derrubadas.add(k); }
     gravarJSON(ARQ_SES, sessoes);
+    fecharOuvintes(derrubadas);
     return json(res, 200, { ok: true });
   }
 
@@ -217,13 +274,15 @@ async function rotear(req, res) {
       const obj = await lerJSONCorpo(req, 2e6);
       const op = banco.aplicar({ tipo: 'set', col, obj: Object.assign({}, obj, { id }) });
       if (!op) return json(res, 400, { erro: 'Registro inválido.' });
-      banco.salvar(); avisar(sis.id, op);
+      if (!(await gravou(banco))) return json(res, 500, NAO_GRAVOU);
+      avisar(sis.id, op);
       return json(res, 200, { ok: true });
     }
     if (metodo === 'DELETE') {
       const op = banco.aplicar({ tipo: 'del', col, id });
       if (!op) return json(res, 400, { erro: 'Registro inválido.' });
-      banco.salvar(); avisar(sis.id, op);
+      if (!(await gravou(banco))) return json(res, 500, NAO_GRAVOU);
+      avisar(sis.id, op);
       return json(res, 200, { ok: true });
     }
   }
@@ -233,13 +292,14 @@ async function rotear(req, res) {
     if (!ops.length || ops.length > 20000) return json(res, 400, { erro: 'Lote inválido.' });
     const feitas = banco.aplicarLote(ops);
     if (!feitas) return json(res, 400, { erro: 'Algum registro do lote é inválido. Nada foi gravado.' });
-    banco.salvar(); avisar(sis.id, { tipo: 'lote', ops: feitas });
+    if (!(await gravou(banco))) return json(res, 500, NAO_GRAVOU);
+    avisar(sis.id, { tipo: 'lote', ops: feitas });
     return json(res, 200, { ok: true, n: feitas.length });
   }
   if (resto[0] === 'eventos' && resto.length === 1 && metodo === 'GET') {
     res.writeHead(200, Object.assign({ 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' }, SEGURANCA));
     res.write('retry: 3000\n\n');
-    ouvintes[sis.id].add(res);
+    ouvintes[sis.id].set(res, chaveSessao(s.tok));
     req.on('close', () => ouvintes[sis.id].delete(res));
     return;
   }
@@ -260,8 +320,7 @@ async function rotear(req, res) {
     if (resto.length === 2 && metodo === 'GET') {
       const a = arquivos.abrir(resto[1]);
       if (!a) return json(res, 404, { erro: 'Arquivo não encontrado.' });
-      res.writeHead(200, Object.assign({ 'Content-Type': a.tipo, 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(a.nome)}`, 'Cache-Control': 'private, max-age=86400' }, SEGURANCA));
-      return fs.createReadStream(a.caminho).pipe(res);
+      return mandarArquivo(res, a);
     }
     if (resto.length === 2 && metodo === 'DELETE') {
       if (!arquivos.abrir(resto[1])) return json(res, 404, { erro: 'Arquivo não encontrado.' });
@@ -280,9 +339,18 @@ const servidor = http.createServer((req, res) => {
   });
 });
 servidor.listen(PORTA, HOST, () => console.log(`Painel Deconto em http://${HOST}:${PORTA}`));
-function desligar() {
+function gravarPendentes() {
   for (const id in bancos) if (bancos[id].pendente()) { try { bancos[id].gravarAgora(); } catch (e) { console.error(e.message); } }
+}
+function desligar() {
+  gravarPendentes();
   process.exit(0);
 }
 process.on('SIGTERM', desligar);
 process.on('SIGINT', desligar);
+// erro que ninguém tratou: grava o que estiver pendente e sai com erro; o PM2 sobe o painel de novo
+process.on('uncaughtException', e => {
+  console.error('Erro inesperado; o painel vai reiniciar:', e);
+  gravarPendentes();
+  process.exit(1);
+});
