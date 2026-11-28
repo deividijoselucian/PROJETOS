@@ -353,16 +353,17 @@ async function caminhoesDeTeste(p) {
   });
 }
 
-teste('Operação: lança com cliente, destinos, valor e pago; horímetro só no munck', async () => {
+teste('Operação: lança com cliente, destinos, valor e pago; horímetro quando usou o munck', async () => {
   const ctx = await logado();
   const a = await abrir(ctx, '/operacao/#operacao');
   await esperarServidor(a);
   await caminhoesDeTeste(a);
   assert.strictEqual(semEspaco(await a.textContent('.aba[data-aba="operacao"]')).trim(), 'Operação');
   await a.selectOption('#km-cam', 'cam-sem');
-  assert.strictEqual(await a.isVisible('#km-hor-ini'), false, 'sem munck, sem horímetro');
+  assert.strictEqual(await a.isVisible('#km-hor-ini'), false, 'sem "Usou o munck?", sem horímetro');
   await a.selectOption('#km-cam', 'cam-mk');
-  assert.strictEqual(await a.isVisible('#km-hor-ini'), true, 'caminhão munck tem horímetro');
+  await a.selectOption('#km-munck', 'sim');
+  assert.strictEqual(await a.isVisible('#km-hor-ini'), true, 'usou o munck: tem horímetro');
   const hoje = await a.evaluate(() => hojeISO());
   await a.fill('#km-data', hoje);
   await a.fill('#km-cliente', 'Cliente Y');
@@ -415,6 +416,53 @@ teste('Operação: lança com cliente, destinos, valor e pago; horímetro só no
   const r3 = (await dados(ctx, 'operacao')).km.find(x => x.cliente === 'Cliente Z');
   assert.strictEqual(r3.valor, 1500);
   assert.ok(r3.horimetroInicial == null && r3.horimetroFinal == null, 'sem horímetro no caminhão sem munck');
+});
+
+teste('Operação: "Usou o munck?" mostra o horímetro em qualquer caminhão e grava as horas', async () => {
+  const ctx = await logado();
+  const a = await abrir(ctx, '/operacao/#operacao');
+  await esperarServidor(a);
+  await caminhoesDeTeste(a);
+  const hoje = await a.evaluate(() => hojeISO());
+  // caminhão sem munck no cadastro também pode lançar horímetro
+  await a.selectOption('#km-cam', 'cam-sem');
+  assert.strictEqual(await a.inputValue('#km-munck'), 'nao', 'começa em Não');
+  assert.strictEqual(await a.isVisible('#km-hor-ini'), false, 'com Não, sem horímetro');
+  await a.selectOption('#km-munck', 'sim');
+  assert.strictEqual(await a.isVisible('#km-hor-ini'), true, 'com Sim, aparece o horímetro');
+  await a.fill('#km-data', hoje);
+  await a.fill('#km-cliente', 'Cliente Munck');
+  await a.fill('#km-ini', '700');
+  await a.fill('#km-fin', '720');
+  await a.fill('#km-valor', '900');
+  await a.fill('#km-hor-ini', '50');
+  await a.fill('#km-hor-fin', '');
+  // Sim sem o horímetro final não grava
+  await a.click('#f-km button[type="submit"]');
+  await a.waitForSelector('#km-hor-fin[aria-invalid="true"]');
+  assert.ok(!(await dados(ctx, 'operacao')).km.some(r => r.cliente === 'Cliente Munck'), 'sem horímetro final não grava');
+  await a.fill('#km-hor-fin', '53,5');
+  await a.waitForFunction(() => document.querySelector('#km-calc').textContent.includes('3,5 h de munck'), null, { timeout: 5000 });
+  await limparToast(a);
+  await a.click('#f-km button[type="submit"]');
+  await esperarToast(a, 'Operação salva');
+  const r = (await dados(ctx, 'operacao')).km.find(x => x.cliente === 'Cliente Munck');
+  assert.ok(r, 'operação no servidor');
+  assert.strictEqual(r.usouMunck, true);
+  assert.strictEqual(r.horimetroInicial, 50);
+  assert.strictEqual(r.horimetroFinal, 53.5);
+  assert.strictEqual(await a.inputValue('#km-munck'), 'nao', 'formulário volta para Não');
+  // editar mantém o Sim; trocar para Não apaga o horímetro
+  await a.click(`#t-km [data-acao="editar"][data-alvo="km:${r.id}"]`);
+  assert.strictEqual(await a.inputValue('#km-munck'), 'sim');
+  assert.strictEqual(await a.isVisible('#km-hor-ini'), true);
+  await a.selectOption('#km-munck', 'nao');
+  await limparToast(a);
+  await a.click('#f-km button[type="submit"]');
+  await esperarToast(a, 'Operação salva');
+  const r2 = (await dados(ctx, 'operacao')).km.find(x => x.id === r.id);
+  assert.strictEqual(r2.usouMunck, false);
+  assert.ok(r2.horimetroInicial == null && r2.horimetroFinal == null, 'com Não, sem horímetro');
 });
 
 teste('Agenda de operação preenche a Operação do dia e vira Feito', async () => {

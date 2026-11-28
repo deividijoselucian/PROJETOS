@@ -427,7 +427,8 @@ button.seg { border: 0; background: transparent; }
         <div class="campo"><label for="km-pago">Pago?</label><select id="km-pago" name="pago"><option value="nao">Não, a receber</option><option value="sim">Sim, pago</option></select></div>
         <div class="campo"><label for="km-ini">Km inicial</label><input id="km-ini" name="kmInicial" data-tipo="int" inputmode="numeric" autocomplete="off"></div>
         <div class="campo"><label for="km-fin">Km final</label><input id="km-fin" name="kmFinal" data-tipo="int" inputmode="numeric" autocomplete="off"></div>
-        <div class="campo" data-hor hidden><label for="km-hor-ini">Horímetro inicial</label><input id="km-hor-ini" name="horimetroInicial" data-tipo="dec" inputmode="decimal" autocomplete="off"><span class="dica">Só caminhão munck.</span></div>
+        <div class="campo"><label for="km-munck">Usou o munck?</label><select id="km-munck" name="usouMunck"><option value="nao">Não</option><option value="sim">Sim</option></select></div>
+        <div class="campo" data-hor hidden><label for="km-hor-ini">Horímetro inicial</label><input id="km-hor-ini" name="horimetroInicial" data-tipo="dec" inputmode="decimal" autocomplete="off"><span class="dica">Relógio de horas do munck.</span></div>
         <div class="campo" data-hor hidden><label for="km-hor-fin">Horímetro final</label><input id="km-hor-fin" name="horimetroFinal" data-tipo="dec" inputmode="decimal" autocomplete="off"></div>
         <div class="campo largo"><label for="km-obs">Observação</label><input id="km-obs" name="obs" autocomplete="off"></div>
       </div>
@@ -748,7 +749,6 @@ const rotaDe = x => [x.destinoA, x.destinoB].filter(Boolean).join(' → ');
 const descServ = x => [clienteDe(x), rotaDe(x)].filter(Boolean).join(' · ');
 const horasDe = r => r.horimetroFinal != null && r.horimetroInicial != null ? Math.max(0, r.horimetroFinal - r.horimetroInicial) : (r.horas || 0);
 const docDe = camId => todos('documentos').find(d => d.caminhaoId === camId);
-const temMunck = camId => !!(cam(camId) && String(cam(camId).munck || '').trim());
 /* maior horímetro final do caminhão até o dia (sem contar o registro em edição) */
 function ultimoHor(camId, dia, exceto) {
   let u = null;
@@ -1423,11 +1423,12 @@ function renderListaKm() {
 /* horímetro só para caminhão com munck */
 function ajustarHor() {
   const f = $('#f-km');
-  const mk = temMunck(f.elements.caminhaoId.value);
+  const mk = f.elements.usouMunck.value === 'sim';
   $$('[data-hor]', f).forEach(el => { el.hidden = !mk; });
 }
 function calcKm() {
   const f = $('#f-km');
+  ajustarHor();
   const o = lerForm(f), out = [];
   if (o.kmInicial != null && o.kmFinal != null && !isNaN(o.kmInicial) && !isNaN(o.kmFinal)) {
     const km = o.kmFinal - o.kmInicial;
@@ -1437,7 +1438,7 @@ function calcKm() {
       if (km > 1000) out.push('<span class="aviso">Mais de 1.000 km: confira os números.</span>');
     }
   }
-  if (temMunck(o.caminhaoId) && o.horimetroInicial != null && o.horimetroFinal != null && !isNaN(o.horimetroInicial) && !isNaN(o.horimetroFinal)) {
+  if (o.usouMunck === 'sim' && o.horimetroInicial != null && o.horimetroFinal != null && !isNaN(o.horimetroInicial) && !isNaN(o.horimetroFinal)) {
     if (o.horimetroFinal < o.horimetroInicial) out.push('<span class="erro">O horímetro final está menor que o inicial.</span>');
     else out.push(`<span class="info">${esc(fH(o.horimetroFinal - o.horimetroInicial) === '—' ? '0 h' : fH(o.horimetroFinal - o.horimetroInicial))} de munck.</span>`);
   }
@@ -1480,7 +1481,7 @@ function sugerirKm() {
   const u = ultimoKm(camId, dia, null);
   const ini = u ? u.kmFinal : c && c.kmInicial;
   autoValor(f.elements.kmInicial, ini ? nf0.format(ini) : '');
-  const uh = temMunck(camId) ? ultimoHor(camId, dia, null) : null;
+  const uh = ultimoHor(camId, dia, null);
   autoValor(f.elements.horimetroInicial, uh != null ? String(uh).replace('.', ',') : '');
   calcKm();
 }
@@ -1968,7 +1969,7 @@ function modoForm(f, editandoId) {
 }
 const PADROES = {
   'f-ag': () => ({ data: hojeISO(), situacao: 'agendado' }),
-  'f-km': () => ({ data: hojeISO(), pago: 'nao' }),
+  'f-km': () => ({ data: hojeISO(), pago: 'nao', usouMunck: 'nao' }),
   'f-cam': () => ({ situacao: 'ativo' }),
   'f-mot': () => ({ categoria: 'E', situacao: 'ativo' }),
   'f-man': () => ({ data: hojeISO(), tipo: TIPOS_MANUT[0] }),
@@ -2017,7 +2018,11 @@ function editar(col, id) {
   if (!reg || !formId) return;
   const f = abrirForm(formId, null);
   const dados = Object.assign({}, reg);
-  if (col === 'km') dados.pago = reg.pago === true ? 'sim' : 'nao';
+  if (col === 'km') {
+    dados.pago = reg.pago === true ? 'sim' : 'nao';
+    // registro de antes do "Usou o munck?": tem horímetro = usou
+    dados.usouMunck = (reg.usouMunck != null ? reg.usouMunck === true : reg.horimetroInicial != null) ? 'sim' : 'nao';
+  }
   if (col === 'documentos') dados.temSeguro = reg.temSeguro === true ? 'sim' : 'nao';
   preencherForm(f, dados);
   modoForm(f, id);
@@ -2053,9 +2058,10 @@ async function salvarForm(f) {
       if (o.kmInicial == null || isNaN(o.kmInicial)) return marcarErro(f, 'kmInicial', 'Escreva o km inicial (só números).');
       if (o.kmFinal == null || isNaN(o.kmFinal)) return marcarErro(f, 'kmFinal', 'Escreva o km final (só números).');
       if (o.kmFinal < o.kmInicial) return marcarErro(f, 'kmFinal', 'O km final não pode ser menor que o inicial.');
-      if (temMunck(o.caminhaoId)) {
-        for (const k of ['horimetroInicial', 'horimetroFinal']) if (o[k] != null && (isNaN(o[k]) || o[k] < 0)) return marcarErro(f, k, 'O horímetro tem que ser só números, como 1.250,5.');
-        if (o.horimetroInicial != null && o.horimetroFinal != null && o.horimetroFinal < o.horimetroInicial) return marcarErro(f, 'horimetroFinal', 'O horímetro final não pode ser menor que o inicial.');
+      o.usouMunck = o.usouMunck === 'sim';
+      if (o.usouMunck) {
+        for (const [k, nome] of [['horimetroInicial', 'inicial'], ['horimetroFinal', 'final']]) if (o[k] == null || isNaN(o[k]) || o[k] < 0) return marcarErro(f, k, `Escreva o horímetro ${nome} (só números, como 1.250,5).`);
+        if (o.horimetroFinal < o.horimetroInicial) return marcarErro(f, 'horimetroFinal', 'O horímetro final não pode ser menor que o inicial.');
       } else { o.horimetroInicial = null; o.horimetroFinal = null; }
       aviso = `Operação salva: ${c ? mostraPlaca(c.placa) : ''}, ${descServ(Object.assign({}, antigo || {}, o))}, ${fKm(o.kmFinal - o.kmInicial)}${o.valor ? ', ' + fR(o.valor) + (o.pago ? ' (pago)' : ' (a receber)') : ''}.`;
       manter = ['data'];

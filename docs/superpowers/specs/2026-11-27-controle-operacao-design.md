@@ -59,7 +59,9 @@ destino B**. Num registro antigo sem cliente, mostra o nome da obra.
 - Cliente e destinos têm sugestões com os nomes já usados (sem cadastro à parte).
 - Motorista, cliente e destinos vêm do agendamento daquele caminhão naquele dia. O km inicial
   vem do último km final, como hoje. O horímetro inicial vem do último horímetro final.
-- Horímetro só aparece quando o caminhão tem o campo **Munck** preenchido no cadastro.
+- Horímetro aparece quando a operação marca **Usou o munck? Sim**, em qualquer caminhão
+  (mudança de 2026-11-28; antes dependia do campo Munck do cadastro). Com Sim, inicial e final
+  são obrigatórios.
 - Ao salvar, o agendamento do dia fica "Feito", como hoje.
 - Lista com filtros (caminhão, cliente, mês, pago / a receber). Colunas: data, caminhão,
   motorista, cliente e destinos, km rodados, horas, valor e pago. Totais: km, horas, valor e

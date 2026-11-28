@@ -24,8 +24,8 @@ compartilhado com o DECONTO.
    caminhão), cliente, destino A, destino B, o que vai fazer e a situação (agendado,
    confirmado, feito, cancelado). Embaixo, a lista com filtro por caminhão e cliente.
 3. **Operação**: data, caminhão, motorista, cliente, destino A, destino B, valor, pago (sim ou
-   não), km inicial e final e, só para caminhão com munck no cadastro, horímetro inicial e
-   final. Motorista, cliente e destinos vêm do agendamento daquele dia; o km e o horímetro
+   não), km inicial e final e "Usou o munck?". Com Sim, aparecem o horímetro inicial e final, e
+   o sistema mostra as horas ligado. Motorista, cliente e destinos vêm do agendamento daquele dia; o km e o horímetro
    iniciais vêm do último lançamento do caminhão. Ao salvar, o agendamento do dia fica
    "Feito". A lista tem filtro por caminhão, cliente, pagas ou a receber e mês, com o total
    de km, horas, valor e a receber.
