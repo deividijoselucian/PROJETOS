@@ -1670,7 +1670,15 @@ function calcAlertas() {
     const d = difDias(u.data, h);
     if (d >= 3) out.push({ nivel: 'aviso', ordem: -d, txt: `${mostraPlaca(c.placa)} está rodando e não tem km lançado desde ${fmtData(u.data)} (${d} dias).` });
   }
-  const peso = { vencido: 0, breve: 1, aviso: 2 };
+  // Estoque (no Painel Deconto): tanque abaixo do mínimo e material no mínimo, zerado ou negativo
+  for (const m of ESTOQUE.ok ? ESTOQUE.materiais : []) {
+    if (m.ativo === false || m.situacao === 'ok') continue;
+    const nome = m.tanque && !/^tanque\b/i.test(m.nome) ? 'Tanque ' + m.nome : m.nome, q = fQtd(m.saldo, m.unidade), min = fQtd(m.minimo, m.unidade);
+    out.push({ nivel: 'estoque', ordem: m.situacao === 'baixo' ? 1 : 0, txt: m.situacao === 'negativo' ? `${nome} com saldo negativo no estoque: ${q}. Confira as compras e a ${m.tanque ? 'medição' : 'contagem'}.`
+      : m.situacao === 'zerado' ? (m.tanque ? `${nome} vazio.` : `${nome} zerado no estoque.`)
+      : m.tanque ? `${nome} abaixo do mínimo: ${q} (mínimo ${min}).` : `${nome} no mínimo no estoque: ${q} (mínimo ${min}).` });
+  }
+  const peso = { vencido: 0, breve: 1, estoque: 1.5, aviso: 2 };
   return out.sort((a, b) => peso[a.nivel] - peso[b.nivel] || a.ordem - b.ordem);
 }
 function proximasManutencoes() {
@@ -1781,7 +1789,7 @@ function renderPainel(alertas) {
 
   // alertas
   $('#bloco-alertas').hidden = !alertas.length;
-  const rotNivel = { vencido: ['bad vencido', 'Vencido'], breve: ['warn', 'Em breve'], aviso: ['info', 'Conferir'] };
+  const rotNivel = { vencido: ['bad vencido', 'Vencido'], breve: ['warn', 'Em breve'], estoque: ['warn', 'Estoque'], aviso: ['info', 'Conferir'] };
   $('#alertas').innerHTML = alertas.map(a => `<li><span class="pill ${rotNivel[a.nivel][0]}">${rotNivel[a.nivel][1]}</span><span>${esc(a.txt)}</span></li>`).join('');
 
   // por categoria (só com "Todas")

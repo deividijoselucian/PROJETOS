@@ -429,6 +429,23 @@ teste('Controle: manutenção com peça do estoque tira do saldo, total na lista
   assert.strictEqual(await e.locator('#movs a[href="/operacao/#manutencao"]').count(), 1);
 });
 
+// ---------- DECONTO: avisos do Estoque no Painel ----------
+teste('DECONTO: Painel mostra tanque abaixo do mínimo e material no mínimo, e some quando entra compra', async () => {
+  const ctx = await logado();
+  const tq = await tanqueCom(ctx, 'Tanque reserva', 500, 5.8);
+  const oleo = await criarMaterial(ctx, { nome: 'Óleo 15W40', categoria: 'Óleos', unidade: 'L', minimo: 20 });
+  await entrada(ctx, oleo, 10, 22);
+  await camFrota(ctx, 'cam-av', 'AVS1A00');
+  const p = await abrir(ctx, '/frota/#painel');
+  await esperarServidor(p);
+  await esperarTexto(p, '#bloco-alertas', 'Tanque reserva abaixo do mínimo: 500 L (mínimo 1.000 L)');
+  await esperarTexto(p, '#bloco-alertas', 'Óleo 15W40 no mínimo no estoque: 10 L (mínimo 20 L)');
+  assert.strictEqual(await p.isVisible('#bloco-alertas'), true);
+  await entrada(ctx, tq, 3000, 5.9);
+  await p.waitForFunction(() => !document.querySelector('#bloco-alertas').textContent.includes('Tanque reserva'), null, { timeout: 6000 });
+  assert.match(await texto(p, '#bloco-alertas'), /Óleo 15W40/);
+});
+
 // ---------- no fim ----------
 teste('nenhum erro de página (pageerror) em nenhum teste', async () => {
   assert.deepStrictEqual(errosDePagina, []);
