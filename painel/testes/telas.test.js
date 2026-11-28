@@ -11,7 +11,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright');
 
-const PORTA = 3398;
+const PORTA = Number(process.env.PORTA_TESTE) || 3398; // outra porta quando duas cópias rodam ao mesmo tempo
 const BASE = `http://127.0.0.1:${PORTA}`;
 const RAIZ = path.join(__dirname, '..', '..');
 const SERVIDOR = path.join(__dirname, '..', 'servidor', 'servidor.js');
@@ -551,6 +551,57 @@ teste('Operação: registro antigo com obra aparece com o nome da obra e as hora
   await a.selectOption('#fk-mes', 'todos');
   await a.waitForFunction(() => document.querySelector('#t-km').textContent.includes('Obra Velha'), null, { timeout: 5000 });
   assert.match(semEspaco(await a.textContent('#t-km')), /3 h/);
+});
+
+teste('Destino: puxa a cidade sem acento; destinos já usados vêm primeiro; Enter não envia', async () => {
+  const ctx = await logado();
+  const a = await abrir(ctx, '/operacao/#operacao');
+  await esperarServidor(a);
+  await caminhoesDeTeste(a);
+  await a.evaluate(async () => { await gravar('km', { id: 'km-dest-usado', data: '2025-02-01', caminhaoId: 'cam-sem', cliente: 'C', destinoA: 'Pátio Deconto - Xanxerê', destinoB: '<b>x</b> & y', kmInicial: 1, kmFinal: 2, criadoEm: new Date().toISOString() }); });
+  const itens = () => a.$$eval('#sug-destino li', l => l.map(x => x.textContent));
+  await a.fill('#km-dest-a', 'x');
+  assert.strictEqual(await a.isVisible('#sug-destino'), false, '1 letra não abre');
+  await a.fill('#km-dest-a', 'xanx');
+  await a.waitForSelector('#sug-destino li');
+  const l1 = await itens();
+  assert.strictEqual(l1[0], 'Pátio Deconto - Xanxerê', 'usado primeiro');
+  assert.ok(l1.includes('Xanxerê - SC'));
+  assert.ok(l1.length <= 8);
+  await a.fill('#km-dest-a', 'sao d');
+  await a.waitForFunction(() => [...document.querySelectorAll('#sug-destino li')].some(x => x.textContent === 'São Domingos - SC'));
+  const antes = (await dados(ctx, 'operacao')).km.length;
+  await a.press('#km-dest-a', 'ArrowDown');
+  await a.press('#km-dest-a', 'Enter');
+  assert.match(await a.inputValue('#km-dest-a'), / - (PR|SC|RS)$/, 'Enter escolheu uma cidade');
+  assert.strictEqual(await a.isVisible('#sug-destino'), false, 'lista fecha ao escolher');
+  assert.strictEqual((await dados(ctx, 'operacao')).km.length, antes, 'Enter não enviou o formulário');
+  await a.fill('#km-dest-b', '<b');
+  await a.waitForSelector('#sug-destino li');
+  assert.ok((await itens()).includes('<b>x</b> & y'), 'texto, não HTML');
+  await a.press('#km-dest-b', 'Escape');
+  assert.strictEqual(await a.isVisible('#sug-destino'), false, 'Esc fecha');
+  // Agenda: clique escolhe
+  await a.evaluate(() => { location.hash = 'agenda'; });
+  const hoje = await a.evaluate(() => hojeISO());
+  await a.click(`#quadro .add[data-cam="cam-sem"][data-dia="${hoje}"]`);
+  await a.fill('#ag-dest-b', 'chapec');
+  await a.click('#sug-destino li:has-text("Chapecó - SC")');
+  assert.strictEqual(await a.inputValue('#ag-dest-b'), 'Chapecó - SC');
+});
+
+teste('Destino: sugestoesDestino ordena quem começa antes de quem contém', async () => {
+  const ctx = await logado();
+  const a = await abrir(ctx, '/operacao/#operacao');
+  await esperarServidor(a);
+  const r = await a.evaluate(() => ({ n: CIDADES.length, flor: sugestoesDestino('flor'), oeste: sugestoesDestino('oeste'), smo: sugestoesDestino('miguel do oe'), conc: sugestoesDestino('concordia'), um: sugestoesDestino('c') }));
+  const sa = x => x.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  assert.strictEqual(r.n, 1191);
+  assert.ok(r.flor.length > 0 && r.flor.length <= 8 && r.flor.every(x => sa(x).startsWith('flor')), 'flor: só quem começa');
+  assert.ok(r.oeste.length === 8 && r.oeste.every(x => sa(x).includes('oeste')), 'oeste: no máximo 8, todos contêm');
+  assert.ok(r.smo.includes('São Miguel do Oeste - SC'));
+  assert.ok(r.conc.includes('Concórdia - SC'));
+  assert.deepStrictEqual(r.um, []);
 });
 
 teste('Documento: um por caminhão, seguro só com sim, vencido avisa no Painel', async () => {

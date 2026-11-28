@@ -29,6 +29,10 @@ compartilhado com o DECONTO.
    iniciais vêm do último lançamento do caminhão. Ao salvar, o agendamento do dia fica
    "Feito". A lista tem filtro por caminhão, cliente, pagas ou a receber e mês, com o total
    de km, horas, valor e a receber.
+
+   Nos campos Destino A e B (Agenda e Operação), a partir de 2 letras aparece uma lista com
+   os destinos já usados e as cidades de PR, SC e RS (IBGE), sem precisar de acento
+   ("sao" acha "São Domingos - SC"). Setas e Enter ou clique escolhem; Esc fecha.
 4. **Documento**: uma linha por caminhão com o número do documento, o vencimento, se tem
    seguro e o vencimento do seguro. O Painel avisa 30 dias antes de vencer.
 5. **Manutenção**: data, caminhão, serviço (do caminhão ou do munck: hidráulico, cabo de aço,
