@@ -440,8 +440,175 @@ function renderFuncionarios() {
 }
 
 /* ---------- Relatório do mês ---------- */
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const nomeMes = mes => MESES[Number(mes.slice(5, 7)) - 1] + ' de ' + mes.slice(0, 4);
+function diasDoMes(mes) {
+  const n = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0)).getUTCDate();
+  return Array.from({ length: n }, (_, i) => mes + '-' + String(i + 1).padStart(2, '0'));
+}
+const emitido = () => 'emitido em ' + fmtQuando(new Date().toISOString());
+const obsDia = l => [...l.problemas, l.ajustado ? 'ajustado pelo RH' : ''].filter(Boolean).join('; ');
+/* Por funcionário (os ativos e quem teve registro no mês), cada dia do mês com entradas, saídas,
+   horas e o que passou da jornada daquele dia; os totais somam só os pares completos. */
+function relatorioMes(mes) {
+  const troca = trocas(), dias = diasDoMes(mes);
+  const comRegistro = new Set(todos('pontos').filter(p => p.data && p.data.slice(0, 7) === mes).map(p => p.funcionarioId));
+  return todos('funcionarios').filter(f => f.situacao !== 'desligado' || comRegistro.has(f.id)).sort(porNome).map(f => {
+    const linhas = dias.map(data => {
+      const r = diaDe(f.id, data, troca);
+      return { data, tem: r.marcas.length > 0, entradas: r.marcas.filter(m => m.tipo === 'entrada').map(m => m.hora), saidas: r.marcas.filter(m => m.tipo === 'saida').map(m => m.hora),
+        minutos: r.minutos, extra: r.extra, problemas: r.problemas, ajustado: r.marcas.some(m => m.origem === 'rh') };
+    });
+    const soma = k => linhas.reduce((t, l) => t + l[k], 0);
+    return { f, linhas, minutos: soma('minutos'), extra: soma('extra'), dias: linhas.filter(l => l.tem).length, pendentes: linhas.filter(l => l.problemas.length).length };
+  });
+}
 function renderRelatorio() {
   if (!$('#m-mes').value) $('#m-mes').value = hojeISO().slice(0, 7);
+  const mes = $('#m-mes').value, R = relatorioMes(mes);
+  const num = (v, cls) => `<td class="num${cls ? ' ' + cls : ''}">${v}</td>`;
+  const resumo = `<section class="bloco"><h2>Resumo de ${nomeMes(mes)}</h2><div class="rolar"><table class="tabela" id="m-resumo"><thead><tr><th>Funcionário</th><th>Cargo</th><th class="num">Jornada do dia</th><th class="num">Dias com registro</th><th class="num">Horas do mês</th><th class="num">Acima da jornada</th><th>Pendências</th></tr></thead><tbody>`
+    + (R.map(x => `<tr data-func="${esc(x.f.id)}"><td><strong>${esc(x.f.nome)}</strong><br><span class="hint">${esc(fmtCPF(x.f.cpf))}</span></td><td>${esc(x.f.cargo)}</td>${num(fmtHoras(x.f.jornadaMin || 0))}${num(x.dias)}${num(fmtHoras(x.minutos))}${num(fmtHoras(x.extra))}`
+      + `<td>${x.pendentes ? `<span class="pill bad">${x.pendentes} ${x.pendentes === 1 ? 'dia' : 'dias'} com marcação incompleta</span>` : ''}</td></tr>`).join('') || '<tr><td colspan="7" class="vazio">Nenhum funcionário.</td></tr>')
+    + '</tbody></table></div></section>';
+  const blocos = R.map(x => `<section class="bloco rel-func" data-func="${esc(x.f.id)}"><h2>${esc(x.f.nome)}</h2>`
+    + `<p class="hint">${esc([x.f.cpf ? 'CPF ' + fmtCPF(x.f.cpf) : '', x.f.cargo, 'jornada do dia ' + fmtHoras(x.f.jornadaMin || 0), nomeMes(mes)].filter(Boolean).join(' · '))}</p>`
+    + '<div class="rolar"><table class="tabela"><thead><tr><th>Dia</th><th>Entradas</th><th>Saídas</th><th class="num">Horas</th><th class="num">Acima da jornada</th><th>Observação</th></tr></thead><tbody>'
+    + x.linhas.map(l => `<tr data-dia="${l.data}"${l.problemas.length ? ' class="marcado"' : ''}><td>${diaSemana(l.data)} ${dataBR(l.data).slice(0, 5)}</td><td>${l.entradas.join(', ')}</td><td>${l.saidas.join(', ')}</td>`
+      + `${num(l.tem ? fmtHoras(l.minutos) : '')}${num(l.extra ? fmtHoras(l.extra) : '')}<td>${esc(obsDia(l))}</td></tr>`).join('')
+    + `<tr class="total"><td colspan="3">Total do mês</td>${num(fmtHoras(x.minutos), 'total-horas')}${num(fmtHoras(x.extra), 'total-extra')}<td></td></tr></tbody></table></div></section>`).join('');
+  $('#m-conteudo').innerHTML = `<p class="so-impressao"><strong>Deconto · Controle interno de ponto · ${nomeMes(mes)}</strong> · ${emitido()} · não é o ponto oficial (REP-P)</p>` + resumo + blocos;
+}
+
+/* ---------- Excel (xlsx feito aqui mesmo: zip sem compressão, como no Controle de Operação) ---------- */
+const XLSX_TIPO = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const TABELA_CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = TABELA_CRC[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipar(arquivos) {
+  const enc = new TextEncoder(), partes = [], central = [];
+  let pos = 0;
+  for (const a of arquivos) {
+    const nome = enc.encode(a.nome), dados = enc.encode(a.texto), crc = crc32(dados);
+    const loc = new DataView(new ArrayBuffer(30));
+    loc.setUint32(0, 0x04034b50, true); loc.setUint16(4, 20, true); loc.setUint16(6, 0x0800, true); loc.setUint16(8, 0, true);
+    loc.setUint16(10, 0, true); loc.setUint16(12, 0x5B79, true); loc.setUint32(14, crc, true); loc.setUint32(18, dados.length, true);
+    loc.setUint32(22, dados.length, true); loc.setUint16(26, nome.length, true); loc.setUint16(28, 0, true);
+    partes.push(new Uint8Array(loc.buffer), nome, dados);
+    const cen = new DataView(new ArrayBuffer(46));
+    cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint16(8, 0x0800, true);
+    cen.setUint16(10, 0, true); cen.setUint16(12, 0, true); cen.setUint16(14, 0x5B79, true); cen.setUint32(16, crc, true);
+    cen.setUint32(20, dados.length, true); cen.setUint32(24, dados.length, true); cen.setUint16(28, nome.length, true);
+    cen.setUint32(42, pos, true);
+    central.push(new Uint8Array(cen.buffer), nome);
+    pos += 30 + nome.length + dados.length;
+  }
+  const tamCentral = central.reduce((t, p) => t + p.length, 0), fim = new DataView(new ArrayBuffer(22));
+  fim.setUint32(0, 0x06054b50, true); fim.setUint16(8, arquivos.length, true); fim.setUint16(10, arquivos.length, true);
+  fim.setUint32(12, tamCentral, true); fim.setUint32(16, pos, true);
+  return new Blob([...partes, ...central, new Uint8Array(fim.buffer)], { type: XLSX_TIPO });
+}
+const XS = { cab: 1, txt: 2, forte: 3, titulo: 4, fraco: 5, hora: 6, horaTotal: 7, marcado: 8, data: 9, totalTxt: 10 };
+const ESTILOS_XLSX = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+  + '<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="[h]:mm"/></numFmts>'
+  + '<fonts count="6"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>'
+  + '<font><b/><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="16"/><color rgb="FF151A23"/><name val="Calibri"/><family val="2"/></font>'
+  + '<font><sz val="10"/><color rgb="FF535E72"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFBA2E29"/><name val="Calibri"/><family val="2"/></font></fonts>'
+  + '<fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+  + '<fill><patternFill patternType="solid"><fgColor rgb="FF171C24"/><bgColor indexed="64"/></patternFill></fill>'
+  + '<fill><patternFill patternType="solid"><fgColor rgb="FFFBE2E0"/><bgColor indexed="64"/></patternFill></fill>'
+  + '<fill><patternFill patternType="solid"><fgColor rgb="FFE4E8EF"/><bgColor indexed="64"/></patternFill></fill></fills>'
+  + '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top/><bottom style="thin"><color rgb="FFD3D9E3"/></bottom><diagonal/></border></borders>'
+  + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="11">'
+  + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+  + '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'
+  + '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>'
+  + '<xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>'
+  + '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+  + '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+  + '<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>'
+  + '<xf numFmtId="165" fontId="2" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>'
+  + '<xf numFmtId="0" fontId="5" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>'
+  + '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="top"/></xf>'
+  + '<xf numFmtId="0" fontId="2" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'
+  + '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+const xmlEsc = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function letraColuna(i) { let s = ''; for (let n = i + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s; return s; }
+const serialExcel = d => Math.round((Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 86400000);
+// célula: texto ou número, ou { v, s } com estilo, ou { d: 'aaaa-mm-dd' } para data
+function celulaXlsx(ref, c) {
+  if (c == null || c === '') return '';
+  let v = c, s = 0;
+  if (typeof c === 'object') {
+    if ('d' in c) return `<c r="${ref}" s="${XS.data}"><v>${serialExcel(c.d)}</v></c>`;
+    v = c.v; s = c.s || 0;
+  }
+  const est = s ? ` s="${s}"` : '';
+  if (v == null || v === '') return s ? `<c r="${ref}"${est}/>` : '';
+  if (typeof v === 'number') return `<c r="${ref}"${est}><v>${v}</v></c>`;
+  return `<c r="${ref}" t="inlineStr"${est}><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+}
+function abaXlsx(aba) {
+  const linhas = aba.linhas.map((l, i) => `<row r="${i + 1}">${l.map((c, j) => celulaXlsx(letraColuna(j) + (i + 1), c)).join('')}</row>`).join('');
+  const cols = `<cols>${aba.larguras.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>`;
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+    + `<sheetFormatPr defaultRowHeight="15"/>${cols}<sheetData>${linhas}</sheetData>`
+    + '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>';
+}
+function nomeAbaXlsx(nome, usados) {
+  let base = String(nome).replace(/[:\\/?*[\]]/g, ' ').trim().slice(0, 31) || 'Funcionário', n = base, i = 2;
+  while (usados.has(n.toLowerCase())) { const suf = ' (' + i++ + ')'; n = base.slice(0, 31 - suf.length) + suf; }
+  usados.add(n.toLowerCase());
+  return n;
+}
+function montarXlsx(abas) {
+  const usados = new Set();
+  abas.forEach(a => { a.nome = nomeAbaXlsx(a.nome, usados); });
+  const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n', REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  return zipar([
+    { nome: '[Content_Types].xml', texto: XML + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + abas.map((a, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
+      + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
+    { nome: '_rels/.rels', texto: XML + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { nome: 'xl/workbook.xml', texto: XML + `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="${REL}"><bookViews><workbookView/></bookViews><sheets>`
+      + abas.map((a, i) => `<sheet name="${xmlEsc(a.nome)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets></workbook>' },
+    { nome: 'xl/_rels/workbook.xml.rels', texto: XML + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + abas.map((a, i) => `<Relationship Id="rId${i + 1}" Type="${REL}/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')
+      + `<Relationship Id="rId${abas.length + 1}" Type="${REL}/styles" Target="styles.xml"/></Relationships>` },
+    { nome: 'xl/styles.xml', texto: ESTILOS_XLSX },
+    ...abas.map((a, i) => ({ nome: `xl/worksheets/sheet${i + 1}.xml`, texto: abaXlsx(a) })),
+  ]);
+}
+// horas no Excel: fração do dia, com o formato [h]:mm (soma passando de 24 h)
+const xH = (min, s = XS.hora) => ({ v: min / 1440, s });
+function planilhaMes(mes) {
+  const R = relatorioMes(mes), sub = 'Controle interno de ponto (não é o REP-P) · ' + emitido();
+  const cab = l => l.map(v => ({ v, s: XS.cab }));
+  const resumo = { nome: 'Resumo', larguras: [30, 16, 24, 12, 12, 12, 14, 14], linhas: [
+    [{ v: 'Ponto de ' + nomeMes(mes), s: XS.titulo }], [{ v: sub, s: XS.fraco }], [],
+    cab(['Funcionário', 'CPF', 'Cargo', 'Jornada do dia', 'Dias com registro', 'Horas do mês', 'Acima da jornada', 'Dias com marcação incompleta']),
+    ...R.map(x => [{ v: x.f.nome, s: XS.forte }, { v: fmtCPF(x.f.cpf), s: XS.txt }, { v: x.f.cargo || '', s: XS.txt }, xH(x.f.jornadaMin || 0), { v: x.dias, s: XS.txt }, xH(x.minutos), xH(x.extra), { v: x.pendentes || '', s: x.pendentes ? XS.marcado : XS.txt }]),
+    [{ v: 'Total', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, xH(R.reduce((t, x) => t + x.minutos, 0), XS.horaTotal), xH(R.reduce((t, x) => t + x.extra, 0), XS.horaTotal), { v: '', s: XS.totalTxt }],
+  ] };
+  const abas = R.map(x => ({ nome: x.f.nome, larguras: [12, 7, 18, 18, 10, 12, 36], linhas: [
+    [{ v: x.f.nome + ' · ' + nomeMes(mes), s: XS.titulo }],
+    [{ v: [x.f.cpf ? 'CPF ' + fmtCPF(x.f.cpf) : '', x.f.cargo, 'jornada do dia ' + fmtHoras(x.f.jornadaMin || 0), sub].filter(Boolean).join(' · '), s: XS.fraco }], [],
+    cab(['Data', 'Dia', 'Entradas', 'Saídas', 'Horas', 'Acima da jornada', 'Observação']),
+    ...x.linhas.map(l => [{ d: l.data }, { v: diaSemana(l.data), s: XS.txt }, { v: l.entradas.join(', '), s: XS.txt }, { v: l.saidas.join(', '), s: XS.txt },
+      l.tem ? xH(l.minutos) : { v: '', s: XS.txt }, l.extra ? xH(l.extra) : { v: '', s: XS.txt }, { v: obsDia(l), s: l.problemas.length ? XS.marcado : XS.txt }]),
+    [{ v: 'Total do mês', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, { v: '', s: XS.totalTxt }, xH(x.minutos, XS.horaTotal), xH(x.extra, XS.horaTotal), { v: '', s: XS.totalTxt }],
+  ] }));
+  return montarXlsx([resumo, ...abas]);
+}
+function baixarExcel() {
+  const mes = $('#m-mes').value || hojeISO().slice(0, 7);
+  let arq;
+  try { arq = planilhaMes(mes); } catch (e) { toast('Não consegui montar a planilha.', true); return; }
+  const url = URL.createObjectURL(arq), a = document.createElement('a');
+  a.href = url; a.download = 'ponto-' + mes + '.xlsx'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+  toast('Planilha salva.');
 }
 
 /* ---------- tela ---------- */

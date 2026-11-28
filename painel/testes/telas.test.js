@@ -972,6 +972,60 @@ teste('RH: a central mostra o dia com foto, mapa e horas; corrige e inclui com j
   assert.ok(meus.some(x => x.substitui === original.id && x.hora === '08:00' && x.por === 'admin'));
 });
 
+teste('RH: relatório do mês dá o total certo num caso com 2 dias, com Excel e página para imprimir', async () => {
+  const ctx = await logado();
+  await funcionarioAPI(ctx, 'f-mes', { nome: 'Edu Relatório', cpf: '11122233344', jornadaMin: 528 });
+  const incluir = async (tipo, data, hora) => {
+    const r = await ctx.request.post(`${BASE}/rh/api/pontos`, { data: { funcionarioId: 'f-mes', tipo, data, hora, justificativa: 'Teste do relatório' } });
+    assert.strictEqual(r.status(), 200);
+  };
+  // dia 5: 4:00 + 4:48 = 8:48 (a jornada); dia 6: 10:00 (1:12 acima) e uma entrada sem saída, que não soma
+  await incluir('entrada', '2026-10-05', '08:00'); await incluir('saida', '2026-10-05', '12:00');
+  await incluir('entrada', '2026-10-05', '13:00'); await incluir('saida', '2026-10-05', '17:48');
+  await incluir('entrada', '2026-10-06', '08:00'); await incluir('saida', '2026-10-06', '18:00');
+  await incluir('entrada', '2026-10-06', '19:00');
+  const p = await abrir(ctx, '/rh/#relatorio');
+  await esperarServidor(p);
+  await p.fill('#m-mes', '2026-10');
+  await p.locator('#m-mes').dispatchEvent('change');
+  const bloco = p.locator('.rel-func[data-func="f-mes"]');
+  await bloco.waitFor({ timeout: 5000 });
+  assert.strictEqual(await bloco.locator('tr[data-dia]').count(), 31, 'todos os dias de outubro');
+  assert.strictEqual((await bloco.locator('.total-horas').textContent()).trim(), '18:48');
+  assert.strictEqual((await bloco.locator('.total-extra').textContent()).trim(), '1:12');
+  const d5 = semEspaco(await bloco.locator('tr[data-dia="2026-10-05"]').textContent());
+  assert.match(d5, /08:00, 13:00/);
+  assert.match(d5, /12:00, 17:48/);
+  assert.match(d5, /8:48/);
+  const d6 = semEspaco(await bloco.locator('tr[data-dia="2026-10-06"]').textContent());
+  assert.match(d6, /08:00, 19:00/);
+  assert.match(d6, /10:00/);
+  assert.match(d6, /1:12/);
+  assert.match(d6, /entrada sem saída/);
+  assert.strictEqual(await bloco.locator('tr[data-dia="2026-10-06"].marcado').count(), 1, 'o dia com entrada sem saída fica marcado');
+  const resumo = semEspaco(await p.locator('#m-resumo tr[data-func="f-mes"]').textContent());
+  assert.match(resumo, /Edu Relatório/);
+  assert.match(resumo, /18:48/);
+  assert.match(resumo, /1:12/);
+  // Excel: aba Resumo e uma aba por funcionário, com as horas em [h]:mm
+  const xml = await p.evaluate(async () => { const x = planilhaMes('2026-10'); return x instanceof Blob ? await x.text() : new TextDecoder().decode(x); });
+  assert.ok(xml.includes('<sheet name="Resumo"'), 'aba Resumo');
+  assert.ok(xml.includes('<sheet name="Edu Relatório"'), 'aba do funcionário');
+  assert.ok(xml.includes('[h]:mm'), 'horas como hora do Excel');
+  assert.ok(xml.includes('<v>' + (1128 / 1440) + '</v>'), 'total 18:48 no Excel');
+  assert.ok(xml.includes('<v>' + (72 / 1440) + '</v>'), '1:12 acima da jornada no Excel');
+  assert.ok(xml.includes('entrada sem saída'), 'a marcação vai para o Excel');
+  const [baixado] = await Promise.all([p.waitForEvent('download'), p.click('[data-acao="excel"]')]);
+  assert.strictEqual(baixado.suggestedFilename(), 'ponto-2026-10.xlsx');
+  // na impressão sai só o relatório
+  await p.emulateMedia({ media: 'print' });
+  assert.ok(!(await p.isVisible('.abas')), 'sem as abas na impressão');
+  assert.ok(!(await p.isVisible('#m-mes')), 'sem os filtros na impressão');
+  assert.ok(await p.isVisible('.rel-func[data-func="f-mes"]'));
+  assert.match(await p.textContent('.so-impressao'), /Controle interno de ponto/);
+  await p.emulateMedia({ media: 'screen' });
+});
+
 teste('celular 390px: central do RH sem rolagem para o lado', async () => {
   const ctx = await logado({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   const p = await abrir(ctx, '/rh/');
