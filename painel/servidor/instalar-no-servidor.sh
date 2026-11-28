@@ -32,6 +32,9 @@ cd "$PASTA"
 for f in servidor.js sistemas.js banco.js paginas.js publico/frota.html publico/operacao.html; do
   [ -f "$f" ] || erro "Falta o arquivo $f nesta pasta ($PASTA)."
 done
+for f in estoque.js publico/estoque.html; do
+  [ -f "$f" ] || erro "Falta o arquivo $f nesta pasta ($PASTA)."
+done
 
 # Primeira instalação = ainda não existe o usuário admin.
 PRIMEIRA=0

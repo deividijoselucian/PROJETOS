@@ -133,7 +133,21 @@ const tentativas = new Map(); // no máximo 8 senhas erradas a cada 15 minutos p
 
 /* ---------- avisos ao vivo ---------- */
 const sessaoValida = chave => { const x = sessoes[chave]; return !!x && x.ate >= Date.now(); };
+/* Estoque: o saldo muda quando o Estoque grava, quando o DECONTO grava abastecimento/manutenção/caminhão
+   e quando o Controle grava manutenção. Um canal só por página: o servidor manda { tipo: 'estoque' } aos
+   ouvintes dos três e cada página busca /estoque/api/saldos de novo. */
+const { calcularSaldos } = require('./estoque');
+const MEXE_NO_ESTOQUE = { estoque: null, frota: ['abastecimentos', 'manutencoes', 'caminhoes'], operacao: ['manutencoes'] };
+function mexeNoEstoque(sisId, msg) {
+  if (!bancos.estoque || !(sisId in MEXE_NO_ESTOQUE)) return false;
+  const cols = MEXE_NO_ESTOQUE[sisId];
+  return !cols || (msg.tipo === 'lote' ? msg.ops : [msg]).some(op => op && cols.includes(op.col));
+}
 function avisar(sisId, msg) {
+  mandarAviso(sisId, msg);
+  if (mexeNoEstoque(sisId, msg)) for (const id in MEXE_NO_ESTOQUE) if (ouvintes[id]) mandarAviso(id, { tipo: 'estoque' });
+}
+function mandarAviso(sisId, msg) {
   const linha = 'data: ' + JSON.stringify(msg) + '\n\n';
   for (const [res, chave] of ouvintes[sisId]) {
     if (!sessaoValida(chave)) { ouvintes[sisId].delete(res); res.end(); continue; } // a entrada saiu ou venceu
@@ -327,6 +341,11 @@ async function rotear(req, res) {
       arquivos.apagar(resto[1]);
       return json(res, 200, { ok: true });
     }
+  }
+  // saldo do Estoque, calculado na hora com os dados dos três sistemas (que já estão na memória)
+  if (sis.id === 'estoque' && resto[0] === 'saldos' && resto.length === 1 && metodo === 'GET') {
+    const de = id => (bancos[id] ? bancos[id].todos() : undefined);
+    return json(res, 200, calcularSaldos({ estoque: banco.todos(), frota: de('frota'), operacao: de('operacao') }, new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })));
   }
   return json(res, 404, { erro: 'Não encontrado.' });
 }
