@@ -105,7 +105,7 @@ const arquivosNoDisco = () => (fs.existsSync(ARQS_FROTA) ? fs.readdirSync(ARQS_F
 const larguraDaPagina = p => p.evaluate(() => document.documentElement.scrollWidth);
 
 // ---------- 1. login, tela inicial e DECONTO pelo cartão ----------
-teste('login e tela inicial mostram os 5 cartões; DECONTO abre pelo cartão e mostra "Salvo no servidor"', async () => {
+teste('login e tela inicial mostram os 6 cartões; DECONTO abre pelo cartão e mostra "Salvo no servidor"', async () => {
   const ctx = await contexto();
   const p = await ctx.newPage();
   await p.goto(BASE + '/');
@@ -115,12 +115,12 @@ teste('login e tela inicial mostram os 5 cartões; DECONTO abre pelo cartão e m
   await p.click('#ir');
   await p.waitForURL(BASE + '/');
   const nomes = await p.$$eval('.cartao h2', hs => hs.map(h => h.textContent.trim()));
-  assert.deepStrictEqual(nomes, ['DECONTO', 'Controle de Operação', 'RH', 'Financeiro', 'Cargas']);
+  assert.deepStrictEqual(nomes, ['DECONTO', 'Controle de Operação', 'RH', 'Financeiro', 'Cargas', 'Monitoramento de Frota']);
   assert.strictEqual(await p.locator('a.cartao[href="/frota/"]').count(), 1);
   assert.strictEqual(await p.locator('a.cartao[href="/operacao/"]').count(), 1);
   const breves = await p.$$eval('.cartao.breve', cs => cs.map(c => c.querySelector('h2').textContent.trim() + ': ' + c.textContent));
-  assert.strictEqual(breves.length, 3);
-  for (const [i, nome] of ['RH', 'Financeiro', 'Cargas'].entries()) {
+  assert.strictEqual(breves.length, 4);
+  for (const [i, nome] of ['RH', 'Financeiro', 'Cargas', 'Monitoramento de Frota'].entries()) {
     assert.ok(breves[i].startsWith(nome + ':'), 'cartão em desenvolvimento: ' + nome);
     assert.match(breves[i], /Em desenvolvimento/);
   }
@@ -267,7 +267,7 @@ teste('"← Painel Deconto" volta para a tela inicial e "Sair" leva para /entrar
     assert.strictEqual(await link.getAttribute('href'), '/');
     await link.click();
     await p.waitForURL(BASE + '/');
-    assert.strictEqual(await p.locator('.cartao').count(), 5, 'tela inicial depois de ' + sis);
+    assert.strictEqual(await p.locator('.cartao').count(), 6, 'tela inicial depois de ' + sis);
     await p.goto(`${BASE}/${sis}/`);
     await esperarServidor(p);
     await p.click('#quem [data-acao="sair"]');
