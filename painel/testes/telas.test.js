@@ -268,7 +268,7 @@ teste('"← Painel Deconto" volta para a tela inicial e "Sair" leva para /entrar
     assert.strictEqual(await link.getAttribute('href'), '/');
     await link.click();
     await p.waitForURL(BASE + '/');
-    assert.strictEqual(await p.locator('.cartao').count(), 6, 'tela inicial depois de ' + sis);
+    assert.strictEqual(await p.locator('.cartao').count(), 7, 'tela inicial depois de ' + sis);
     await p.goto(`${BASE}/${sis}/`);
     await esperarServidor(p);
     await p.click('#quem [data-acao="sair"]');

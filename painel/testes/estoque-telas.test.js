@@ -8,6 +8,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright');
 
 // o node --test roda este arquivo junto do telas.test.js: duas portas depois da dele
@@ -196,6 +197,66 @@ teste('celular 390px: Estoque sem rolagem para o lado', async () => {
   await p.click('[data-acao="novo-mat"]');
   await p.waitForTimeout(300);
   assert.ok(await p.evaluate(() => document.documentElement.scrollWidth) <= 390, 'largura: ' + await p.evaluate(() => document.documentElement.scrollWidth));
+});
+
+// ---------- DECONTO: abastecimento no tanque ----------
+const camFrota = (ctx, cid, placa) => pedir(ctx, 'PUT', '/frota/api/dados/caminhoes/' + cid, { placa, tipo: 'Cavalo mecânico 6x2', situacao: 'rodando', kmInicial: 100000 });
+async function tanqueCom(ctx, nome, litros, preco) {
+  const tq = await criarMaterial(ctx, { nome, categoria: 'Combustível', unidade: 'L', capacidade: 5000, minimo: 1000, combustivel: 'Diesel S10' });
+  if (litros) await entrada(ctx, tq, litros, preco);
+  return tq;
+}
+teste('DECONTO: abastecer no tanque tira os litros do Estoque e o valor vem pelo preço médio', async () => {
+  const ctx = await logado();
+  const tq = await tanqueCom(ctx, 'Tanque oficina', 3000, 5.5);
+  await camFrota(ctx, 'cam-tq', 'TNQ1A00');
+  const e = await abrir(await logado(), '/estoque/');
+  await esperarServidor(e);
+  const p = await abrir(ctx, '/frota/#abastecer');
+  await esperarServidor(p);
+  await p.waitForFunction(x => !!document.querySelector(`#ab-onde option[value="${x}"]`), tq, { timeout: 6000 });
+  assert.strictEqual(await p.isVisible('#ab-onde'), true);
+  await p.selectOption('#ab-cam', 'cam-tq');
+  await p.selectOption('#ab-onde', tq);
+  assert.strictEqual(await p.isVisible('#ab-posto'), false, 'no tanque não pede o posto');
+  await p.fill('#ab-litros', '300');
+  assert.strictEqual(await p.inputValue('#ab-valor'), '1.650,00');
+  assert.match(await texto(p, '#ab-onde-dica'), /3\.000 L/);
+  await e.evaluate(() => { window.__semRecarregar = 'sim'; });
+  await limparToast(p);
+  await p.click('#f-ab button[type="submit"]');
+  await esperarToast(p, 'Abastecimento salvo');
+  const ab = (await pedir(ctx, 'GET', '/frota/api/dados')).abastecimentos.find(a => a.caminhaoId === 'cam-tq');
+  assert.deepStrictEqual([ab.tanqueId, ab.litros, ab.valor, ab.combustivel], [tq, 300, 1650, 'Diesel S10']);
+  assert.strictEqual((await material(ctx, 'Tanque oficina')).saldo, 2700);
+  await esperarTexto(e, `#t-saldo tr[data-mat="${tq}"]`, '2.700 L');
+  assert.strictEqual(await e.evaluate(() => window.__semRecarregar), 'sim', 'o Estoque não recarregou');
+  await e.click(`#t-saldo tr[data-mat="${tq}"] [data-acao="historico"]`);
+  await esperarTexto(e, '#movs', 'Abastecimento no DECONTO');
+  assert.strictEqual(await e.locator('#movs a[href="/frota/#abastecer"]').count(), 1);
+  // valor escrito à mão não é trocado pelo preço médio
+  await p.selectOption('#ab-onde', tq);
+  await p.fill('#ab-valor', '1.000,00');
+  await p.fill('#ab-litros', '100');
+  assert.strictEqual(await p.inputValue('#ab-valor'), '1.000,00');
+});
+
+teste('DECONTO no arquivo (file://): sem "Onde abasteceu"; corrigir abastecimento com tanque mantém o tanqueId', async () => {
+  const ctx = await contexto();
+  const l = await ctx.newPage();
+  await l.goto(pathToFileURL(path.join(RAIZ, 'sistema-carlise', 'frota.html')).href + '#abastecer');
+  await l.waitForFunction(() => Armazem.modo === 'local');
+  assert.strictEqual(await l.isVisible('#ab-onde'), false);
+  assert.strictEqual(await l.isVisible('#ab-posto'), true);
+  await l.evaluate(async () => {
+    await gravar('caminhoes', { id: 'cam-l', placa: 'LOC1A00', tipo: 'Truck', situacao: 'rodando' });
+    await gravar('abastecimentos', { id: 'ab-l', data: '2026-11-10', caminhaoId: 'cam-l', litros: 100, valor: 550, tanqueId: 'tq-x', combustivel: 'Diesel S10', tanqueCheio: true });
+    editar('abastecimentos', 'ab-l');
+  });
+  await l.fill('#ab-litros', '120');
+  await l.click('#f-ab button[type="submit"]');
+  await esperarToast(l, 'Abastecimento salvo');
+  assert.deepStrictEqual(await l.evaluate(() => { const a = D.abastecimentos.get('ab-l'); return [a.litros, a.tanqueId]; }), [120, 'tq-x']);
 });
 
 // ---------- no fim ----------

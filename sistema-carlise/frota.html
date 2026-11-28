@@ -549,13 +549,14 @@ body.impresso .relatorio { max-width: 1040px; margin: 0 auto; padding: 24px 16px
         <div class="campo"><label for="ab-data">Data</label><input type="date" id="ab-data" name="data"></div>
         <div class="campo"><label for="ab-cam">Caminhão</label><select id="ab-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
         <div class="campo"><label for="ab-mot">Motorista</label><select id="ab-mot" name="motoristaId" data-lista="mot-opc"></select></div>
+        <div class="campo" id="ab-onde-box" hidden><label for="ab-onde">Onde abasteceu</label><select id="ab-onde" name="tanqueId"></select><span class="dica" id="ab-onde-dica"></span></div>
         <div class="campo"><label for="ab-km">Km no hodômetro</label><input type="text" id="ab-km" name="km" data-tipo="int" inputmode="numeric" autocomplete="off"><span class="dica" id="ab-km-dica"></span></div>
         <div class="campo"><label for="ab-comb">Combustível</label><select id="ab-comb" name="combustivel">
           <option>Diesel S10</option><option>Diesel S500</option><option>Arla 32</option>
         </select></div>
         <div class="campo"><label for="ab-litros">Litros</label><input type="text" id="ab-litros" name="litros" data-tipo="dec" inputmode="decimal" autocomplete="off"></div>
         <div class="campo"><label for="ab-valor">Valor pago (R$)</label><input type="text" id="ab-valor" name="valor" data-tipo="dec" inputmode="decimal" autocomplete="off"></div>
-        <div class="campo"><label for="ab-posto">Posto e cidade</label><input type="text" id="ab-posto" name="posto" list="lista-postos" autocomplete="off"></div>
+        <div class="campo" id="ab-posto-box"><label for="ab-posto">Posto e cidade</label><input type="text" id="ab-posto" name="posto" list="lista-postos" autocomplete="off"></div>
         <div class="campo largo"><label class="check" for="ab-cheio"><input type="checkbox" id="ab-cheio" name="tanqueCheio" checked><span>Completou o tanque <span class="hint">(assim o sistema calcula o km/l de um tanque cheio até o outro)</span></span></label></div>
       </div>
       <div class="calc" id="ab-calc" aria-live="polite"></div>
@@ -1154,6 +1155,7 @@ function ouvirServidor() {
   const es = avisosAoVivo = new EventSource('api/eventos');
   let fila = null, abriu = false, conferindo = false;
   const aplicarAviso = m => {
+    if (m && m.tipo === 'estoque') { pedirEstoque(); return; }
     for (const op of (m.tipo === 'lote' ? m.ops : [m])) {
       if (!op || !COLS.includes(op.col)) continue;
       if (op.tipo === 'set' && op.obj && op.obj.id) D[op.col].set(op.obj.id, op.obj);
@@ -1169,6 +1171,7 @@ function ouvirServidor() {
       f.forEach(aplicarAviso);
       Armazem.modo = 'servidor';
       Armazem.semConexao = false;
+      pedirEstoque();
       agendarRender();
     }).catch(e => {
       fila = null;
@@ -1193,6 +1196,45 @@ function ouvirServidor() {
     // o navegador desistiu (resposta que não é 200, como o 502 do nginx): abre outra daqui a pouco
     if (es.readyState === EventSource.CLOSED && es === avisosAoVivo && !reabrirAvisos) reabrirAvisos = setTimeout(ouvirServidor, 3000);
   };
+}
+
+/* ---------- Estoque (sistema do Painel): tanques no abastecimento, peças na manutenção, avisos ----------
+   O saldo vem calculado do servidor (/estoque/api/saldos). Sem Estoque (arquivo local, ou Painel sem ele),
+   "Onde abasteceu" e "Do estoque" somem e o resto funciona como antes. */
+const ESTOQUE = { ok: false, sistema: 'frota', materiais: [], movimentos: [], porId: new Map() };
+async function lerEstoque() {
+  if (!PAINEL) return;
+  let r, d = null;
+  try { r = await fetch('/estoque/api/saldos', { credentials: 'same-origin' }); } catch (e) { return; } // sem internet: fica o que já tinha
+  if (r.status === 404) ESTOQUE.ok = false;
+  else if (!r.ok || !(d = await r.json().catch(() => null))) return;
+  else Object.assign(ESTOQUE, { ok: true, materiais: d.materiais || [], movimentos: d.movimentos || [], porId: new Map((d.materiais || []).map(m => [m.id, m])) });
+  ajustarTanque();
+  calcAb();
+  agendarRender();
+}
+let lerEstoqueTimer = null;
+function pedirEstoque() { clearTimeout(lerEstoqueTimer); lerEstoqueTimer = setTimeout(lerEstoque, 300); }
+// quanto tem, sem contar o que o próprio registro (sendo corrigido) já tirou
+function emEstoque(materialId, registroId) {
+  const m = ESTOQUE.porId.get(materialId);
+  if (!m) return null;
+  let s = m.saldo;
+  if (registroId) for (const x of ESTOQUE.movimentos) if (x.sistema === ESTOQUE.sistema && x.id === registroId && x.materialId === materialId && x.conta) s -= x.qtd;
+  return Math.round(s * 1000) / 1000;
+}
+const fQtd = (n, un) => n == null ? '—' : nf1.format(n).replace(/,0$/, '') + ' ' + (un || '');
+/* escolher: o tanque a pôr (ao abrir um registro ou limpar); sem ele, fica o que está escolhido */
+function ajustarTanque(escolher) {
+  const sel = $('#ab-onde');
+  const atual = escolher !== undefined ? escolher || '' : sel.value;
+  const tqs = ESTOQUE.materiais.filter(m => m.tanque && (m.ativo !== false || m.id === atual)).sort(porNome);
+  let html = '<option value="">Posto</option>' + tqs.map(t => `<option value="${esc(t.id)}">${esc(t.nome)}</option>`).join('');
+  if (atual && !tqs.some(t => t.id === atual)) html += `<option value="${esc(atual)}">Tanque do Estoque</option>`;
+  if (sel.dataset.html !== html) { sel.innerHTML = html; sel.dataset.html = html; }
+  sel.value = atual;
+  $('#ab-onde-box').hidden = !ESTOQUE.ok;
+  $('#ab-posto-box').hidden = ESTOQUE.ok && !!atual;
 }
 
 async function gravar(col, obj) {
@@ -2007,12 +2049,20 @@ function calcDia() {
    ABASTECER
    ==================================================================== */
 function calcAb() {
-  const l = lerNumero($('#ab-litros').value), v = lerNumero($('#ab-valor').value);
-  const partes = [];
+  const l = lerNumero($('#ab-litros').value), f = $('#f-ab'), partes = [];
+  // tanque do Estoque: os litros saem dele e o valor vem pelo preço médio, até a pessoa escrever outro
+  const t = ESTOQUE.ok ? ESTOQUE.porId.get($('#ab-onde').value) : null;
+  $('#ab-onde-dica').textContent = '';
+  if (t) {
+    const tem = emEstoque(t.id, f.dataset.editando), vEl = $('#ab-valor');
+    $('#ab-onde-dica').textContent = `No tanque: ${fQtd(tem, 'L')}${t.precoMedio != null ? ' · preço médio ' + fR(t.precoMedio) + '/L' : ''}.`;
+    if (t.precoMedio != null && l > 0 && (!vEl.value.trim() || vEl.dataset.auto)) { vEl.value = nf2.format(Math.round(l * t.precoMedio * 100) / 100); vEl.dataset.auto = '1'; }
+    if (l > tem) partes.push(`<span class="aviso">No tanque tem ${fQtd(tem, 'L')}: confira a medição no Estoque.</span>`);
+  }
+  const v = lerNumero($('#ab-valor').value);
   if (l && v && !isNaN(l) && !isNaN(v)) partes.push(`<span class="grande">${fR(v / l)}</span><span class="info">por litro</span>`);
   const c = cam($('#ab-cam').value);
   const km = lerNumero($('#ab-km').value, true);
-  const f = $('#f-ab');
   if (c) {
     $('#ab-km-dica').textContent = 'Hodômetro atual do ' + mostraPlaca(c.placa) + ': ' + nf0.format(kmAtual(c.id));
     if (km && !isNaN(km)) {
@@ -3524,7 +3574,7 @@ function limparForm(f, manter) {
   const msg = $('.f-msg', f);
   if (msg) { msg.textContent = ''; msg.className = 'f-msg'; }
   if (f.id === 'f-dia') { $('#dia-calc').innerHTML = ''; $('#dia-conj-box').hidden = true; $('#dia-conj').checked = true; }
-  if (f.id === 'f-ab') $('#ab-calc').innerHTML = '';
+  if (f.id === 'f-ab') { $('#ab-calc').innerHTML = ''; delete $('#ab-valor').dataset.auto; ajustarTanque(''); $('#ab-onde-dica').textContent = ''; }
   if (f.id === 'f-man') { $('#man-km').placeholder = ''; ajustarCamposManut(); }
   if (f.id === 'f-doc') { delete f.dataset.substitui; $('#doc-arquivo').value = ''; $('#doc-arquivo-limpar').hidden = true; mostrarArquivoAtual(null); ajustarDoc(); }
 }
@@ -3590,7 +3640,11 @@ async function salvarForm(f) {
     if (o.km != null && isNaN(o.km)) return marcarErro(f, 'km', 'O km tem que ser só números.');
     if (!o.litros || isNaN(o.litros) || o.litros <= 0) return marcarErro(f, 'litros', 'Escreva quantos litros (ex.: 350,5).');
     if (o.valor == null || isNaN(o.valor) || o.valor <= 0) return marcarErro(f, 'valor', 'Escreva o valor pago (ex.: 2.150,80).');
-    aviso = `Abastecimento salvo: ${fL(o.litros)}, ${fR(o.valor)}.`;
+    // sem Estoque o campo não aparece: fica o tanque que o registro já tinha
+    const tq = ESTOQUE.ok && o.tanqueId ? ESTOQUE.porId.get(o.tanqueId) : null;
+    if (!ESTOQUE.ok) delete o.tanqueId;
+    else if (o.tanqueId) o.posto = tq ? tq.nome : o.posto;
+    aviso = `Abastecimento salvo: ${fL(o.litros)}, ${fR(o.valor)}.${tq ? ' Saiu do ' + tq.nome + '.' : ''}`;
     manter = ['data'];
   } else if (col === 'manutencoes') {
     if (!o.data) return marcarErro(f, 'data', 'Escolha a data.');
@@ -3712,7 +3766,7 @@ function editar(col, id) {
   preencherForm(f, dados);
   modoForm(f, id);
   if (col === 'dias') calcDia();
-  if (col === 'abastecimentos') calcAb();
+  if (col === 'abastecimentos') { ajustarTanque(reg.tanqueId || ''); calcAb(); }
   if (col === 'manutencoes') ajustarCamposManut();
   if (col === 'documentos') { ajustarDoc(); mostrarArquivoAtual(reg); }
   f.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
@@ -4141,6 +4195,7 @@ function ligarEventos() {
     else if (el.id === 'ab-cam') { preencherDoCaminhao('ab'); calcAb(); }
     else if (el.id === 'dia-data' || el.id === 'dia-mot' || el.id === 'dia-semi') calcDia();
     else if (el.id === 'ab-comb' || el.id === 'ab-data') calcAb();
+    else if (el.id === 'ab-onde') { const t = ESTOQUE.porId.get(el.value); if (t && t.combustivel) $('#ab-comb').value = t.combustivel; ajustarTanque(); calcAb(); }
     else if (el.id === 'man-veic') { $('#man-km').placeholder = ''; ajustarCamposManut(); }
     else if (el.id === 'g-cam') { UI.grafCam = el.value; render(); }
     else if (el.id === 'rel-cam') { UI.relCam = el.value; render(); }
@@ -4182,7 +4237,7 @@ function ligarEventos() {
     if (!f) return;
     e.target.removeAttribute('aria-invalid');
     if (f.id === 'f-dia') calcDia();
-    else if (f.id === 'f-ab') calcAb();
+    else if (f.id === 'f-ab') { if (e.target.id === 'ab-valor') delete e.target.dataset.auto; calcAb(); }
     else if (f.id === 'f-doc') calcDoc();
   });
   document.addEventListener('focusout', e => {
