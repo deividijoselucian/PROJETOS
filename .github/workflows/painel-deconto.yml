@@ -6,6 +6,7 @@ on:
       - "painel/**"
       - "sistema-carlise/frota.html"
       - "munck/munck.html"
+      - "rh/rh.html"
       - ".github/workflows/painel-deconto.yml"
   workflow_dispatch:
 

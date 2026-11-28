@@ -26,6 +26,7 @@ fs.mkdirSync(PUBLICO, { recursive: true });
 fs.mkdirSync(CARGA, { recursive: true });
 fs.copyFileSync(path.join(RAIZ, 'sistema-carlise', 'frota.html'), path.join(PUBLICO, 'frota.html'));
 fs.copyFileSync(path.join(RAIZ, 'munck', 'munck.html'), path.join(PUBLICO, 'operacao.html'));
+fs.copyFileSync(path.join(RAIZ, 'rh', 'rh.html'), path.join(PUBLICO, 'rh.html'));
 
 /* PDF mínimo, com um texto para cada um ficar diferente */
 function pdfMinimo(texto) {
@@ -877,6 +878,112 @@ teste('Ponto pelo celular: aviso de privacidade, foto e local falsos, registra e
   await p.setInputFiles('#foto', foto);
   await p.waitForFunction(() => /localiza/i.test(document.querySelector('#msg').textContent), null, { timeout: 25000 });
   assert.strictEqual((await dados(adm, 'rh')).pontos.filter(x => x.funcionarioId === 'f-tela').length, 2, 'sem local não registrou');
+});
+
+// ---------- 13. RH: central ----------
+teste('RH: a central cadastra o funcionário pela tela, copia o link do ponto e gera link novo', async () => {
+  const ctx = await logado();
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
+  const p = await abrir(ctx, '/');
+  await p.click('a.cartao[href="/rh/"]');
+  await p.waitForURL(BASE + '/rh/');
+  await esperarServidor(p);
+  assert.strictEqual((await p.textContent('h1')).trim(), 'Controle interno de ponto');
+  assert.match(await p.textContent('main'), /REP-P/);
+  await p.evaluate(() => { location.hash = 'funcionarios'; });
+  await p.fill('#fu-nome', 'Carla Teste');
+  await p.fill('#fu-cpf', '123.456.789-01');
+  await p.fill('#fu-cargo', 'Auxiliar de escritório');
+  await p.fill('#fu-jornada', '8:48');
+  await p.click('#f-func button[type="submit"]');
+  await p.waitForFunction(() => document.querySelector('#t-func').textContent.includes('Carla Teste'));
+  let d = await dados(ctx, 'rh');
+  const f = d.funcionarios.find(x => x.nome === 'Carla Teste');
+  assert.ok(f, 'gravado no servidor');
+  assert.strictEqual(f.cpf, '12345678901');
+  assert.strictEqual(f.jornadaMin, 528);
+  assert.strictEqual(f.situacao, 'ativo');
+  await p.waitForFunction(id => document.querySelector(`[data-acao="copiar-link"][data-id="${id}"]`), f.id);
+  const link = () => dados(ctx, 'rh').then(x => (x.links.find(l => l.id === f.id) || {}).token);
+  const t1 = await link();
+  assert.ok(t1, 'o link já sai no cadastro');
+  await limparToast(p);
+  await p.click(`[data-acao="copiar-link"][data-id="${f.id}"]`);
+  await esperarToast(p, 'copiado');
+  assert.strictEqual(await p.evaluate(() => navigator.clipboard.readText()), `${BASE}/ponto/${t1}`);
+  // jornada que não é hora: avisa e não grava
+  await p.click(`[data-acao="editar"][data-id="${f.id}"]`);
+  await p.fill('#fu-jornada', 'oito');
+  await limparToast(p);
+  await p.click('#f-func button[type="submit"]');
+  await esperarToast(p, 'jornada');
+  assert.strictEqual((await dados(ctx, 'rh')).funcionarios.find(x => x.id === f.id).jornadaMin, 528);
+  // link novo: pergunta antes, e o antigo para de valer
+  p.once('dialog', dlg => dlg.accept());
+  await limparToast(p);
+  await p.click(`[data-acao="novo-link"][data-id="${f.id}"]`);
+  await esperarToast(p, 'Link novo');
+  const t2 = await link();
+  assert.notStrictEqual(t2, t1);
+  assert.strictEqual((await ctx.request.get(`${BASE}/ponto/${t1}`)).status(), 404);
+  assert.strictEqual((await ctx.request.get(`${BASE}/ponto/${t2}`)).status(), 200);
+});
+
+teste('RH: a central mostra o dia com foto, mapa e horas; corrige e inclui com justificativa sem apagar o original', async () => {
+  const ctx = await logado();
+  const tok = await funcionarioAPI(ctx, 'f-central', { nome: 'Dora Central' });
+  const p = await abrir(ctx, '/rh/#registros');
+  await esperarServidor(p);
+  const foto = await jpegDeTeste(p, 320, 240);
+  const r = await fetch(`${BASE}/ponto/${tok}/registrar`, { method: 'POST', headers: { 'Content-Type': 'image/jpeg', 'X-Lat': '-26.8766', 'X-Lon': '-52.4036', 'X-Precisao': '10' }, body: foto.buffer });
+  assert.strictEqual(r.status, 200);
+  const c = await r.json();
+  const bloco = p.locator('[data-func="f-central"]');
+  await bloco.waitFor({ timeout: 5000 }); // chega pelo aviso ao vivo, sem recarregar
+  assert.match(await bloco.textContent(), /entrada sem saída/);
+  assert.strictEqual(await bloco.locator('a[href="https://www.google.com/maps?q=-26.8766,-52.4036"]').count(), 1, 'ver no mapa');
+  await bloco.locator('img').first().waitFor();
+  await p.waitForFunction(() => { const i = document.querySelector('[data-func="f-central"] img'); return i && i.complete && i.naturalWidth === 320; }, null, { timeout: 5000 });
+  // corrigir a entrada para 08:00: sem justificativa não grava
+  await bloco.locator('[data-acao="corrigir"]').first().click();
+  await p.fill('#co-hora', '08:00');
+  await p.fill('#co-just', '');
+  await p.click('#f-cor button[type="submit"]');
+  assert.match(await p.textContent('#co-msg'), /justificativa/i);
+  assert.strictEqual((await dados(ctx, 'rh')).pontos.filter(x => x.funcionarioId === 'f-central').length, 1);
+  await p.fill('#co-just', 'Bateu atrasado, chegou às 8h');
+  await p.click('#f-cor button[type="submit"]');
+  await p.waitForFunction(() => !document.querySelector('#d-cor').open);
+  // incluir a saída das 12:00
+  await bloco.locator('[data-acao="incluir"]').click();
+  await p.selectOption('#co-tipo', 'saida');
+  await p.fill('#co-hora', '12:00');
+  await p.fill('#co-just', 'Esqueceu de bater a saída');
+  await p.click('#f-cor button[type="submit"]');
+  await p.waitForFunction(() => /4:00/.test(document.querySelector('[data-func="f-central"] .horas-dia').textContent), null, { timeout: 5000 });
+  const txt = semEspaco(await bloco.textContent());
+  assert.doesNotMatch(txt, /entrada sem saída/);
+  assert.match(txt, new RegExp('era ' + c.hora), 'o original aparece');
+  assert.match(txt, /Bateu atrasado/);
+  const meus = (await dados(ctx, 'rh')).pontos.filter(x => x.funcionarioId === 'f-central');
+  assert.strictEqual(meus.length, 3, 'original, correção e inclusão');
+  const original = meus.find(x => x.origem === 'celular');
+  assert.strictEqual(original.hora, c.hora, 'o original não mudou');
+  assert.ok(meus.some(x => x.substitui === original.id && x.hora === '08:00' && x.por === 'admin'));
+});
+
+teste('celular 390px: central do RH sem rolagem para o lado', async () => {
+  const ctx = await logado({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  const p = await abrir(ctx, '/rh/');
+  await esperarServidor(p);
+  const larguras = {};
+  for (const aba of ['registros', 'funcionarios', 'relatorio']) {
+    await p.evaluate(x => { location.hash = x; }, aba);
+    await p.waitForFunction(x => { const v = document.querySelector('#v-' + x); return !!v && !v.hidden; }, aba);
+    await p.waitForTimeout(200);
+    larguras[aba] = await larguraDaPagina(p);
+  }
+  assert.deepStrictEqual(Object.entries(larguras).filter(([, w]) => w > 390), [], 'larguras: ' + JSON.stringify(larguras));
 });
 
 // ---------- 9. erros de página ----------
