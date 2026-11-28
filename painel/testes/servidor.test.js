@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const PORTA = 3399;
+const PORTA = Number(process.env.PORTA_TESTE_SRV) || 3399; // outra porta quando duas cópias rodam ao mesmo tempo
 const BASE = `http://127.0.0.1:${PORTA}`;
 const SERVIDOR = path.join(__dirname, '..', 'servidor', 'servidor.js');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'painel-teste-'));
