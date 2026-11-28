@@ -288,6 +288,7 @@ teste('Controle de Operação: abre pelo cartão, agenda pelo quadro e o outro n
   assert.strictEqual(await a.title(), 'Controle de Operação');
   await esperarServidor(a);
   assert.strictEqual(await a.evaluate(() => window.PAINEL && window.PAINEL.sistema), 'operacao');
+  assert.ok(!(await (await ctxA.request.get(BASE + '/operacao/')).text()).includes('cadastre as obras'), 'sem texto mandando cadastrar obras');
 
   // caminhão para o quadro (pelas funções da página)
   await a.evaluate(async () => {
@@ -441,6 +442,54 @@ teste('Agenda de operação preenche a Operação do dia e vira Feito', async ()
   assert.ok(o.km.some(r => r.cliente === 'Cliente Agenda' && r.destinoB === 'Seara'));
 });
 
+teste('Operação: com dois agendamentos no dia só o do cliente lançado vira Feito; vários dias só no último', async () => {
+  const ctx = await logado();
+  const a = await abrir(ctx, '/operacao/#operacao');
+  await esperarServidor(a);
+  await caminhoesDeTeste(a);
+  const hoje = await a.evaluate(() => hojeISO());
+  const ontem = await a.evaluate(h => somaDias(h, -1), hoje);
+  await a.evaluate(async h => {
+    const agora = new Date().toISOString();
+    await gravar('caminhoes', { id: 'cam-dois', placa: 'DOI1S23', apelido: 'Munck B', munck: 'Argos 30', situacao: 'ativo', criadoEm: agora });
+    await gravar('caminhoes', { id: 'cam-livre', placa: 'LIV1R23', apelido: 'Livre', situacao: 'ativo', criadoEm: agora });
+    await gravar('caminhoes', { id: 'cam-longo', placa: 'LON1G23', apelido: 'Longo', situacao: 'ativo', criadoEm: agora });
+    await gravar('agenda', { id: 'ag-dois-a', data: h, hora: '08:00', caminhaoId: 'cam-dois', cliente: 'Cliente Manhã', destinoA: 'A1', destinoB: 'B1', situacao: 'agendado', criadoEm: agora });
+    await gravar('agenda', { id: 'ag-dois-b', data: h, hora: '14:00', caminhaoId: 'cam-dois', cliente: 'Cliente Tarde', destinoA: 'A2', destinoB: 'B2', situacao: 'agendado', criadoEm: agora });
+    await gravar('agenda', { id: 'ag-longo', data: somaDias(h, -1), dataFim: somaDias(h, 1), caminhaoId: 'cam-longo', cliente: 'Cliente Longo', situacao: 'agendado', criadoEm: agora });
+  }, hoje);
+  await a.fill('#km-data', hoje);
+  await a.selectOption('#km-cam', 'cam-dois');
+  await a.waitForFunction(() => document.querySelector('#km-cliente').value === 'Cliente Manhã', null, { timeout: 5000 });
+  // trocar para um caminhão sem agendamento tira o cliente sugerido
+  await a.selectOption('#km-cam', 'cam-livre');
+  await a.waitForFunction(() => document.querySelector('#km-cliente').value === '' && document.querySelector('#km-dest-a').value === '', null, { timeout: 5000 });
+  await a.selectOption('#km-cam', 'cam-dois');
+  await a.waitForFunction(() => document.querySelector('#km-cliente').value === 'Cliente Manhã', null, { timeout: 5000 });
+  await a.fill('#km-ini', '100');
+  await a.fill('#km-fin', '120');
+  await limparToast(a);
+  await a.click('#f-km button[type="submit"]');
+  await esperarToast(a, 'Operação salva');
+  let o = await dados(ctx, 'operacao');
+  assert.strictEqual(o.agenda.find(x => x.id === 'ag-dois-a').situacao, 'feito');
+  assert.strictEqual(o.agenda.find(x => x.id === 'ag-dois-b').situacao, 'agendado', 'o serviço da tarde continua agendado');
+  // a próxima operação do dia vem com o cliente da tarde
+  await a.selectOption('#km-cam', 'cam-dois');
+  await a.waitForFunction(() => document.querySelector('#km-cliente').value === 'Cliente Tarde', null, { timeout: 5000 });
+  // agendamento de vários dias: a operação de ontem não fecha o agendamento
+  await a.fill('#km-data', ontem);
+  await a.selectOption('#km-cam', 'cam-longo');
+  await a.waitForFunction(() => document.querySelector('#km-cliente').value === 'Cliente Longo', null, { timeout: 5000 });
+  await a.fill('#km-ini', '300');
+  await a.fill('#km-fin', '340');
+  await limparToast(a);
+  await a.click('#f-km button[type="submit"]');
+  await esperarToast(a, 'Operação salva');
+  o = await dados(ctx, 'operacao');
+  assert.strictEqual(o.agenda.find(x => x.id === 'ag-longo').situacao, 'agendado', 'agendamento de vários dias continua aberto');
+});
+
 teste('Operação: registro antigo com obra aparece com o nome da obra e as horas', async () => {
   const ctx = await logado();
   const a = await abrir(ctx, '/operacao/#operacao');
@@ -479,6 +528,7 @@ teste('Documento: um por caminhão, seguro só com sim, vencido avisa no Painel'
   await limparToast(a);
   await a.click('#f-doc button[type="submit"]');
   await esperarToast(a, 'Documento salvo');
+  await a.waitForFunction(() => document.querySelector('#t-doc').textContent.includes('Vencido'), null, { timeout: 5000 });
   // um segundo documento para o mesmo caminhão não entra
   await a.evaluate(() => abrirForm('f-doc', { caminhaoId: 'cam-doc' }));
   await a.fill('#doc-num', '999');
