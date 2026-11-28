@@ -44,7 +44,7 @@ const abertos = [];
 
 function subir() {
   return new Promise((ok, falha) => {
-    proc = spawn(process.execPath, [SERVIDOR], { env: Object.assign({}, process.env, { PORTA: String(PORTA), HOST: '127.0.0.1', PAINEL_SENHA: SENHA, PASTA_DADOS: DADOS, PASTA_PUBLICO: PUBLICO, PASTA_CARGA: CARGA }), stdio: ['ignore', 'pipe', 'pipe'] });
+    proc = spawn(process.execPath, [SERVIDOR], { env: Object.assign({}, process.env, { PORTA: String(PORTA), HOST: '127.0.0.1', PAINEL_SENHA: SENHA, PASTA_DADOS: DADOS, PASTA_PUBLICO: PUBLICO, PASTA_CARGA: CARGA, PONTO_INTERVALO_S: '0' }), stdio: ['ignore', 'pipe', 'pipe'] });
     let saida = '';
     proc.stdout.on('data', c => { saida += c; if (saida.includes('Painel Deconto em')) ok(); });
     proc.stderr.on('data', c => { saida += c; });
@@ -878,6 +878,12 @@ teste('Ponto pelo celular: aviso de privacidade, foto e local falsos, registra e
   await p.setInputFiles('#foto', foto);
   await p.waitForFunction(() => /localiza/i.test(document.querySelector('#msg').textContent), null, { timeout: 25000 });
   assert.strictEqual((await dados(adm, 'rh')).pontos.filter(x => x.funcionarioId === 'f-tela').length, 2, 'sem local não registrou');
+  // a resposta não chegou: a página não diz que não registrou, manda conferir o último registro
+  await ctx.grantPermissions(['geolocation'], { origin: BASE });
+  await ctx.route('**/registrar', r => r.abort());
+  await p.setInputFiles('#foto', foto);
+  await p.waitForFunction(() => /confirmar/.test(document.querySelector('#msg').textContent), null, { timeout: 15000 });
+  await ctx.unroute('**/registrar');
 });
 
 // ---------- 13. RH: central ----------
@@ -975,10 +981,14 @@ teste('RH: a central mostra o dia com foto, mapa e horas; corrige e inclui com j
 teste('RH: relatório do mês dá o total certo num caso com 2 dias, com Excel e página para imprimir', async () => {
   const ctx = await logado();
   await funcionarioAPI(ctx, 'f-mes', { nome: 'Edu Relatório', cpf: '11122233344', jornadaMin: 528 });
-  const incluir = async (tipo, data, hora) => {
-    const r = await ctx.request.post(`${BASE}/rh/api/pontos`, { data: { funcionarioId: 'f-mes', tipo, data, hora, justificativa: 'Teste do relatório' } });
+  const incluir = async (tipo, data, hora, extra = {}) => {
+    const r = await ctx.request.post(`${BASE}/rh/api/pontos`, { data: Object.assign({ funcionarioId: 'f-mes', tipo, data, hora, justificativa: 'Teste do relatório' }, extra) });
     assert.strictEqual(r.status(), 200);
+    return (await r.json()).ponto;
   };
+  // dia 7: um registro desconsiderado não soma, mas o dia sai como ajustado pelo RH
+  const desc = await incluir('entrada', '2026-10-07', '09:00');
+  await incluir(undefined, undefined, undefined, { funcionarioId: undefined, substitui: desc.id, anulado: true });
   // dia 5: 4:00 + 4:48 = 8:48 (a jornada); dia 6: 10:00 (1:12 acima) e uma entrada sem saída, que não soma
   await incluir('entrada', '2026-10-05', '08:00'); await incluir('saida', '2026-10-05', '12:00');
   await incluir('entrada', '2026-10-05', '13:00'); await incluir('saida', '2026-10-05', '17:48');
@@ -1003,6 +1013,7 @@ teste('RH: relatório do mês dá o total certo num caso com 2 dias, com Excel e
   assert.match(d6, /1:12/);
   assert.match(d6, /entrada sem saída/);
   assert.strictEqual(await bloco.locator('tr[data-dia="2026-10-06"].marcado').count(), 1, 'o dia com entrada sem saída fica marcado');
+  assert.match(semEspaco(await bloco.locator('tr[data-dia="2026-10-07"]').textContent()), /ajustado pelo RH/, 'o dia com registro desconsiderado aparece');
   const resumo = semEspaco(await p.locator('#m-resumo tr[data-func="f-mes"]').textContent());
   assert.match(resumo, /Edu Relatório/);
   assert.match(resumo, /18:48/);
@@ -1024,6 +1035,59 @@ teste('RH: relatório do mês dá o total certo num caso com 2 dias, com Excel e
   assert.ok(await p.isVisible('.rel-func[data-func="f-mes"]'));
   assert.match(await p.textContent('.so-impressao'), /Controle interno de ponto/);
   await p.emulateMedia({ media: 'screen' });
+});
+
+teste('RH: a central continua rápida com um ano de registros de 50 funcionários', async () => {
+  const ctx = await logado();
+  const p = await abrir(ctx, '/rh/#registros');
+  await esperarServidor(p);
+  const ms = await p.evaluate(() => {
+    const hoje = hojeISO(), ini = Date.parse(hoje + 'T12:00:00Z');
+    for (let f = 0; f < 50; f++) {
+      D.funcionarios.set('fx' + f, { id: 'fx' + f, nome: 'Carga ' + f, jornadaMin: 528, situacao: 'ativo' });
+      for (let d = 0; d < 365; d++) {
+        const data = new Date(ini - d * 86400000).toISOString().slice(0, 10);
+        [['entrada', '08:00'], ['saida', '12:00'], ['entrada', '13:00'], ['saida', d % 7 ? '17:48' : '19:00']].forEach(([tipo, hora], i) => {
+          if (d === 3 && i === 3) return; // uma entrada sem saída para o aviso
+          D.pontos.set(`px${f}-${d}-${i}`, { id: `px${f}-${d}-${i}`, funcionarioId: 'fx' + f, tipo, data, hora, origem: 'celular' });
+        });
+      }
+    }
+    const t0 = performance.now(); render(); const t1 = performance.now(); relatorioMes(hoje.slice(0, 7)); const t2 = performance.now();
+    return { registros: Math.round(t1 - t0), relatorio: Math.round(t2 - t1), aviso: document.querySelector('#r-pendentes').textContent.includes('Carga 0') };
+  });
+  assert.ok(ms.aviso, 'o aviso de entrada sem saída aparece');
+  assert.ok(ms.registros < 1000 && ms.relatorio < 1000, 'milissegundos: ' + JSON.stringify(ms));
+});
+
+teste('RH: clique duplo em Salvar ou em Gravar não duplica', async () => {
+  const ctx = await logado();
+  const p = await abrir(ctx, '/rh/#funcionarios');
+  await esperarServidor(p);
+  await p.fill('#fu-nome', 'Gil Duplo');
+  await p.fill('#fu-jornada', '8:00');
+  await p.dblclick('#f-func button[type="submit"]');
+  await p.waitForFunction(() => document.querySelector('#t-func').textContent.includes('Gil Duplo'));
+  await p.waitForTimeout(600);
+  const gil = (await dados(ctx, 'rh')).funcionarios.filter(f => f.nome === 'Gil Duplo');
+  assert.strictEqual(gil.length, 1, 'um funcionário só');
+  await p.evaluate(() => { location.hash = 'registros'; });
+  await p.click(`[data-acao="incluir"][data-id="${gil[0].id}"]`);
+  await p.fill('#co-hora', '07:00');
+  await p.fill('#co-just', 'Clique duplo');
+  await p.dblclick('#f-cor button[type="submit"]');
+  await p.waitForFunction(() => !document.querySelector('#d-cor').open);
+  await p.waitForTimeout(600);
+  assert.strictEqual((await dados(ctx, 'rh')).pontos.filter(x => x.funcionarioId === gil[0].id).length, 1, 'um registro só');
+});
+
+teste('RH: se a primeira leitura dos dados falha, a central tenta de novo sozinha', async () => {
+  const ctx = await logado();
+  let pedidos = 0;
+  await ctx.route('**/rh/api/dados', r => (pedidos++ ? r.continue() : r.fulfill({ status: 502, body: 'Bad Gateway' })));
+  const p = await abrir(ctx, '/rh/');
+  await esperarServidor(p, 15000);
+  assert.ok(pedidos >= 2, 'tentou de novo: ' + pedidos);
 });
 
 teste('celular 390px: central do RH sem rolagem para o lado', async () => {

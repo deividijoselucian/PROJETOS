@@ -232,7 +232,10 @@ function ouvir() {
       COLS.forEach(c => { D[c] = new Map((d[c] || []).filter(x => x && x.id).map(x => [x.id, x])); });
       fila.forEach(msg);
       conectado = true;
-    } catch (e) { conectado = false; }
+    } catch (e) {
+      conectado = false;
+      setTimeout(() => { if (es === fonte && es.readyState === EventSource.OPEN) es.onopen(); }, 3000); // tenta baixar de novo
+    }
     fila = null;
     render();
   };
@@ -255,17 +258,25 @@ function mostrarEstado() {
 }
 
 /* ---------- cálculo do dia ---------- */
-// quem corrigiu cada registro (id do original → registro novo)
+/* Índice feito uma vez por desenho da tela: troca = quem corrigiu cada registro (id do original →
+   registro novo); porDia = registros de cada funcionário em cada dia (um ano de registros de 50
+   pessoas levava segundos sem ele). */
 function trocas() {
-  const t = new Map();
-  for (const p of D.pontos.values()) if (p.substitui) t.set(p.substitui, p);
-  return t;
+  const troca = new Map(), porDia = new Map();
+  for (const p of D.pontos.values()) {
+    if (p.substitui) troca.set(p.substitui, p);
+    if (p.anulado || !p.data) continue;
+    const k = p.funcionarioId + '|' + p.data;
+    if (!porDia.has(k)) porDia.set(k, []);
+    porDia.get(k).push(p);
+  }
+  return { get: id => troca.get(id), has: id => troca.has(id), dia: (fid, data) => porDia.get(fid + '|' + data) || [] };
 }
 const ordemHora = (a, b) => a.hora.localeCompare(b.hora) || String(a.em || a.alteradoEm).localeCompare(String(b.em || b.alteradoEm));
 /* O dia de um funcionário: regs = tudo o que aparece (os corrigidos riscados); marcas = só os que valem.
    Pares entrada → saída na ordem da hora; entrada sem saída não soma e fica marcada. */
 function diaDe(fid, data, troca = trocas()) {
-  const regs = todos('pontos').filter(p => p.funcionarioId === fid && p.data === data && !p.anulado).sort(ordemHora);
+  const regs = troca.dia(fid, data).slice().sort(ordemHora);
   const marcas = regs.filter(p => !troca.has(p.id));
   let aberta = null, soma = 0;
   const problemas = new Set();
@@ -350,8 +361,15 @@ function abrirCorrecao(alvo) {
   $('#co-msg').textContent = '';
   $('#d-cor').showModal();
 }
-$('#f-cor').addEventListener('submit', async e => {
-  e.preventDefault();
+// um envio por vez: clique duplo em Salvar ou Gravar não grava duas vezes
+async function umEnvio(form, fn) {
+  const b = form.querySelector('button[type="submit"]');
+  if (b.disabled) return;
+  b.disabled = true;
+  try { await fn(); } finally { b.disabled = false; }
+}
+$('#f-cor').addEventListener('submit', e => { e.preventDefault(); umEnvio(e.target, gravarCorrecao); });
+async function gravarCorrecao() {
   const justificativa = $('#co-just').value.trim(), anular = !$('#co-anular-l').hidden && $('#co-anular').checked;
   if (!justificativa) { $('#co-msg').textContent = 'Escreva a justificativa: ela fica guardada junto com a mudança.'; return; }
   if (!anular && (!$('#co-data').value || !$('#co-hora').value)) { $('#co-msg').textContent = 'Preencha o dia e a hora.'; return; }
@@ -363,7 +381,7 @@ $('#f-cor').addEventListener('submit', async e => {
     toast(anular ? 'Registro desconsiderado. O original continua guardado.' : corAlvo.substitui ? 'Registro corrigido. O original continua guardado.' : 'Registro incluído.');
     render();
   } catch (er) { $('#co-msg').textContent = er.message; }
-});
+}
 
 /* ---------- Funcionários ---------- */
 let editando = null;
@@ -396,8 +414,8 @@ function gerarLink(fid) {
   }
   return linkPedido.get(fid);
 }
-$('#f-func').addEventListener('submit', async e => {
-  e.preventDefault();
+$('#f-func').addEventListener('submit', e => { e.preventDefault(); umEnvio(e.target, salvarFunc); });
+async function salvarFunc() {
   const nome = $('#fu-nome').value.trim(), cpf = $('#fu-cpf').value.replace(/\D/g, ''), jornadaMin = lerJornada($('#fu-jornada').value);
   if (!nome) return toast('Escreva o nome do funcionário.', true);
   if (cpf && cpf.length !== 11) return toast('O CPF tem 11 números.', true);
@@ -407,12 +425,13 @@ $('#f-func').addEventListener('submit', async e => {
   try {
     await api('PUT', 'api/dados/funcionarios/' + encodeURIComponent(id), obj);
     D.funcionarios.set(id, obj);
+    editando = id; // se o link falhar, o próximo Salvar mexe neste mesmo funcionário
     if (!D.links.has(id)) await gerarLink(id);
     toast(antes ? 'Funcionário salvo.' : 'Funcionário cadastrado. Copie o link do ponto e mande para ele.');
     limparFunc();
     render();
   } catch (er) { toast(er.message, true); }
-});
+}
 async function copiarLink(fid) {
   let tok;
   try { tok = linkPedido.has(fid) ? await linkPedido.get(fid) : (D.links.get(fid) || {}).token || await gerarLink(fid); } catch (e) { toast(e.message, true); return; }
@@ -457,7 +476,7 @@ function relatorioMes(mes) {
     const linhas = dias.map(data => {
       const r = diaDe(f.id, data, troca);
       return { data, tem: r.marcas.length > 0, entradas: r.marcas.filter(m => m.tipo === 'entrada').map(m => m.hora), saidas: r.marcas.filter(m => m.tipo === 'saida').map(m => m.hora),
-        minutos: r.minutos, extra: r.extra, problemas: r.problemas, ajustado: r.marcas.some(m => m.origem === 'rh') };
+        minutos: r.minutos, extra: r.extra, problemas: r.problemas, ajustado: r.regs.length !== r.marcas.length || r.marcas.some(m => m.origem === 'rh') };
     });
     const soma = k => linhas.reduce((t, l) => t + l[k], 0);
     return { f, linhas, minutos: soma('minutos'), extra: soma('extra'), dias: linhas.filter(l => l.tem).length, pendentes: linhas.filter(l => l.problemas.length).length };

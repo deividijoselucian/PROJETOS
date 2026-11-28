@@ -239,10 +239,15 @@ function funcionarioDoLink(token) {
 }
 // o botão alterna sozinho: depois de uma entrada de hoje vem a saída; esqueceu a saída ontem, hoje começa com entrada
 function estadoPonto(f) {
-  const meus = pontosQueValem(bancos.rh.lista('pontos')).filter(p => p.funcionarioId === f.id).sort(ordemPonto);
+  const hoje = noFuso(new Date()).data; // um registro do RH com data no futuro não conta
+  const meus = pontosQueValem(bancos.rh.lista('pontos')).filter(p => p.funcionarioId === f.id && p.data <= hoje).sort(ordemPonto);
   const ult = meus[meus.length - 1] || null;
-  return { nome: f.nome, ultimo: ult && { tipo: ult.tipo, data: ult.data, hora: ult.hora }, proximo: ult && ult.tipo === 'entrada' && ult.data === noFuso(new Date()).data ? 'saida' : 'entrada', agora: Date.now() };
+  return { nome: f.nome, ultimo: ult && { tipo: ult.tipo, data: ult.data, hora: ult.hora }, proximo: ult && ult.tipo === 'entrada' && ult.data === hoje ? 'saida' : 'entrada', agora: Date.now() };
 }
+// Dois toques em menos de 1 minuto (outra aba, resposta perdida no 3G) não viram entrada e saída.
+// PONTO_INTERVALO_S só existe para os testes baterem entrada e saída seguidas.
+const INTERVALO_PONTO = Number(process.env.PONTO_INTERVALO_S || 60) * 1000;
+const PONTOS_POR_DIA = 12; // um link vazado não enche o disco com fotos
 const LIMITE_FOTO = 3 * 1024 * 1024;
 const PNG_INICIO = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
 const FOTO_OK = { 'image/jpeg': b => b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF, 'image/png': b => b.subarray(0, 8).equals(PNG_INICIO) };
@@ -265,8 +270,14 @@ async function rotaPonto(req, res, partes, metodo) {
   if (!buf) return json(res, 413, { erro: 'A foto passa de 3 MB.' });
   if (!buf.length) return json(res, 400, { erro: 'Sem a foto o ponto não é registrado. Tire a foto e tente de novo.' });
   if (!FOTO_OK[tipoFoto](buf)) return json(res, 415, { erro: 'Esse arquivo não é uma foto JPG ou PNG.' });
-  // daqui até aplicar não há await: dois toques ao mesmo tempo não viram duas entradas
-  const agora = new Date(), { data, hora } = noFuso(agora), tipo = estadoPonto(f).proximo;
+  // daqui até aplicar não há await: o segundo de dois toques ao mesmo tempo já vê o primeiro
+  const agora = new Date(), { data, hora } = noFuso(agora), est = estadoPonto(f), tipo = est.proximo;
+  const doCelular = bancos.rh.lista('pontos').filter(p => p.funcionarioId === f.id && p.origem === 'celular');
+  const ult = doCelular.reduce((a, p) => (!a || p.em > a.em ? p : a), null);
+  if (ult && agora - Date.parse(ult.em) < INTERVALO_PONTO) {
+    return json(res, 409, { erro: `Você já registrou ${ult.tipo === 'saida' ? 'saída' : 'entrada'} às ${ult.hora}. Para registrar de novo, espere um minuto.`, ultimo: est.ultimo, proximo: est.proximo });
+  }
+  if (doCelular.filter(p => p.data === data).length >= PONTOS_POR_DIA) return json(res, 429, { erro: 'Hoje já são muitos registros por este link. Fale com o RH.' });
   const foto = arquivosDe.rh.guardar(buf, { nome: `ponto-${data}-${hora.replace(':', 'h')}.${tipoFoto === 'image/png' ? 'png' : 'jpg'}`, tipo: tipoFoto });
   const ponto = { id: idPonto(), funcionarioId: f.id, tipo, data, hora, em: agora.toISOString(), lat, lon, precisao: precisao == null || precisao < 0 ? null : Math.round(precisao), foto, origem: 'celular' };
   const op = bancos.rh.aplicar({ tipo: 'set', col: 'pontos', obj: ponto });

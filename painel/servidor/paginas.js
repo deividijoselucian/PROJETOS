@@ -266,8 +266,12 @@ $('foto').addEventListener('change', async function () {
       r = await fetch('/ponto/' + location.pathname.split('/')[2] + '/registrar', { method: 'POST', body: foto,
         headers: { 'Content-Type': foto.type, 'X-Lat': String(pos.coords.latitude), 'X-Lon': String(pos.coords.longitude), 'X-Precisao': String(Math.round(pos.coords.accuracy || 0)) } });
       d = await r.json().catch(function () { return {}; });
-    } catch (e) { msg('Sem internet: o ponto não foi registrado. Confira a internet e tente de novo.', true); return; }
-    if (!r.ok) { msg(d.erro || 'O ponto não foi registrado. Tente de novo.', true); return; }
+    } catch (e) { msg('Não deu para confirmar se o ponto chegou (sem internet?). Abra esta página de novo e confira o último registro antes de tentar outra vez.', true); return; }
+    if (!r.ok) {
+      if (d.proximo) { P.proximo = d.proximo; P.ultimo = d.ultimo || P.ultimo; mostrar(); }
+      msg(d.erro || 'O ponto não foi registrado. Tente de novo.', true);
+      return;
+    }
     P.proximo = d.proximo;
     P.ultimo = { tipo: d.tipo, data: d.data, hora: d.hora };
     mostrar();

@@ -34,7 +34,8 @@ fs.writeFileSync(path.join(CARGA, 'frota.json'), JSON.stringify({
   arquivos: { 'arq-x': { tipo: 'application/pdf', nome: 'CRLV-TST1A00.pdf', dados: PDF.toString('base64') } },
 }));
 
-const ambiente = (pastas = {}) => Object.assign({}, process.env, { PORTA: String(PORTA), HOST: '127.0.0.1', PAINEL_SENHA: 'senhaTeste1', PASTA_DADOS: DADOS, PASTA_PUBLICO: PUBLICO, PASTA_CARGA: CARGA }, pastas);
+// PONTO_INTERVALO_S=0: entrada e saída seguidas nos testes; o teste do intervalo sobe um servidor com o padrão (60 s)
+const ambiente = (pastas = {}) => Object.assign({}, process.env, { PORTA: String(PORTA), HOST: '127.0.0.1', PAINEL_SENHA: 'senhaTeste1', PASTA_DADOS: DADOS, PASTA_PUBLICO: PUBLICO, PASTA_CARGA: CARGA, PONTO_INTERVALO_S: '0' }, pastas);
 function subir() {
   return new Promise((ok, falha) => {
     proc = spawn(process.execPath, [SERVIDOR], { env: ambiente(), stdio: ['ignore', 'pipe', 'pipe'] });
@@ -669,4 +670,39 @@ test('Ponto: a rota do ponto não lê nem grava outras coleções', async () => 
   assert.strictEqual(novos[0].funcionarioId, 'f-iso');
   assert.ok(disco('frota').equals(frota), 'frota.json igual');
   assert.ok(disco('operacao').equals(operacao), 'operacao.json igual');
+});
+test('Ponto: registro do RH com data no futuro não muda o botão de hoje', async () => {
+  const tok = await funcionario('f-futuro');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', { funcionarioId: 'f-futuro', tipo: 'entrada', data: '2099-01-01', hora: '08:00', justificativa: 'data digitada errada' })).status, 200);
+  assert.match(await (await fetch(`${BASE}/ponto/${tok}`)).text(), /"ultimo":null/, 'o último registro é o de hoje ou de antes');
+  assert.strictEqual((await (await registrar(tok)).json()).tipo, 'entrada');
+  assert.strictEqual((await (await registrar(tok)).json()).tipo, 'saida');
+});
+test('Ponto: dois toques seguidos ou ao mesmo tempo viram um registro só, e o celular tem limite por dia', async () => {
+  const hoje = diaNoFuso(new Date().toISOString());
+  const TOK_DUP = 'D'.repeat(32), TOK_CAP = 'C'.repeat(32);
+  const pontos = {};
+  for (let i = 0; i < 12; i++) pontos['pt-cap' + i] = { id: 'pt-cap' + i, funcionarioId: 'f-cap', tipo: i % 2 ? 'saida' : 'entrada', data: hoje, hora: '00:' + String(i).padStart(2, '0'), em: new Date(Date.now() - 600000).toISOString(), origem: 'celular' };
+  await comServidorAParte('ponto-intervalo', pastas => {
+    pastas.PONTO_INTERVALO_S = ''; // o padrão do servidor
+    fs.writeFileSync(path.join(pastas.PASTA_DADOS, 'rh.json'), JSON.stringify({
+      funcionarios: { 'f-dup': { id: 'f-dup', nome: 'Dup', situacao: 'ativo' }, 'f-cap': { id: 'f-cap', nome: 'Cap', situacao: 'ativo' } },
+      links: { 'f-dup': { id: 'f-dup', token: TOK_DUP }, 'f-cap': { id: 'f-cap', token: TOK_CAP } },
+      pontos,
+    }));
+  }, async (r, { PASTA_DADOS }) => {
+    assert.ok(r.subiu, r.saida());
+    const st = (await Promise.all([registrar(TOK_DUP), registrar(TOK_DUP)])).map(x => x.status).sort();
+    assert.deepStrictEqual(st, [200, 409], 'ao mesmo tempo');
+    const outro = await registrar(TOK_DUP);
+    assert.strictEqual(outro.status, 409, 'logo depois');
+    const d = await outro.json();
+    assert.match(d.erro, /já registrou entrada às \d{2}:\d{2}/);
+    assert.strictEqual(d.proximo, 'saida');
+    const noDisco = JSON.parse(fs.readFileSync(path.join(PASTA_DADOS, 'rh.json'), 'utf8')).pontos;
+    assert.strictEqual(Object.values(noDisco).filter(p => p.funcionarioId === 'f-dup').length, 1);
+    const fotos = fs.readdirSync(path.join(PASTA_DADOS, 'arquivos', 'rh')).length;
+    assert.strictEqual((await registrar(TOK_CAP)).status, 429, 'mais de 12 pelo celular no dia');
+    assert.strictEqual(fs.readdirSync(path.join(PASTA_DADOS, 'arquivos', 'rh')).length, fotos, 'a foto recusada não fica no disco');
+  });
 });
