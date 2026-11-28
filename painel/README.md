@@ -13,11 +13,13 @@ para a fase 2.
 
 1. **DECONTO** (`/frota/`): a frota, com km do dia, abastecimento, manutenção, documentos com
    vencimento (e os PDFs guardados no servidor) e relatório.
-2. **Controle de Operação** (`/operacao/`): o antigo Controle Munck, com onde cada caminhão
-   trabalha, agenda, km das obras, mapa, manutenção e relatório.
+2. **Controle de Operação** (`/operacao/`): o antigo Controle Munck, com agenda de operação,
+   operações (cliente, destinos, valor, pago, km e horímetro), documento e seguro de cada
+   caminhão, manutenção e relatório.
 3. **RH**: em desenvolvimento.
 4. **Financeiro**: em desenvolvimento.
 5. **Cargas**: em desenvolvimento.
+6. **Monitoramento de Frota**: em desenvolvimento (integração futura).
 
 ## Onde fica cada coisa
 
@@ -32,7 +34,7 @@ para a fase 2.
   (`.github/workflows/painel-deconto.yml`). Passo a passo em
   [servidor/LEIA-ME.md](servidor/LEIA-ME.md).
 - As páginas dos sistemas não ficam aqui: o pacote leva `sistema-carlise/frota.html` (DECONTO),
-  `munck/munck.html` (Controle de Operação) e `munck/mapa-sul.json` (o mapa).
+  `munck/munck.html` (Controle de Operação).
 - `testes/servidor.test.js`: os testes do servidor.
 
 ## Testes

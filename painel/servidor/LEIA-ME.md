@@ -6,8 +6,9 @@ Um endereço só, com usuário e senha, onde a equipe entra e escolhe o sistema 
 
 - **DECONTO**: a frota (km do dia, abastecimento, manutenção, documentos com vencimento e os
   PDFs, relatório, Excel e PDF).
-- **Controle de Operação** (o antigo Controle Munck): onde cada caminhão munck trabalha, agenda,
-  km das obras, mapa, manutenção e relatório.
+- **Controle de Operação** (o antigo Controle Munck): agenda de operação, operações (cliente,
+  destinos, valor, pago, km e horímetro), documento e seguro de cada caminhão, manutenção e
+  relatório.
 
 Cada sistema tem os seus dados, separados. O que alguém lança aparece na hora para quem está com
 o mesmo sistema aberto. Ele roda numa VM da Locaweb do mesmo jeito que a Sinistra: pasta própria,
