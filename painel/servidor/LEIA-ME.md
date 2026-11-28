@@ -9,6 +9,11 @@ Um endereço só, com usuário e senha, onde a equipe entra e escolhe o sistema 
 - **Controle de Operação** (o antigo Controle Munck): agenda de operação, operações (cliente,
   destinos, valor, pago, km e horímetro), documento e seguro de cada caminhão, manutenção e
   relatório.
+- **RH**: controle interno de ponto. O funcionário bate o ponto pelo celular num link pessoal
+  (`/ponto/...`, sem senha; o RH copia o link na aba Funcionários e manda pelo WhatsApp), com foto
+  e local. O link só registra o ponto daquele funcionário; "Gerar link novo" faz o antigo parar de
+  valer. As fotos ficam em `data/arquivos/rh/`. Precisa do endereço com https (o celular só libera
+  o GPS e a câmera assim).
 
 Cada sistema tem os seus dados, separados. O que alguém lança aparece na hora para quem está com
 o mesmo sistema aberto. Ele roda numa VM da Locaweb do mesmo jeito que a Sinistra: pasta própria,
