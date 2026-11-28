@@ -289,11 +289,10 @@ teste('Controle de Operação: abre pelo cartão, agenda pelo quadro e o outro n
   await esperarServidor(a);
   assert.strictEqual(await a.evaluate(() => window.PAINEL && window.PAINEL.sistema), 'operacao');
 
-  // caminhão e obra para o quadro (pelas funções da página)
+  // caminhão para o quadro (pelas funções da página)
   await a.evaluate(async () => {
     const agora = new Date().toISOString();
     await gravar('caminhoes', { id: 'cam-op-1', placa: 'OPR1A23', apelido: 'Munck 1', situacao: 'ativo', criadoEm: agora });
-    await gravar('obras', { id: 'ob-tela-1', nome: 'Obra Teste Tela', cliente: 'Cliente X', cidade: 'Chapecó', situacao: 'andamento', inicio: agora.slice(0, 10), etapas: [], criadoEm: agora });
   });
   const b = await abrir(await logado(), '/operacao/#agenda');
   await esperarServidor(b);
@@ -306,18 +305,20 @@ teste('Controle de Operação: abre pelo cartão, agenda pelo quadro e o outro n
   assert.ok(await a.isVisible('#f-ag'), 'formulário do agendamento aberto');
   assert.strictEqual(await a.inputValue('#ag-data'), hoje);
   assert.strictEqual(await a.inputValue('#ag-cam'), 'cam-op-1');
-  await a.selectOption('#ag-obra', 'ob-tela-1');
+  await a.fill('#ag-cliente', 'Cliente X');
+  await a.fill('#ag-dest-a', 'Chapecó');
+  await a.fill('#ag-dest-b', 'Xanxerê');
   await a.fill('#ag-hora', '08:00');
   await a.fill('#ag-serv', 'Içar poste');
   await limparToast(a);
   await a.click('#f-ag button[type="submit"]');
   const t0 = Date.now();
-  await b.waitForFunction(() => document.querySelector('#quadro').textContent.includes('Obra Teste Tela'), null, { timeout: 2000 });
+  await b.waitForFunction(() => document.querySelector('#quadro').textContent.includes('Cliente X'), null, { timeout: 2000 });
   assert.ok(Date.now() - t0 <= 2000);
   assert.strictEqual(await b.evaluate(() => window.__semRecarregar), 'sim', 'o outro navegador não recarregou');
   await esperarToast(a, 'Agendado');
   const o = await dados(ctxA, 'operacao');
-  assert.ok(o.agenda.some(x => x.caminhaoId === 'cam-op-1' && x.obraId === 'ob-tela-1' && x.data === hoje && x.servico === 'Içar poste'), 'agendamento no servidor');
+  assert.ok(o.agenda.some(x => x.caminhaoId === 'cam-op-1' && x.cliente === 'Cliente X' && x.destinoA === 'Chapecó' && x.destinoB === 'Xanxerê' && x.data === hoje && x.servico === 'Içar poste'), 'agendamento no servidor');
 
   // sem as abas Mapa e Obras
   assert.strictEqual(await a.locator('.aba[data-aba="mapa"], .aba[data-aba="obras"]').count(), 0, 'sem abas Mapa e Obras');
@@ -338,6 +339,121 @@ teste('Controle de Operação: abre pelo cartão, agenda pelo quadro e o outro n
   assert.ok(o2.motoristas.some(m => m.id === 'mot-antigo-1'));
   assert.ok(o2.obras.some(x => x.id === 'ob-antiga-1'));
   await a.waitForFunction(() => document.querySelector('#t-cam').textContent.includes('MUN1C99'), null, { timeout: 3000 });
+});
+
+// ---------- Controle: Operação e Agenda de operação ----------
+const semEspaco = t => String(t || '').replace(/\s+/g, ' ');
+async function caminhoesDeTeste(p) {
+  await p.evaluate(async () => {
+    const agora = new Date().toISOString();
+    await gravar('caminhoes', { id: 'cam-mk', placa: 'MKA1B23', apelido: 'Munck A', munck: 'Madal MD 45.000', situacao: 'ativo', criadoEm: agora });
+    await gravar('caminhoes', { id: 'cam-sem', placa: 'SEM1B23', apelido: 'Toco', munck: '', situacao: 'ativo', criadoEm: agora });
+    await gravar('motoristas', { id: 'mot-op', nome: 'João Operador', situacao: 'ativo', criadoEm: agora });
+  });
+}
+
+teste('Operação: lança com cliente, destinos, valor e pago; horímetro só no munck', async () => {
+  const ctx = await logado();
+  const a = await abrir(ctx, '/operacao/#operacao');
+  await esperarServidor(a);
+  await caminhoesDeTeste(a);
+  assert.strictEqual(semEspaco(await a.textContent('.aba[data-aba="operacao"]')).trim(), 'Operação');
+  await a.selectOption('#km-cam', 'cam-sem');
+  assert.strictEqual(await a.isVisible('#km-hor-ini'), false, 'sem munck, sem horímetro');
+  await a.selectOption('#km-cam', 'cam-mk');
+  assert.strictEqual(await a.isVisible('#km-hor-ini'), true, 'caminhão munck tem horímetro');
+  const hoje = await a.evaluate(() => hojeISO());
+  await a.fill('#km-data', hoje);
+  await a.fill('#km-cliente', 'Cliente Y');
+  await a.fill('#km-dest-a', 'Chapecó');
+  await a.fill('#km-dest-b', 'Concórdia');
+  await a.fill('#km-ini', '1000');
+  await a.fill('#km-fin', '1080');
+  await a.fill('#km-hor-ini', '100');
+  await a.fill('#km-hor-fin', '106,5');
+  await a.fill('#km-valor', 'abc');
+  await a.click('#f-km button[type="submit"]');
+  await a.waitForSelector('#km-valor[aria-invalid="true"]');
+  assert.ok(!(await dados(ctx, 'operacao')).km.some(r => r.cliente === 'Cliente Y'), 'valor inválido não grava');
+  await a.fill('#km-valor', '1.500,00');
+  await a.selectOption('#km-pago', 'nao');
+  await limparToast(a);
+  await a.click('#f-km button[type="submit"]');
+  await esperarToast(a, 'Operação salva');
+  const r = (await dados(ctx, 'operacao')).km.find(x => x.cliente === 'Cliente Y');
+  assert.ok(r, 'operação no servidor');
+  assert.strictEqual(r.valor, 1500);
+  assert.strictEqual(r.pago, false);
+  assert.strictEqual(r.destinoA, 'Chapecó');
+  assert.strictEqual(r.destinoB, 'Concórdia');
+  assert.strictEqual(r.horimetroInicial, 100);
+  assert.strictEqual(r.horimetroFinal, 106.5);
+  await a.waitForFunction(() => document.querySelector('#km-resumo').textContent.replace(/\s+/g, ' ').includes('R$ 1.500,00 a receber'), null, { timeout: 5000 });
+  assert.match(semEspaco(await a.textContent('#t-km')), /Cliente Y · Chapecó → Concórdia/);
+  // editar: marcar como pago tira do "a receber" e mantém o valor
+  await a.click(`#t-km [data-acao="editar"][data-alvo="km:${r.id}"]`);
+  assert.strictEqual(await a.inputValue('#km-valor'), '1.500,00');
+  await a.selectOption('#km-pago', 'sim');
+  await limparToast(a);
+  await a.click('#f-km button[type="submit"]');
+  await esperarToast(a, 'Operação salva');
+  const r2 = (await dados(ctx, 'operacao')).km.find(x => x.id === r.id);
+  assert.strictEqual(r2.pago, true);
+  assert.strictEqual(r2.valor, 1500);
+  await a.waitForFunction(() => !document.querySelector('#km-resumo').textContent.includes('a receber'), null, { timeout: 5000 });
+  // caminhão sem munck: horímetro não é gravado
+  await a.selectOption('#km-cam', 'cam-sem');
+  await a.fill('#km-data', hoje);
+  await a.fill('#km-cliente', 'Cliente Z');
+  await a.fill('#km-ini', '500');
+  await a.fill('#km-fin', '520');
+  await a.fill('#km-valor', '1500');
+  await limparToast(a);
+  await a.click('#f-km button[type="submit"]');
+  await esperarToast(a, 'Operação salva');
+  const r3 = (await dados(ctx, 'operacao')).km.find(x => x.cliente === 'Cliente Z');
+  assert.strictEqual(r3.valor, 1500);
+  assert.ok(r3.horimetroInicial == null && r3.horimetroFinal == null, 'sem horímetro no caminhão sem munck');
+});
+
+teste('Agenda de operação preenche a Operação do dia e vira Feito', async () => {
+  const ctx = await logado();
+  const a = await abrir(ctx, '/operacao/#operacao');
+  await esperarServidor(a);
+  await caminhoesDeTeste(a);
+  const hoje = await a.evaluate(() => hojeISO());
+  await a.evaluate(async h => {
+    await gravar('agenda', { id: 'ag-op-1', data: h, hora: '07:30', caminhaoId: 'cam-mk', motoristaId: 'mot-op', cliente: 'Cliente Agenda', destinoA: 'Xaxim', destinoB: 'Seara', servico: 'Içar caixa', situacao: 'agendado', criadoEm: new Date().toISOString() });
+  }, hoje);
+  await a.fill('#km-data', hoje);
+  await a.selectOption('#km-cam', 'cam-mk');
+  await a.waitForFunction(() => document.querySelector('#km-cliente').value === 'Cliente Agenda', null, { timeout: 5000 });
+  assert.strictEqual(await a.inputValue('#km-dest-a'), 'Xaxim');
+  assert.strictEqual(await a.inputValue('#km-dest-b'), 'Seara');
+  assert.strictEqual(await a.inputValue('#km-mot'), 'mot-op');
+  await a.fill('#km-ini', '2000');
+  await a.fill('#km-fin', '2040');
+  await limparToast(a);
+  await a.click('#f-km button[type="submit"]');
+  await esperarToast(a, 'Operação salva');
+  const o = await dados(ctx, 'operacao');
+  assert.strictEqual(o.agenda.find(x => x.id === 'ag-op-1').situacao, 'feito');
+  assert.ok(o.km.some(r => r.cliente === 'Cliente Agenda' && r.destinoB === 'Seara'));
+});
+
+teste('Operação: registro antigo com obra aparece com o nome da obra e as horas', async () => {
+  const ctx = await logado();
+  const a = await abrir(ctx, '/operacao/#operacao');
+  await esperarServidor(a);
+  await caminhoesDeTeste(a);
+  await a.evaluate(async () => {
+    const agora = new Date().toISOString();
+    await gravar('obras', { id: 'ob-velha', nome: 'Obra Velha', cliente: '', situacao: 'andamento', etapas: [], criadoEm: agora });
+    await gravar('km', { id: 'km-velho', data: '2026-11-03', caminhaoId: 'cam-mk', obraId: 'ob-velha', etapa: 'Postes', kmInicial: 10, kmFinal: 30, horas: 3, criadoEm: agora });
+  });
+  await a.selectOption('#fk-mes', 'todos');
+  await a.waitForFunction(() => document.querySelector('#t-km').textContent.includes('Obra Velha'), null, { timeout: 5000 });
+  assert.match(semEspaco(await a.textContent('#t-km')), /3 h/);
 });
 
 // ---------- 8. celular ----------

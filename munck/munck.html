@@ -190,8 +190,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .f-msg { font-weight: 600; font-size: 0.95rem; }
 .f-msg.erro { color: var(--bad); }
 .f-msg.ok { color: var(--ok); }
-/* por dia / por etapa */
-.modos { display: inline-flex; gap: 4px; background: var(--sunk); border-radius: 10px; padding: 4px; }
+/* botões segmentados (período do relatório) */
 .seg { font: 600 0.95rem var(--body); color: var(--ink); border-radius: 7px; padding: 8px 14px; min-height: 40px; cursor: pointer; display: inline-flex; align-items: center; }
 .seg:hover { background: var(--surface); }
 .seg:has(input:checked) { background: var(--surface); color: var(--accent); box-shadow: var(--sombra); outline: 1px solid var(--line); }
@@ -314,7 +313,7 @@ button.seg { border: 0; background: transparent; }
   <nav class="abas" aria-label="Seções do sistema" role="tablist">
     <a class="aba" role="tab" href="#painel" data-aba="painel">Painel <span class="cont" id="cont-alertas" hidden></span></a>
     <a class="aba" role="tab" href="#agenda" data-aba="agenda">Agenda</a>
-    <a class="aba" role="tab" href="#km" data-aba="km">Km das obras</a>
+    <a class="aba" role="tab" href="#operacao" data-aba="operacao">Operação</a>
     <a class="aba" role="tab" href="#manutencao" data-aba="manutencao">Manutenção <span class="cont" id="cont-man" hidden></span></a>
     <a class="aba" role="tab" href="#relatorio" data-aba="relatorio">Relatório</a>
     <a class="aba" role="tab" href="#cadastro" data-aba="cadastro">Caminhões e motoristas</a>
@@ -337,7 +336,7 @@ button.seg { border: 0; background: transparent; }
       <div><h1 class="h1">Onde está cada munck</h1><p class="hint" id="painel-data"></p></div>
       <div class="acoes-linha">
         <button class="btn" type="button" data-acao="novo-ag">Agendar serviço</button>
-        <button class="btn ghost" type="button" data-acao="novo-km">Lançar km</button>
+        <button class="btn ghost" type="button" data-acao="novo-km">Lançar operação</button>
       </div>
     </div>
     <div class="kpis" id="painel-kpis"></div>
@@ -354,7 +353,7 @@ button.seg { border: 0; background: transparent; }
   <!-- AGENDA -->
   <section class="vista" id="v-agenda" data-vista="agenda" hidden>
     <div class="cab">
-      <div><h1 class="h1">Agenda</h1><p class="hint">Qual caminhão vai para qual obra, em que dia e com qual motorista.</p></div>
+      <div><h1 class="h1">Agenda</h1><p class="hint">Qual caminhão vai para qual cliente, de onde para onde, em que dia e com qual motorista.</p></div>
       <button class="btn" type="button" data-acao="novo-ag">Novo agendamento</button>
     </div>
     <form class="ficha" id="f-ag" data-col="agenda" novalidate hidden>
@@ -368,14 +367,9 @@ button.seg { border: 0; background: transparent; }
         <div class="campo"><label for="ag-hora">Hora</label><input type="time" id="ag-hora" name="hora"></div>
         <div class="campo"><label for="ag-cam">Caminhão</label><select id="ag-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
         <div class="campo"><label for="ag-mot">Motorista</label><select id="ag-mot" name="motoristaId" data-lista="mot-opc"></select></div>
-        <div class="campo"><label for="ag-obra">Obra</label><select id="ag-obra" name="obraId" data-lista="obras-form"></select></div>
-        <fieldset class="obra-nova" data-obra-nova hidden>
-          <legend>Obra nova</legend>
-          <div class="campo"><label for="ag-on-nome">Nome da obra</label><input id="ag-on-nome" name="obraNovaNome" autocomplete="off" placeholder="Ex.: Loteamento Jardim Primavera"></div>
-          <div class="campo"><label for="ag-on-cli">Cliente</label><input id="ag-on-cli" name="obraNovaCliente" list="lista-clientes" autocomplete="off"></div>
-          <div class="campo"><label for="ag-on-cid">Cidade</label><input id="ag-on-cid" name="obraNovaCidade" list="lista-cidades" autocomplete="off"></div>
-        </fieldset>
-        <div class="campo"><label for="ag-etapa">Etapa</label><input id="ag-etapa" name="etapa" list="lista-etapas-ag" autocomplete="off" placeholder="Ex.: Implantação de postes"></div>
+        <div class="campo"><label for="ag-cliente">Cliente</label><input id="ag-cliente" name="cliente" list="lista-clientes" autocomplete="off"></div>
+        <div class="campo"><label for="ag-dest-a">Destino A</label><input id="ag-dest-a" name="destinoA" list="lista-destinos" autocomplete="off" placeholder="De onde sai"></div>
+        <div class="campo"><label for="ag-dest-b">Destino B</label><input id="ag-dest-b" name="destinoB" list="lista-destinos" autocomplete="off" placeholder="Para onde vai"></div>
         <div class="campo"><label for="ag-serv">O que vai fazer</label><input id="ag-serv" name="servico" list="lista-servicos" autocomplete="off" placeholder="Ex.: Içar transformador"></div>
         <div class="campo"><label for="ag-sit">Situação</label><select id="ag-sit" name="situacao"></select></div>
         <div class="campo largo"><label for="ag-obs">Observação</label><input id="ag-obs" name="obs" autocomplete="off"></div>
@@ -405,57 +399,51 @@ button.seg { border: 0; background: transparent; }
         <div class="filtros">
           <select id="fa-quando" aria-label="Quais agendamentos"><option value="proximos">De hoje em diante</option><option value="passados">Últimos 30 dias</option><option value="todos">Todos</option></select>
           <select id="fa-cam" data-lista="filtro-caminhoes" data-vazio="Todos os caminhões" aria-label="Caminhão"></select>
-          <select id="fa-obra" data-lista="filtro-obras" data-vazio="Todas as obras" aria-label="Obra"></select>
+          <select id="fa-cliente" data-lista="filtro-clientes" data-vazio="Todos os clientes" aria-label="Cliente"></select>
         </div>
       </div>
       <div class="tabela-box"><table class="tabela" id="t-agenda"></table></div>
     </section>
   </section>
 
-  <!-- KM DAS OBRAS -->
-  <section class="vista" id="v-km" data-vista="km" hidden>
+  <!-- OPERAÇÃO -->
+  <section class="vista" id="v-operacao" data-vista="operacao" hidden>
     <div class="cab">
-      <div><h1 class="h1">Km das obras</h1><p class="hint">Km inicial e final de cada caminhão na obra, por dia ou por etapa.</p></div>
+      <div><h1 class="h1">Operação</h1><p class="hint">Cada serviço: cliente, de onde para onde, valor, se já foi pago, km e horímetro.</p></div>
     </div>
     <form class="ficha" id="f-km" data-col="km" novalidate>
       <div class="ficha-cab">
-        <h2 class="h2" data-novo="Lançar km" data-editar="Editando lançamento">Lançar km</h2>
-        <div class="modos" role="radiogroup" aria-label="Como lançar">
-          <label class="seg"><input class="sr" type="radio" name="modo" value="dia">Por dia</label>
-          <label class="seg"><input class="sr" type="radio" name="modo" value="etapa">Por etapa</label>
-        </div>
+        <h2 class="h2" data-novo="Lançar operação" data-editar="Editando operação">Lançar operação</h2>
       </div>
       <div class="campos">
-        <div class="campo"><label for="km-data" id="km-data-rot">Data</label><input type="date" id="km-data" name="data"></div>
-        <div class="campo" id="km-fim-box" hidden><label for="km-fim">Fim da etapa</label><input type="date" id="km-fim" name="dataFim"></div>
+        <div class="campo"><label for="km-data">Data</label><input type="date" id="km-data" name="data"></div>
         <div class="campo"><label for="km-cam">Caminhão</label><select id="km-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
         <div class="campo"><label for="km-mot">Motorista</label><select id="km-mot" name="motoristaId" data-lista="mot-opc"></select></div>
-        <div class="campo"><label for="km-obra">Obra</label><select id="km-obra" name="obraId" data-lista="obras-form"></select></div>
-        <fieldset class="obra-nova" data-obra-nova hidden>
-          <legend>Obra nova</legend>
-          <div class="campo"><label for="km-on-nome">Nome da obra</label><input id="km-on-nome" name="obraNovaNome" autocomplete="off"></div>
-          <div class="campo"><label for="km-on-cli">Cliente</label><input id="km-on-cli" name="obraNovaCliente" list="lista-clientes" autocomplete="off"></div>
-          <div class="campo"><label for="km-on-cid">Cidade</label><input id="km-on-cid" name="obraNovaCidade" list="lista-cidades" autocomplete="off"></div>
-        </fieldset>
-        <div class="campo"><label for="km-etapa" id="km-etapa-rot">Etapa</label><input id="km-etapa" name="etapa" list="lista-etapas-km" autocomplete="off"></div>
+        <div class="campo"><label for="km-cliente">Cliente</label><input id="km-cliente" name="cliente" list="lista-clientes" autocomplete="off"></div>
+        <div class="campo"><label for="km-dest-a">Destino A</label><input id="km-dest-a" name="destinoA" list="lista-destinos" autocomplete="off" placeholder="De onde sai"></div>
+        <div class="campo"><label for="km-dest-b">Destino B</label><input id="km-dest-b" name="destinoB" list="lista-destinos" autocomplete="off" placeholder="Para onde vai"></div>
+        <div class="campo"><label for="km-valor">Valor (R$)</label><input id="km-valor" name="valor" data-tipo="moeda" inputmode="decimal" autocomplete="off" placeholder="Ex.: 1.500,00"></div>
+        <div class="campo"><label for="km-pago">Pago?</label><select id="km-pago" name="pago"><option value="nao">Não, a receber</option><option value="sim">Sim, pago</option></select></div>
         <div class="campo"><label for="km-ini">Km inicial</label><input id="km-ini" name="kmInicial" data-tipo="int" inputmode="numeric" autocomplete="off"></div>
         <div class="campo"><label for="km-fin">Km final</label><input id="km-fin" name="kmFinal" data-tipo="int" inputmode="numeric" autocomplete="off"></div>
-        <div class="campo"><label for="km-horas">Horas de munck</label><input id="km-horas" name="horas" data-tipo="dec" inputmode="decimal" autocomplete="off"><span class="dica">Opcional: quantas horas o munck trabalhou.</span></div>
+        <div class="campo" data-hor hidden><label for="km-hor-ini">Horímetro inicial</label><input id="km-hor-ini" name="horimetroInicial" data-tipo="dec" inputmode="decimal" autocomplete="off"><span class="dica">Só caminhão munck.</span></div>
+        <div class="campo" data-hor hidden><label for="km-hor-fin">Horímetro final</label><input id="km-hor-fin" name="horimetroFinal" data-tipo="dec" inputmode="decimal" autocomplete="off"></div>
         <div class="campo largo"><label for="km-obs">Observação</label><input id="km-obs" name="obs" autocomplete="off"></div>
       </div>
       <div class="calc" id="km-calc" aria-live="polite"></div>
       <div class="acoes-linha">
-        <button class="btn" type="submit" data-novo="Salvar km" data-editar="Salvar alteração">Salvar km</button>
+        <button class="btn" type="submit" data-novo="Salvar operação" data-editar="Salvar alteração">Salvar operação</button>
         <button class="btn ghost" type="button" data-acao="cancelar-edicao" hidden>Cancelar edição</button>
         <span class="f-msg" role="status"></span>
       </div>
     </form>
     <section class="bloco">
       <div class="bloco-cab">
-        <div><h2 class="h2">Lançamentos</h2><p class="hint" id="km-resumo"></p></div>
+        <div><h2 class="h2">Operações</h2><p class="hint" id="km-resumo"></p></div>
         <div class="filtros">
           <select id="fk-cam" data-lista="filtro-caminhoes" data-vazio="Todos os caminhões" aria-label="Caminhão"></select>
-          <select id="fk-obra" data-lista="filtro-obras" data-vazio="Todas as obras" aria-label="Obra"></select>
+          <select id="fk-cliente" data-lista="filtro-clientes" data-vazio="Todos os clientes" aria-label="Cliente"></select>
+          <select id="fk-pago" aria-label="Pagamento"><option value="todos">Pagas e a receber</option><option value="receber">Só a receber</option><option value="pago">Só pagas</option></select>
           <select id="fk-mes" data-lista="meses" aria-label="Mês"></select>
         </div>
       </div>
@@ -622,11 +610,9 @@ button.seg { border: 0; background: transparent; }
     </section>
   </section>
 
-  <datalist id="lista-etapas-ag"></datalist>
-  <datalist id="lista-etapas-km"></datalist>
   <datalist id="lista-servicos"></datalist>
   <datalist id="lista-clientes"></datalist>
-  <datalist id="lista-cidades"></datalist>
+  <datalist id="lista-destinos"></datalist>
   <datalist id="lista-oficinas"></datalist>
 </main>
 <div class="toast" id="toast" role="status" hidden></div>
@@ -634,8 +620,8 @@ button.seg { border: 0; background: transparent; }
 <script>
 'use strict';
 /* ====================================================================
-   Controle de Operação (antigo Controle Munck): onde cada caminhão munck está trabalhando, a agenda das
-   obras e o km inicial e final de cada obra, por dia ou por etapa.
+   Controle de Operação (antigo Controle Munck): a agenda de operação de cada caminhão munck e as
+   operações (cliente, destinos, valor, pago, km e horímetro).
    Sistema separado, com dados próprios. Aberto pelo link do claude.ai, os
    dados ficam na conta (capability db); aberto como arquivo, no navegador.
    ==================================================================== */
@@ -653,12 +639,11 @@ const CATEGORIAS_CNH = ['B', 'C', 'D', 'E', 'AC', 'AD', 'AE'];
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const SEMANA_LONGA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
-const ABAS = ['painel', 'agenda', 'km', 'manutencao', 'relatorio', 'cadastro'];
+const ABAS = ['painel', 'agenda', 'operacao', 'manutencao', 'relatorio', 'cadastro'];
 const FORM_DA_COL = { caminhoes: 'f-cam', motoristas: 'f-mot', agenda: 'f-ag', km: 'f-km', manutencoes: 'f-man' };
-const VISTA_DO_FORM = { 'f-cam': 'cadastro', 'f-mot': 'cadastro', 'f-ag': 'agenda', 'f-km': 'km', 'f-man': 'manutencao' };
+const VISTA_DO_FORM = { 'f-cam': 'cadastro', 'f-mot': 'cadastro', 'f-ag': 'agenda', 'f-km': 'operacao', 'f-man': 'manutencao' };
 const TIPOS_MANUT = ['Troca de óleo e filtros', 'Revisão preventiva', 'Pneus', 'Freios', 'Suspensão', 'Elétrica', 'Motor', 'Câmbio e embreagem', 'Funilaria e pintura',
   'Munck: sistema hidráulico', 'Munck: cabo de aço e gancho', 'Munck: lubrificação e graxa', 'Munck: inspeção e laudo (NR-11/NR-12)', 'Munck: reparo na estrutura', 'Corretiva (quebra)', 'Outro'];
-const NOVA = '__nova__';
 const NOME_APP = 'Controle de Operação';
 const CHAVE_LOCAL = 'controle-munck:dados:v1';
 
@@ -723,12 +708,22 @@ const porHora = (a, b) => (a.hora || '99').localeCompare(b.hora || '99');
 const porDataHora = (a, b) => a.data.localeCompare(b.data) || porHora(a, b);
 const camAtivos = () => todos('caminhoes').filter(c => c.situacao !== 'fora').sort(porPlaca);
 const motsAtivos = () => todos('motoristas').filter(m => m.situacao !== 'desligado').sort(porNome);
-const obrasAbertas = () => todos('obras').filter(o => o.situacao !== 'concluida').sort(porNome);
 function descCam(c) { if (!c) return ''; const mm = [c.marca, c.modelo].filter(Boolean).join(' '); return [c.apelido, c.munck || mm].filter(Boolean).join(' · '); }
 function rotuloCam(c) { return c ? mostraPlaca(c.placa) + (c.apelido ? ' · ' + c.apelido : '') : '(apagado)'; }
 function nomeMot(id) { const m = mot(id); return m ? m.nome : (id ? '(apagado)' : ''); }
 function nomeObra(id) { const o = obra(id); return o ? o.nome : (id ? '(obra apagada)' : ''); }
-function descObra(o) { return o ? [o.cliente, o.cidade].filter(Boolean).join(' · ') : ''; }
+/* operação e agenda: cliente e destinos; registro antigo (de obra) mostra o nome da obra */
+const clienteDe = x => x.cliente || (x.obraId ? nomeObra(x.obraId) : '');
+const rotaDe = x => [x.destinoA, x.destinoB].filter(Boolean).join(' → ');
+const descServ = x => [clienteDe(x), rotaDe(x)].filter(Boolean).join(' · ');
+const horasDe = r => r.horimetroFinal != null && r.horimetroInicial != null ? Math.max(0, r.horimetroFinal - r.horimetroInicial) : (r.horas || 0);
+const temMunck = camId => !!(cam(camId) && String(cam(camId).munck || '').trim());
+/* maior horímetro final do caminhão até o dia (sem contar o registro em edição) */
+function ultimoHor(camId, dia, exceto) {
+  let u = null;
+  for (const r of D.km.values()) if (r.caminhaoId === camId && r.id !== exceto && r.data <= dia && r.horimetroFinal != null && (u == null || r.horimetroFinal > u)) u = r.horimetroFinal;
+  return u;
+}
 const fimDe = x => (x.dataFim && x.dataFim > x.data ? x.dataFim : x.data);
 const cobre = (x, dia) => x.data <= dia && dia <= fimDe(x);
 const kmDe = r => Math.max(0, (r.kmFinal || 0) - (r.kmInicial || 0));
@@ -751,14 +746,6 @@ function ultimoKm(camId, dia, exceto) {
     if (!u || fimDe(r) > fimDe(u) || (fimDe(r) === fimDe(u) && r.kmFinal > u.kmFinal)) u = r;
   }
   return u;
-}
-/* etapas da obra: as cadastradas, na ordem, e depois as que apareceram na agenda e no km */
-function etapasDaObra(obraId) {
-  const o = obra(obraId);
-  const lista = [...((o && o.etapas) || [])];
-  const tem = new Set(lista.map(e => e.toLowerCase()));
-  for (const r of [...D.km.values(), ...D.agenda.values()]) if (r.obraId === obraId && r.etapa && !tem.has(r.etapa.toLowerCase())) { lista.push(r.etapa); tem.add(r.etapa.toLowerCase()); }
-  return lista;
 }
 /* dois ou mais serviços no mesmo dia batem quando algum não tem hora ou as horas se repetem */
 function conflitam(lista) {
@@ -1062,7 +1049,7 @@ function render() {
   cm.title = vencidas ? plural(vencidas, 'manutenção vencida', 'manutenções vencidas') : '';
   if (UI.aba === 'painel') renderPainel(alertas);
   else if (UI.aba === 'agenda') { renderQuadro(); renderListaAgenda(); calcAg(); }
-  else if (UI.aba === 'km') { renderListaKm(); calcKm(); }
+  else if (UI.aba === 'operacao') { renderListaKm(); calcKm(); }
   else if (UI.aba === 'manutencao') { renderManut(); calcMan(); }
   else if (UI.aba === 'relatorio') renderRelatorio();
   else if (UI.aba === 'cadastro') renderCadastro();
@@ -1090,9 +1077,8 @@ function htmlLista(tipo, el) {
   switch (tipo) {
     case 'caminhoes': return '<option value="">Escolha o caminhão</option>' + opcoes(camAtivos().map(c => [c.id, rotuloCam(c)]));
     case 'mot-opc': return '<option value="">Sem motorista</option>' + opcoes(motsAtivos().map(m => [m.id, m.nome]));
-    case 'obras-form': return '<option value="">Escolha a obra</option>' + opcoes(obrasAbertas().map(o => [o.id, o.nome + (descObra(o) ? ' · ' + descObra(o) : '')])) + `<option value="${NOVA}">+ Cadastrar obra nova</option>`;
     case 'filtro-caminhoes': return `<option value="">${esc(vazio)}</option>` + opcoes(todos('caminhoes').sort(porPlaca).map(c => [c.id, rotuloCam(c) + (c.situacao === 'fora' ? ' (fora da frota)' : '')]));
-    case 'filtro-obras': return `<option value="">${esc(vazio)}</option>` + opcoes(todos('obras').sort(porNome).map(o => [o.id, o.nome + (o.situacao === 'concluida' ? ' (concluída)' : '')]));
+    case 'filtro-clientes': return `<option value="">${esc(vazio)}</option>` + opcoes(Array.from(new Set([...D.km.values(), ...D.agenda.values()].map(clienteDe).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'pt-BR')).map(n => [n, n]));
     case 'meses': {
       const set = new Set();
       let m = hojeISO().slice(0, 7);
@@ -1106,7 +1092,6 @@ function htmlLista(tipo, el) {
 function rotuloDoValor(tipo, v) {
   if (!v) return '';
   if (tipo === 'mot-opc') return nomeMot(v);
-  if (tipo === 'obras-form' || tipo === 'filtro-obras') return nomeObra(v);
   if (tipo === 'caminhoes' || tipo === 'filtro-caminhoes') return rotuloCam(cam(v));
   return v;
 }
@@ -1137,18 +1122,10 @@ function preencherDatalist(id, valores) {
 function atualizarDatalists() {
   const ord = l => l.filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   preencherDatalist('lista-servicos', ord(todos('agenda').map(a => a.servico)));
-  preencherDatalist('lista-clientes', ord(todos('obras').map(o => o.cliente)));
-  preencherDatalist('lista-cidades', [...ord(todos('obras').map(o => o.cidade))]);
+  preencherDatalist('lista-clientes', ord([...todos('km'), ...todos('agenda')].map(x => x.cliente).concat(todos('obras').map(o => o.cliente))));
+  preencherDatalist('lista-destinos', ord([...todos('km'), ...todos('agenda')].flatMap(x => [x.destinoA, x.destinoB])));
   preencherDatalist('lista-oficinas', ord(todos('manutencoes').map(m => m.oficina)));
-  atualizarEtapas($('#f-ag'));
-  atualizarEtapas($('#f-km'));
 }
-function atualizarEtapas(f) {
-  const id = f.elements.obraId.value;
-  preencherDatalist(f.id === 'f-ag' ? 'lista-etapas-ag' : 'lista-etapas-km', id && id !== NOVA ? etapasDaObra(id) : []);
-}
-
-/* ---------- pedaços reutilizados ---------- */
 function celCam(c, sub) {
   if (!c) return '<span class="sem">(apagado)</span>';
   const t = sub === undefined ? c.apelido : sub;
@@ -1198,7 +1175,7 @@ function calcAlertas() {
     if (vistos.has(chave)) continue;
     vistos.add(chave);
     const [camId, d] = k.split('|');
-    out.push({ nivel: 'grave', ordem: d, txt: `${rotuloCam(cam(camId))} tem ${lista.length} serviços em ${diaSem(d)} ${fmtData(d)} sem horários diferentes: ${lista.map(a => nomeObra(a.obraId)).join(' e ')}.`, acao: { acao: 'editar', alvo: 'agenda:' + lista[1].id, txt: 'Ver agendamento' } });
+    out.push({ nivel: 'grave', ordem: d, txt: `${rotuloCam(cam(camId))} tem ${lista.length} serviços em ${diaSem(d)} ${fmtData(d)} sem horários diferentes: ${lista.map(a => descServ(a) || 'serviço sem cliente').join(' e ')}.`, acao: { acao: 'editar', alvo: 'agenda:' + lista[1].id, txt: 'Ver agendamento' } });
   }
   for (const [k, lista] of porMot) {
     if (new Set(lista.map(a => a.caminhaoId)).size < 2 || !conflitam(lista)) continue;
@@ -1208,20 +1185,20 @@ function calcAlertas() {
     const [motId, d] = k.split('|');
     out.push({ nivel: 'grave', ordem: d, txt: `${nomeMot(motId)} está em ${lista.length} caminhões em ${diaSem(d)} ${fmtData(d)}: ${lista.map(a => mostraPlaca((cam(a.caminhaoId) || {}).placa || '')).join(' e ')}.`, acao: { acao: 'editar', alvo: 'agenda:' + lista[1].id, txt: 'Ver agendamento' } });
   }
-  // dias agendados que já passaram sem km lançado
+  // dias agendados que já passaram sem operação lançada
   const desde = somaDias(h, -30), ontem = somaDias(h, -1);
   for (const a of D.agenda.values()) {
     if (!agValido(a) || a.data > ontem || fimDe(a) < desde) continue;
     const falta = diasDe(a, 120).filter(d => d >= desde && d <= ontem && !todos('km').some(r => r.caminhaoId === a.caminhaoId && cobre(r, d)));
     if (!falta.length) continue;
     const c = cam(a.caminhaoId);
-    out.push({ nivel: 'breve', ordem: falta[0], txt: `Falta o km de ${c ? mostraPlaca(c.placa) : 'um caminhão'} na obra ${nomeObra(a.obraId)}: ${falta.length === 1 ? diaSem(falta[0]) + ' ' + fmtData(falta[0]) : plural(falta.length, 'dia', 'dias') + ' (' + fmtDataCurta(falta[0]) + ' a ' + fmtDataCurta(falta[falta.length - 1]) + ')'}.`, acao: { acao: 'lancar-km', alvo: 'agenda:' + a.id, dia: falta[0], txt: 'Lançar km' } });
+    out.push({ nivel: 'breve', ordem: falta[0], txt: `Falta lançar a operação de ${c ? mostraPlaca(c.placa) : 'um caminhão'}${descServ(a) ? ' (' + descServ(a) + ')' : ''}: ${falta.length === 1 ? diaSem(falta[0]) + ' ' + fmtData(falta[0]) : plural(falta.length, 'dia', 'dias') + ' (' + fmtDataCurta(falta[0]) + ' a ' + fmtDataCurta(falta[falta.length - 1]) + ')'}.`, acao: { acao: 'lancar-km', alvo: 'agenda:' + a.id, dia: falta[0], txt: 'Lançar operação' } });
   }
   // caminhão parado ou na oficina com serviço marcado
   for (const c of camAtivos()) {
     if (c.situacao !== 'oficina' && c.situacao !== 'parado') continue;
     const a = todos('agenda').filter(x => x.caminhaoId === c.id && agValido(x) && fimDe(x) >= h).sort(porDataHora)[0];
-    if (a) out.push({ nivel: 'breve', ordem: a.data, txt: `${rotuloCam(c)} está ${c.situacao === 'oficina' ? 'na oficina' : 'parado'} e tem serviço em ${fmtData(a.data)} na obra ${nomeObra(a.obraId)}.`, acao: { acao: 'editar', alvo: 'agenda:' + a.id, txt: 'Ver agendamento' } });
+    if (a) out.push({ nivel: 'breve', ordem: a.data, txt: `${rotuloCam(c)} está ${c.situacao === 'oficina' ? 'na oficina' : 'parado'} e tem serviço em ${fmtData(a.data)}${descServ(a) ? ' (' + descServ(a) + ')' : ''}.`, acao: { acao: 'editar', alvo: 'agenda:' + a.id, txt: 'Ver agendamento' } });
   }
   // CNH e curso de operador
   for (const m of motsAtivos()) {
@@ -1275,17 +1252,17 @@ function cartaoMunck(c, o, h) {
   if (o.tipo === 'agenda') {
     const a = o.ag;
     rot = 'Hoje' + (a.hora ? ' · ' + a.hora : '') + (a.situacao === 'confirmado' ? ' · confirmado' : '');
-    titulo = nomeObra(a.obraId);
-    det = [a.etapa, a.servico, descObra(obra(a.obraId)), a.motoristaId ? 'Motorista: ' + nomeMot(a.motoristaId) : ''];
-    if (o.outros.length) det.push('Depois: ' + o.outros.map(x => nomeObra(x.obraId) + (x.hora ? ' às ' + x.hora : '')).join(', '));
+    titulo = clienteDe(a) || 'Serviço agendado';
+    det = [rotaDe(a), a.servico, a.motoristaId ? 'Motorista: ' + nomeMot(a.motoristaId) : ''];
+    if (o.outros.length) det.push('Depois: ' + o.outros.map(x => (clienteDe(x) || 'serviço') + (x.hora ? ' às ' + x.hora : '')).join(', '));
   } else if (o.tipo === 'km') {
-    rot = 'Hoje · km lançado';
-    titulo = nomeObra(o.r.obraId);
-    det = [o.r.etapa, o.r.motoristaId ? 'Motorista: ' + nomeMot(o.r.motoristaId) : ''];
+    rot = 'Hoje · operação lançada';
+    titulo = clienteDe(o.r) || 'Operação';
+    det = [rotaDe(o.r), o.r.motoristaId ? 'Motorista: ' + nomeMot(o.r.motoristaId) : ''];
   } else {
     cls = c.situacao === 'oficina' || c.situacao === 'parado' ? 'oficina' : '';
     titulo = c.situacao === 'oficina' ? 'Na oficina' : c.situacao === 'parado' ? 'Parado' : 'Sem serviço agendado';
-    det = [o.ult ? `Último serviço: ${nomeObra(o.ult.obraId)}, ${fmtData(fimDe(o.ult))}` : 'Ainda sem serviço lançado', c.motoristaId ? 'Motorista fixo: ' + nomeMot(c.motoristaId) : ''];
+    det = [o.ult ? `Último serviço: ${descServ(o.ult) || 'sem cliente'}, ${fmtData(fimDe(o.ult))}` : 'Ainda sem serviço lançado', c.motoristaId ? 'Motorista fixo: ' + nomeMot(c.motoristaId) : ''];
   }
   const prox = proximos(c.id, h, 3);
   const mesIni = h.slice(0, 8) + '01';
@@ -1294,9 +1271,9 @@ function cartaoMunck(c, o, h) {
   return `<article class="munk">
     <div class="munk-cab">${placaHTML(c.placa, 'g')}<span class="veic-txt"><strong>${esc(c.apelido || '')}</strong>${c.apelido ? '<br>' : ''}${esc(c.munck || [c.marca, c.modelo].filter(Boolean).join(' '))}</span>${c.situacao !== 'ativo' ? pill(SIT_CAM, c.situacao) : ''}</div>
     <div class="onde ${cls}"><span class="onde-rot">${esc(rot)}</span><span class="onde-obra">${esc(titulo)}</span>${det.filter(Boolean).map(x => `<span class="onde-det">${esc(x)}</span>`).join('')}</div>
-    <ul class="prox"><li class="nada prox-rot">Próximos serviços</li>${prox.length ? prox.map(a => `<li><span class="quando">${esc(diaSem(a.data))} ${esc(fmtDataCurta(a.data))}${a.hora ? '<br><span class="sem">' + esc(a.hora) + '</span>' : ''}</span><span class="oque">${esc(nomeObra(a.obraId))}${a.etapa ? ' · ' + esc(a.etapa) : ''}</span></li>`).join('') : '<li class="nada">Nada agendado para os próximos dias.</li>'}</ul>
+    <ul class="prox"><li class="nada prox-rot">Próximos serviços</li>${prox.length ? prox.map(a => `<li><span class="quando">${esc(diaSem(a.data))} ${esc(fmtDataCurta(a.data))}${a.hora ? '<br><span class="sem">' + esc(a.hora) + '</span>' : ''}</span><span class="oque">${esc(descServ(a) || a.servico || 'Serviço')}</span></li>`).join('') : '<li class="nada">Nada agendado para os próximos dias.</li>'}</ul>
     <div class="munk-pe"><span class="km">Km no mês: <strong>${esc(fKm(kmMes))}</strong>${hod ? ' · hodômetro ' + esc(nf0.format(hod)) : ''}</span>
-      <span class="acoes-linha"><button class="btn small ghost" type="button" data-acao="novo-ag" data-cam="${esc(c.id)}">Agendar</button><button class="btn small ghost" type="button" data-acao="novo-km" data-cam="${esc(c.id)}">Lançar km</button></span></div>
+      <span class="acoes-linha"><button class="btn small ghost" type="button" data-acao="novo-ag" data-cam="${esc(c.id)}">Agendar</button><button class="btn small ghost" type="button" data-acao="novo-km" data-cam="${esc(c.id)}">Lançar operação</button></span></div>
   </article>`;
 }
 
@@ -1318,8 +1295,8 @@ function renderQuadro() {
       const cls = [d === h ? 'hoje' : fds ? 'fds' : '', conflitam(ags) ? 'conflito' : ''].filter(Boolean).join(' ');
       const chips = ags.map(a => {
         const parte = fimDe(a) !== a.data ? ` (${difDias(a.data, d) + 1}/${difDias(a.data, fimDe(a)) + 1})` : '';
-        const linha2 = [a.hora, a.etapa].filter(Boolean).join(' · ');
-        return `<button class="chip ${a.situacao}" type="button" data-acao="editar" data-alvo="agenda:${esc(a.id)}" title="${esc([nomeObra(a.obraId), a.etapa, a.servico, nomeMot(a.motoristaId), SIT_AG[a.situacao]].filter(Boolean).join(' · '))}"><strong>${esc(nomeObra(a.obraId))}${esc(parte)}</strong>${linha2 ? `<span>${esc(linha2)}</span>` : ''}${a.motoristaId ? `<span>${esc(primeiroNome(nomeMot(a.motoristaId)))}</span>` : ''}</button>`;
+        const linha2 = [a.hora, rotaDe(a)].filter(Boolean).join(' · ');
+        return `<button class="chip ${a.situacao}" type="button" data-acao="editar" data-alvo="agenda:${esc(a.id)}" title="${esc([descServ(a), a.servico, nomeMot(a.motoristaId), SIT_AG[a.situacao]].filter(Boolean).join(' · '))}"><strong>${esc(clienteDe(a) || 'Serviço')}${esc(parte)}</strong>${linha2 ? `<span>${esc(linha2)}</span>` : ''}${a.motoristaId ? `<span>${esc(primeiroNome(nomeMot(a.motoristaId)))}</span>` : ''}</button>`;
       }).join('');
       return `<td${cls ? ` class="${cls}"` : ''}><div class="celula">${chips}<button class="add" type="button" data-acao="novo-ag" data-cam="${esc(c.id)}" data-dia="${d}" aria-label="Agendar ${esc(mostraPlaca(c.placa))} em ${esc(fmtData(d))}">+</button></div></td>`;
     }).join('');
@@ -1329,27 +1306,27 @@ function renderQuadro() {
 }
 function renderListaAgenda() {
   const h = hojeISO();
-  const quando = $('#fa-quando').value, fc = $('#fa-cam').value, fo = $('#fa-obra').value;
-  let lista = todos('agenda').filter(a => (!fc || a.caminhaoId === fc) && (!fo || a.obraId === fo));
+  const quando = $('#fa-quando').value, fc = $('#fa-cam').value, fcl = $('#fa-cliente').value;
+  let lista = todos('agenda').filter(a => (!fc || a.caminhaoId === fc) && (!fcl || clienteDe(a) === fcl));
   if (quando === 'proximos') lista = lista.filter(a => fimDe(a) >= h).sort(porDataHora);
   else if (quando === 'passados') lista = lista.filter(a => a.data < h && fimDe(a) >= somaDias(h, -30)).sort((a, b) => porDataHora(b, a));
   else lista.sort((a, b) => porDataHora(b, a));
   const linhas = lista.slice(0, 300).map(a => {
     const c = cam(a.caminhaoId);
-    const extra = (agValido(a) && a.data <= h ? `<button class="lnk" type="button" data-acao="lancar-km" data-alvo="agenda:${esc(a.id)}">Lançar km</button>` : '')
+    const extra = (agValido(a) && a.data <= h ? `<button class="lnk" type="button" data-acao="lancar-km" data-alvo="agenda:${esc(a.id)}">Lançar operação</button>` : '')
       + (agValido(a) && a.situacao !== 'feito' && a.data <= h ? `<button class="lnk" type="button" data-acao="feito" data-alvo="agenda:${esc(a.id)}">Feito</button>` : '');
     return `<tr class="${a.situacao === 'cancelado' ? 'apagado' : ''}">
       <td class="d"><strong>${esc(diaSem(a.data))}</strong> ${esc(periodoTxt(a))}</td>
       <td class="d">${esc(a.hora || '')}</td>
       <td>${celCam(c)}</td>
       <td>${esc(nomeMot(a.motoristaId)) || '<span class="sem">—</span>'}</td>
-      <td class="riscar"><span class="forte">${esc(nomeObra(a.obraId))}</span>${a.etapa ? `<div class="fraco">${esc(a.etapa)}</div>` : ''}</td>
+      <td class="riscar"><span class="forte">${esc(clienteDe(a)) || '<span class="sem">—</span>'}</span>${rotaDe(a) ? `<div class="fraco">${esc(rotaDe(a))}</div>` : ''}</td>
       <td>${esc(a.servico || '')}${a.obs ? `<div class="fraco">${esc(a.obs)}</div>` : ''}</td>
       <td>${pill(SIT_AG, a.situacao)}</td>
       <td class="acoes">${acoesHTML('agenda', a.id, extra)}</td></tr>`;
   });
   const vazio = quando === 'proximos' ? 'Nada agendado de hoje em diante. Use “Novo agendamento” ou o <strong>+</strong> do quadro.' : 'Nenhum agendamento com esses filtros.';
-  tabela('#t-agenda', [['Data'], ['Hora'], ['Caminhão'], ['Motorista'], ['Obra e etapa'], ['O que vai fazer'], ['Situação'], ['', 'n']], linhas, '', vazio);
+  tabela('#t-agenda', [['Data'], ['Hora'], ['Caminhão'], ['Motorista'], ['Cliente e destinos'], ['O que vai fazer'], ['Situação'], ['', 'n']], linhas, '', vazio);
 }
 /* avisos do formulário de agendamento: o caminhão ou o motorista já têm serviço nesses dias */
 function calcAg() {
@@ -1363,7 +1340,7 @@ function calcAg() {
     if (dias.length > 1) out.push(`<span class="info">${plural(dias.length, 'dia', 'dias')} de serviço.</span>`);
     const outros = todos('agenda').filter(a => a.id !== f.dataset.editando && agValido(a) && dias.some(d => cobre(a, d)));
     const doCam = o.caminhaoId ? outros.filter(a => a.caminhaoId === o.caminhaoId) : [];
-    doCam.slice(0, 3).forEach(a => out.push(`<span class="aviso">Este caminhão já tem serviço em ${esc(periodoTxt(a))}${a.hora ? ' às ' + esc(a.hora) : ''}: ${esc(nomeObra(a.obraId))}.</span>`));
+    doCam.slice(0, 3).forEach(a => out.push(`<span class="aviso">Este caminhão já tem serviço em ${esc(periodoTxt(a))}${a.hora ? ' às ' + esc(a.hora) : ''}${descServ(a) ? ': ' + esc(descServ(a)) : ''}.</span>`));
     const doMot = o.motoristaId ? outros.filter(a => a.motoristaId === o.motoristaId && a.caminhaoId !== o.caminhaoId) : [];
     doMot.slice(0, 2).forEach(a => out.push(`<span class="aviso">${esc(nomeMot(o.motoristaId))} já está no ${esc(mostraPlaca((cam(a.caminhaoId) || {}).placa || ''))} em ${esc(periodoTxt(a))}.</span>`));
     const c = cam(o.caminhaoId);
@@ -1376,39 +1353,38 @@ function calcAg() {
    KM DAS OBRAS
    ==================================================================== */
 function renderListaKm() {
-  const fc = $('#fk-cam').value, fo = $('#fk-obra').value, mes = $('#fk-mes').value;
-  const lista = todos('km').filter(r => (!fc || r.caminhaoId === fc) && (!fo || r.obraId === fo) && (mes === 'todos' || !mes || r.data.slice(0, 7) === mes || fimDe(r).slice(0, 7) === mes))
+  const fc = $('#fk-cam').value, fcl = $('#fk-cliente').value, fp = $('#fk-pago').value, mes = $('#fk-mes').value;
+  const aReceber = r => r.pago !== true && r.valor > 0;
+  const lista = todos('km').filter(r => (!fc || r.caminhaoId === fc) && (!fcl || clienteDe(r) === fcl)
+    && (fp !== 'pago' || r.pago === true) && (fp !== 'receber' || aReceber(r))
+    && (mes === 'todos' || !mes || r.data.slice(0, 7) === mes || fimDe(r).slice(0, 7) === mes))
     .sort((a, b) => b.data.localeCompare(a.data) || (b.kmInicial || 0) - (a.kmInicial || 0));
+  const pagoHTML = r => r.pago === true ? '<span class="pill ok">Pago</span>' : aReceber(r) ? '<span class="pill warn">A receber</span>' : '<span class="sem">—</span>';
   const linhas = lista.map(r => `<tr>
-    <td class="d"><strong>${esc(diaSem(r.data))}</strong> ${esc(periodoTxt(r))}${r.modo === 'etapa' ? '<div class="fraco">por etapa</div>' : ''}</td>
+    <td class="d"><strong>${esc(diaSem(r.data))}</strong> ${esc(periodoTxt(r))}</td>
     <td>${celCam(cam(r.caminhaoId))}</td>
     <td>${esc(nomeMot(r.motoristaId)) || '<span class="sem">—</span>'}</td>
-    <td><span class="forte">${esc(nomeObra(r.obraId))}</span>${r.etapa ? `<div class="fraco">${esc(r.etapa)}</div>` : ''}</td>
-    <td class="n">${esc(nf0.format(r.kmInicial || 0))}</td>
-    <td class="n">${esc(nf0.format(r.kmFinal || 0))}</td>
-    <td class="n forte">${esc(fKm(kmDe(r)))}</td>
-    <td class="n">${esc(fH(r.horas))}</td>
+    <td><span class="forte">${esc(descServ(r)) || '<span class="sem">—</span>'}</span>${r.etapa ? `<div class="fraco">${esc(r.etapa)}</div>` : ''}</td>
+    <td class="n forte">${esc(fKm(kmDe(r)))}<div class="fraco">${esc(nf0.format(r.kmInicial || 0))} a ${esc(nf0.format(r.kmFinal || 0))}</div></td>
+    <td class="n">${esc(fH(horasDe(r)))}</td>
+    <td class="n">${r.valor != null ? esc(fR(r.valor)) : '<span class="sem">—</span>'}</td>
+    <td>${pagoHTML(r)}</td>
     <td class="acoes">${acoesHTML('km', r.id)}</td></tr>`);
-  const tot = soma(lista, kmDe), th = soma(lista, r => r.horas);
-  $('#km-resumo').textContent = lista.length ? `${plural(lista.length, 'lançamento', 'lançamentos')}, ${fKm(tot)}${th ? ', ' + fH(th) + ' de munck' : ''}.` : '';
-  tabela('#t-km', [['Data'], ['Caminhão'], ['Motorista'], ['Obra e etapa'], ['Km inicial', 'n'], ['Km final', 'n'], ['Rodou', 'n'], ['Horas', 'n'], ['', 'n']], linhas,
-    lista.length > 1 ? `<tr><td colspan="6">Total</td><td class="n">${esc(fKm(tot))}</td><td class="n">${esc(fH(th))}</td><td></td></tr>` : '',
-    'Nenhum km lançado com esses filtros.');
+  const tot = soma(lista, kmDe), th = soma(lista, horasDe), tv = soma(lista, r => r.valor), rec = soma(lista.filter(aReceber), r => r.valor);
+  $('#km-resumo').textContent = lista.length ? `${plural(lista.length, 'operação', 'operações')}, ${fKm(tot)}${th ? ', ' + fH(th) : ''}${tv ? ', ' + fR(tv) : ''}${rec ? ' (' + fR(rec) + ' a receber)' : ''}.` : '';
+  tabela('#t-km', [['Data'], ['Caminhão'], ['Motorista'], ['Cliente e destinos'], ['Rodou', 'n'], ['Horas', 'n'], ['Valor', 'n'], ['Pago'], ['', 'n']], linhas,
+    lista.length > 1 ? `<tr><td colspan="4">Total</td><td class="n">${esc(fKm(tot))}</td><td class="n">${esc(fH(th))}</td><td class="n">${esc(fR(tv))}</td><td>${rec ? esc(fR(rec)) + ' a receber' : ''}</td><td></td></tr>` : '',
+    'Nenhuma operação com esses filtros.');
 }
-function ajustarModoKm() {
+/* horímetro só para caminhão com munck */
+function ajustarHor() {
   const f = $('#f-km');
-  const etapa = (f.querySelector('input[name="modo"]:checked') || {}).value === 'etapa';
-  $('#km-fim-box').hidden = !etapa;
-  $('#km-data-rot').textContent = etapa ? 'Início da etapa' : 'Data';
-  $('#km-etapa-rot').textContent = etapa ? 'Etapa (obrigatória)' : 'Etapa';
+  const mk = temMunck(f.elements.caminhaoId.value);
+  $$('[data-hor]', f).forEach(el => { el.hidden = !mk; });
 }
 function calcKm() {
   const f = $('#f-km');
   const o = lerForm(f), out = [];
-  if (o.modo === 'etapa' && o.data && o.dataFim) {
-    if (o.dataFim < o.data) out.push('<span class="erro">O fim da etapa é antes do início.</span>');
-    else out.push(`<span class="info">${plural(difDias(o.data, o.dataFim) + 1, 'dia', 'dias')} de etapa.</span>`);
-  }
   if (o.kmInicial != null && o.kmFinal != null && !isNaN(o.kmInicial) && !isNaN(o.kmFinal)) {
     const km = o.kmFinal - o.kmInicial;
     if (km < 0) out.push('<span class="erro">O km final está menor que o inicial.</span>');
@@ -1416,6 +1392,10 @@ function calcKm() {
       out.unshift(`<span class="grande">${esc(fKm(km))}</span><span class="info">rodados</span>`);
       if (km > 1000) out.push('<span class="aviso">Mais de 1.000 km: confira os números.</span>');
     }
+  }
+  if (temMunck(o.caminhaoId) && o.horimetroInicial != null && o.horimetroFinal != null && !isNaN(o.horimetroInicial) && !isNaN(o.horimetroFinal)) {
+    if (o.horimetroFinal < o.horimetroInicial) out.push('<span class="erro">O horímetro final está menor que o inicial.</span>');
+    else out.push(`<span class="info">${esc(fH(o.horimetroFinal - o.horimetroInicial) === '—' ? '0 h' : fH(o.horimetroFinal - o.horimetroInicial))} de munck.</span>`);
   }
   if (o.caminhaoId && o.data && o.kmInicial != null && !isNaN(o.kmInicial)) {
     const u = ultimoKm(o.caminhaoId, o.data, f.dataset.editando);
@@ -1427,11 +1407,11 @@ function calcKm() {
   }
   if (o.caminhaoId && o.data) {
     const ag = agendaDe(o.caminhaoId, o.data)[0];
-    if (ag) out.push(`<span class="info">Agendado em ${esc(fmtDataCurta(o.data))}: ${esc(nomeObra(ag.obraId))}${ag.etapa ? ' · ' + esc(ag.etapa) : ''}.</span>`);
+    if (ag) out.push(`<span class="info">Agendado em ${esc(fmtDataCurta(o.data))}: ${esc(descServ(ag) || ag.servico || 'serviço')}.</span>`);
   }
   $('#km-calc').innerHTML = out.join('');
 }
-/* preenche o que der: motorista, obra e etapa do agendamento do dia; km inicial do último km final */
+/* preenche o que der: motorista, cliente e destinos do agendamento do dia; km e horímetro iniciais do último lançamento */
 function autoValor(el, v) {
   if (v == null || v === '') return;
   if (el.value && !el.dataset.auto) return;
@@ -1441,18 +1421,19 @@ function autoValor(el, v) {
 }
 function sugerirKm() {
   const f = $('#f-km');
-  if (f.dataset.editando) return;
+  ajustarHor();
+  if (f.dataset.editando) { calcKm(); return; }
   const camId = f.elements.caminhaoId.value, dia = f.elements.data.value;
   if (!camId || !dia) { calcKm(); return; }
   const c = cam(camId);
   const ag = agendaDe(camId, dia)[0];
   autoValor(f.elements.motoristaId, (ag && ag.motoristaId) || (c && c.motoristaId) || '');
-  if (ag && f.elements.obraId.value !== NOVA) { autoValor(f.elements.obraId, ag.obraId); autoValor(f.elements.etapa, ag.etapa || ''); }
+  if (ag) for (const k of ['cliente', 'destinoA', 'destinoB']) autoValor(f.elements[k], ag[k] || '');
   const u = ultimoKm(camId, dia, null);
   const ini = u ? u.kmFinal : c && c.kmInicial;
   if (ini) autoValor(f.elements.kmInicial, nf0.format(ini));
-  ajustarObraNova(f);
-  atualizarEtapas(f);
+  const uh = temMunck(camId) ? ultimoHor(camId, dia, null) : null;
+  if (uh != null) autoValor(f.elements.horimetroInicial, String(uh).replace('.', ','));
   calcKm();
 }
 function sugerirAg() {
@@ -1462,12 +1443,6 @@ function sugerirAg() {
   if (c) autoValor(f.elements.motoristaId, c.motoristaId || '');
   calcAg();
 }
-function ajustarObraNova(f) {
-  const box = $('[data-obra-nova]', f);
-  const nova = f.elements.obraId.value === NOVA;
-  box.hidden = !nova;
-}
-
 /* ====================================================================
    Gráficos (SVG desenhado aqui, sem biblioteca; os mesmos do DECONTO)
    ==================================================================== */
@@ -1866,7 +1841,7 @@ function lerForm(f) {
     if (el.type === 'radio') { if (el.checked) o[el.name] = el.value; continue; }
     if (el.type === 'checkbox') o[el.name] = el.checked;
     else if (t === 'int') o[el.name] = lerNumero(el.value, true);
-    else if (t === 'dec') o[el.name] = lerNumero(el.value, false);
+    else if (t === 'dec' || t === 'moeda') o[el.name] = lerNumero(el.value, false);
     else if (t === 'linhas') o[el.name] = el.value.split('\n').map(x => x.trim()).filter(Boolean);
     else if (t === 'ano') { const v = el.value.trim(), m = v.match(/^(\d{4})(?:\s*\/\s*(\d{4}))?$/); o[el.name] = m ? m[1] + (m[2] ? '/' + m[2] : '') : v; }
     else o[el.name] = el.value.trim();
@@ -1884,6 +1859,7 @@ function preencherForm(f, o) {
     else if (el.type === 'checkbox') el.checked = !!v;
     else if (t === 'int') el.value = v == null || v === '' ? '' : nf0.format(v);
     else if (t === 'dec') el.value = v == null || v === '' ? '' : String(v).replace('.', ',');
+    else if (t === 'moeda') el.value = v == null || v === '' ? '' : nf2.format(v);
     else if (t === 'linhas') el.value = Array.isArray(v) ? v.join('\n') : (v || '');
     else if (el.tagName === 'SELECT') { if (el.dataset.lista) garantirOpcao(el, v || ''); el.value = v == null ? '' : String(v); }
     else el.value = v == null ? '' : v;
@@ -1898,7 +1874,7 @@ function modoForm(f, editandoId) {
 }
 const PADROES = {
   'f-ag': () => ({ data: hojeISO(), situacao: 'agendado' }),
-  'f-km': () => ({ modo: 'dia', data: hojeISO() }),
+  'f-km': () => ({ data: hojeISO(), pago: 'nao' }),
   'f-cam': () => ({ situacao: 'ativo' }),
   'f-mot': () => ({ categoria: 'E', situacao: 'ativo' }),
   'f-man': () => ({ data: hojeISO(), tipo: TIPOS_MANUT[0] }),
@@ -1913,8 +1889,8 @@ function limparForm(f, manter) {
   aposPreencher(f);
 }
 function aposPreencher(f) {
-  if (f.id === 'f-km') { ajustarModoKm(); ajustarObraNova(f); atualizarEtapas(f); calcKm(); }
-  if (f.id === 'f-ag') { ajustarObraNova(f); atualizarEtapas(f); calcAg(); }
+  if (f.id === 'f-km') { ajustarHor(); calcKm(); }
+  if (f.id === 'f-ag') calcAg();
   if (f.id === 'f-man') calcMan();
 }
 function msgForm(f, txt, tipo) { const m = $('.f-msg', f); m.textContent = txt; m.className = 'f-msg ' + (tipo || ''); }
@@ -1945,6 +1921,7 @@ function editar(col, id) {
   if (!reg || !formId) return;
   const f = abrirForm(formId, null);
   const dados = Object.assign({}, reg);
+  if (col === 'km') dados.pago = reg.pago === true ? 'sim' : 'nao';
   preencherForm(f, dados);
   modoForm(f, id);
   aposPreencher(f);
@@ -1960,59 +1937,40 @@ async function salvarForm(f) {
   const o = lerForm(f);
   const agora = new Date().toISOString();
   const ops = [];
-  let aviso = '', manter = null, obraNova = null;
+  let aviso = '', manter = null;
 
   if (col === 'agenda' || col === 'km') {
-    if (!o.data) return marcarErro(f, 'data', col === 'km' && o.modo === 'etapa' ? 'Escolha o início da etapa.' : 'Escolha a data.');
-    if (col === 'km' && o.modo !== 'etapa') o.dataFim = '';
-    if (o.dataFim && o.dataFim < o.data) return marcarErro(f, 'dataFim', col === 'km' ? 'O fim da etapa é antes do início.' : 'A data “Até” é antes da data do serviço.');
-    if (col === 'km' && o.modo === 'etapa' && !o.dataFim) return marcarErro(f, 'dataFim', 'Escolha o fim da etapa.');
-    if (o.dataFim === o.data && col === 'agenda') o.dataFim = '';
-    if (o.dataFim && difDias(o.data, o.dataFim) > 180) return marcarErro(f, 'dataFim', 'No máximo 180 dias de uma vez.');
-    if (!o.caminhaoId) return marcarErro(f, 'caminhaoId', 'Escolha o caminhão.');
-    if (o.obraId === NOVA) {
-      if (!o.obraNovaNome) return marcarErro(f, 'obraNovaNome', 'Escreva o nome da obra nova.');
-      const mesma = todos('obras').find(x => (x.nome || '').toLowerCase() === o.obraNovaNome.toLowerCase());
-      if (mesma) o.obraId = mesma.id;
-      else {
-        obraNova = { id: novoId('ob'), nome: o.obraNovaNome, cliente: o.obraNovaCliente, cidade: o.obraNovaCidade, situacao: 'andamento', inicio: o.data, etapas: [], criadoEm: agora };
-        o.obraId = obraNova.id;
-      }
+    if (!o.data) return marcarErro(f, 'data', 'Escolha a data.');
+    if (col === 'agenda') {
+      if (o.dataFim && o.dataFim < o.data) return marcarErro(f, 'dataFim', 'A data “Até” é antes da data do serviço.');
+      if (o.dataFim === o.data) o.dataFim = '';
+      if (o.dataFim && difDias(o.data, o.dataFim) > 180) return marcarErro(f, 'dataFim', 'No máximo 180 dias de uma vez.');
     }
-    delete o.obraNovaNome; delete o.obraNovaCliente; delete o.obraNovaCidade;
-    if (!o.obraId) return marcarErro(f, 'obraId', 'Escolha a obra, ou “+ Cadastrar obra nova”.');
+    if (!o.caminhaoId) return marcarErro(f, 'caminhaoId', 'Escolha o caminhão.');
+    // registro antigo (de obra) pode ficar sem cliente: mostra a obra
+    if (!o.cliente && !(antigo && antigo.obraId)) return marcarErro(f, 'cliente', 'Escreva o cliente.');
+    const c = cam(o.caminhaoId);
     if (col === 'km') {
-      if (o.modo === 'etapa' && !o.etapa) return marcarErro(f, 'etapa', 'Escreva a etapa da obra.');
+      if (o.valor != null && (isNaN(o.valor) || o.valor < 0)) return marcarErro(f, 'valor', 'O valor tem que ser só números, como 1.500,00.');
+      o.pago = o.pago === 'sim';
       if (o.kmInicial == null || isNaN(o.kmInicial)) return marcarErro(f, 'kmInicial', 'Escreva o km inicial (só números).');
       if (o.kmFinal == null || isNaN(o.kmFinal)) return marcarErro(f, 'kmFinal', 'Escreva o km final (só números).');
       if (o.kmFinal < o.kmInicial) return marcarErro(f, 'kmFinal', 'O km final não pode ser menor que o inicial.');
-      if (o.horas != null && (isNaN(o.horas) || o.horas < 0)) return marcarErro(f, 'horas', 'As horas têm que ser só números, como 6,5.');
-    }
-    // a etapa entra na lista da obra, com o mesmo jeito de escrever
-    if (o.etapa) {
-      const ob = obraNova || obra(o.obraId);
-      const lista = (ob && ob.etapas) || [];
-      const igual = etapasDaObra(o.obraId).find(e => e.toLowerCase() === o.etapa.toLowerCase());
-      if (igual) o.etapa = igual;
-      if (ob && !lista.some(e => e.toLowerCase() === o.etapa.toLowerCase())) {
-        if (obraNova) obraNova.etapas = [...lista, o.etapa];
-        else ops.push(['set', 'obras', Object.assign({}, ob, { etapas: [...lista, o.etapa] })]);
-      }
-    }
-    if (obraNova) ops.push(['set', 'obras', obraNova]);
-    const c = cam(o.caminhaoId);
-    if (col === 'agenda') {
-      const outros = todos('agenda').filter(a => a.id !== editando && a.caminhaoId === o.caminhaoId && agValido(a) && diasDe(Object.assign({}, o), 62).some(d => cobre(a, d)));
-      aviso = `Agendado: ${c ? mostraPlaca(c.placa) : ''} na obra ${obraNova ? obraNova.nome : nomeObra(o.obraId)}, ${periodoTxt(o)}.` + (outros.length ? ' Atenção: o caminhão já tem outro serviço nesse dia.' : '');
-    } else {
-      aviso = `Km salvo: ${c ? mostraPlaca(c.placa) : ''}, ${fKm(o.kmFinal - o.kmInicial)} na obra ${obraNova ? obraNova.nome : nomeObra(o.obraId)}.`;
-      manter = ['modo', 'data', 'dataFim'];
+      if (temMunck(o.caminhaoId)) {
+        for (const k of ['horimetroInicial', 'horimetroFinal']) if (o[k] != null && (isNaN(o[k]) || o[k] < 0)) return marcarErro(f, k, 'O horímetro tem que ser só números, como 1.250,5.');
+        if (o.horimetroInicial != null && o.horimetroFinal != null && o.horimetroFinal < o.horimetroInicial) return marcarErro(f, 'horimetroFinal', 'O horímetro final não pode ser menor que o inicial.');
+      } else { o.horimetroInicial = null; o.horimetroFinal = null; }
+      aviso = `Operação salva: ${c ? mostraPlaca(c.placa) : ''}, ${descServ(Object.assign({}, antigo || {}, o))}, ${fKm(o.kmFinal - o.kmInicial)}${o.valor ? ', ' + fR(o.valor) + (o.pago ? ' (pago)' : ' (a receber)') : ''}.`;
+      manter = ['data'];
       // o serviço agendado daquele dia vira "Feito"
       if (!editando) {
-        const feitos = todos('agenda').filter(a => a.caminhaoId === o.caminhaoId && a.obraId === o.obraId && agValido(a) && a.situacao !== 'feito' && fimDe(a) <= (o.dataFim || o.data) && a.data >= o.data);
+        const feitos = todos('agenda').filter(a => a.caminhaoId === o.caminhaoId && agValido(a) && a.situacao !== 'feito' && cobre(a, o.data));
         feitos.forEach(ag => ops.push(['set', 'agenda', Object.assign({}, ag, { situacao: 'feito' })]));
         if (feitos.length) aviso += feitos.length === 1 ? ' O agendamento ficou como Feito.' : ` ${feitos.length} agendamentos ficaram como Feito.`;
       }
+    } else {
+      const outros = todos('agenda').filter(a => a.id !== editando && a.caminhaoId === o.caminhaoId && agValido(a) && diasDe(Object.assign({}, o), 62).some(d => cobre(a, d)));
+      aviso = `Agendado: ${c ? mostraPlaca(c.placa) : ''}, ${descServ(Object.assign({}, antigo || {}, o))}, ${periodoTxt(o)}.` + (outros.length ? ' Atenção: o caminhão já tem outro serviço nesse dia.' : '');
     }
   } else if (col === 'caminhoes') {
     o.placa = normPlaca(o.placa);
@@ -2406,17 +2364,17 @@ function ligarEventos() {
       case 'cancelar-edicao': { const f = b.closest('form'); limparForm(f); if (f.id !== 'f-km' && f.id !== 'f-man') f.hidden = true; render(); break; }
       case 'fechar-form': { const f = b.closest('form'); limparForm(f); f.hidden = true; break; }
       case 'abrir-form': abrirForm(b.dataset.form); break;
-      case 'novo-ag': abrirForm('f-ag', { caminhaoId: b.dataset.cam || '', data: b.dataset.dia || h, obraId: b.dataset.obra || '' }); break;
+      case 'novo-ag': abrirForm('f-ag', { caminhaoId: b.dataset.cam || '', data: b.dataset.dia || h }); break;
       case 'novo-km': {
         const camId = b.dataset.cam || '';
-        abrirForm('f-km', { caminhaoId: camId, data: h, obraId: b.dataset.obra || '' });
+        abrirForm('f-km', { caminhaoId: camId, data: h });
         break;
       }
       case 'lancar-km': {
         const a = D.agenda.get(alvo[1]);
         if (!a) break;
         const dia = b.dataset.dia || (fimDe(a) < h ? fimDe(a) : a.data <= h ? h : a.data);
-        abrirForm('f-km', { modo: 'dia', data: dia, caminhaoId: a.caminhaoId, motoristaId: a.motoristaId || '', obraId: a.obraId, etapa: a.etapa || '' });
+        abrirForm('f-km', { data: dia, caminhaoId: a.caminhaoId, motoristaId: a.motoristaId || '', cliente: a.cliente || '', destinoA: a.destinoA || '', destinoB: a.destinoB || '' });
         break;
       }
       case 'feito': marcarFeito(alvo[1]); break;
@@ -2449,9 +2407,7 @@ function ligarEventos() {
     if (el.dataset) delete el.dataset.auto;
     const f = el.form;
     if (f && (f.id === 'f-ag' || f.id === 'f-km')) {
-      if (el.name === 'obraId') { ajustarObraNova(f); atualizarEtapas(f); if (el.value === NOVA) $('[name="obraNovaNome"]', f).focus(); }
       if (f.id === 'f-km') {
-        if (el.name === 'modo') ajustarModoKm();
         if (el.name === 'caminhaoId' || el.name === 'data') sugerirKm(); else calcKm();
       } else {
         if (el.name === 'caminhaoId') sugerirAg(); else calcAg();
@@ -2459,7 +2415,7 @@ function ligarEventos() {
       return;
     }
     if (f && f.id === 'f-man') { calcMan(); return; }
-    if (['fa-quando', 'fa-cam', 'fa-obra', 'fk-cam', 'fk-obra', 'fk-mes', 'fo-sit', 'fm-cam', 'fm-mes', 'rel-cam'].includes(el.id)) { UI.confirmar = null; render(); }
+    if (['fa-quando', 'fa-cam', 'fa-cliente', 'fk-cam', 'fk-cliente', 'fk-pago', 'fk-mes', 'fm-cam', 'fm-mes', 'rel-cam'].includes(el.id)) { UI.confirmar = null; render(); }
     else if (el.id === 'p-ini' || el.id === 'p-fim') { UI.pIni = $('#p-ini').value; UI.pFim = $('#p-fim').value; render(); }
     else if (el.id === 'arquivo-copia') { const a = el.files && el.files[0]; el.value = ''; if (a) carregarCopia(a); }
   });
