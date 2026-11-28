@@ -120,6 +120,8 @@ function criarBanco(pastaDados, sistema) {
   return {
     existia,
     todos() { const out = {}; sistema.cols.forEach(c => { out[c] = Object.values(dados[c]); }); return out; },
+    lista: col => Object.values(dados[col] || {}),
+    pegar: (col, id) => (dados[col] && Object.prototype.hasOwnProperty.call(dados[col], id) ? dados[col][id] : null),
     conferir: op => !!validar(op),
     aplicar(op) { const v = validar(op); return v ? executar(v) : null; },
     aplicarLote(ops) { const vs = ops.map(validar); if (vs.some(x => !x)) return null; return vs.map(executar); },

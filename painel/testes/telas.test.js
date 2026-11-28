@@ -118,9 +118,10 @@ teste('login e tela inicial mostram os 6 cartões; DECONTO abre pelo cartão e m
   assert.deepStrictEqual(nomes, ['DECONTO', 'Controle de Operação', 'RH', 'Financeiro', 'Cargas', 'Monitoramento de Frota']);
   assert.strictEqual(await p.locator('a.cartao[href="/frota/"]').count(), 1);
   assert.strictEqual(await p.locator('a.cartao[href="/operacao/"]').count(), 1);
+  assert.strictEqual(await p.locator('a.cartao[href="/rh/"]').count(), 1);
   const breves = await p.$$eval('.cartao.breve', cs => cs.map(c => c.querySelector('h2').textContent.trim() + ': ' + c.textContent));
-  assert.strictEqual(breves.length, 4);
-  for (const [i, nome] of ['RH', 'Financeiro', 'Cargas', 'Monitoramento de Frota'].entries()) {
+  assert.strictEqual(breves.length, 3);
+  for (const [i, nome] of ['Financeiro', 'Cargas', 'Monitoramento de Frota'].entries()) {
     assert.ok(breves[i].startsWith(nome + ':'), 'cartão em desenvolvimento: ' + nome);
     assert.match(breves[i], /Em desenvolvimento/);
   }

@@ -191,6 +191,41 @@ async function gravou(banco) {
   try { await banco.salvar(); return true; } catch (e) { return false; }
 }
 
+/* ---------- RH: ponto ---------- */
+// O dia e a hora do ponto são os de Xanxerê, qualquer que seja o fuso da VM.
+const FUSO_PONTO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+function noFuso(d) {
+  const p = Object.fromEntries(FUSO_PONTO.formatToParts(d).map(x => [x.type, x.value]));
+  return { data: `${p.year}-${p.month}-${p.day}`, hora: `${p.hour}:${p.minute}` };
+}
+const dataOk = s => { const d = new Date(String(s) + 'T00:00:00Z'); return /^\d{4}-\d{2}-\d{2}$/.test(String(s)) && !isNaN(d) && d.toISOString().slice(0, 10) === s; };
+const horaOk = s => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s));
+const idPonto = () => 'pt-' + crypto.randomBytes(12).toString('hex');
+/* Correção ou inclusão feita pelo RH: o original não muda; o registro novo aponta para ele (substitui)
+   e guarda a justificativa, quem fez e quando. Devolve { ponto } ou { status, erro }. */
+function correcaoDoRH(banco, corpo, u) {
+  const justificativa = String(corpo.justificativa || '').trim().slice(0, 500);
+  if (!justificativa) return { status: 400, erro: 'Escreva a justificativa.' };
+  let alvo = null;
+  if (corpo.substitui != null) {
+    alvo = banco.pegar('pontos', String(corpo.substitui));
+    if (!alvo) return { status: 404, erro: 'Registro não encontrado.' };
+    if (banco.lista('pontos').some(p => p.substitui === alvo.id)) return { status: 409, erro: 'Esse registro já foi corrigido. Corrija o registro mais novo.' };
+  }
+  const funcionarioId = alvo ? alvo.funcionarioId : String(corpo.funcionarioId || '');
+  if (!banco.pegar('funcionarios', funcionarioId)) return { status: 404, erro: 'Funcionário não encontrado.' };
+  const ponto = { id: idPonto(), funcionarioId, origem: 'rh', justificativa, por: u.usuario, alteradoEm: new Date().toISOString() };
+  if (alvo) ponto.substitui = alvo.id;
+  if (alvo && corpo.anulado === true) ponto.anulado = true;
+  else {
+    if (!['entrada', 'saida'].includes(corpo.tipo) || !dataOk(corpo.data) || !horaOk(corpo.hora)) return { status: 400, erro: 'Confira se é entrada ou saída, a data e a hora.' };
+    Object.assign(ponto, { tipo: corpo.tipo, data: corpo.data, hora: corpo.hora });
+    // a foto e o local continuam sendo os do toque no celular
+    if (alvo) for (const k of ['foto', 'lat', 'lon', 'precisao']) if (alvo[k] != null) ponto[k] = alvo[k];
+  }
+  return { ponto };
+}
+
 /* ---------- rotas ---------- */
 async function rotear(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -266,10 +301,32 @@ async function rotear(req, res) {
   if (partes[1] !== 'api') return html(res, 404, PAGINA_404);
   const banco = bancos[sis.id];
   const resto = partes.slice(2);
+  const soServidor = col => (sis.soServidor || []).includes(col);
+  const SO_SERVIDOR = { erro: 'Esses registros só o servidor grava.' };
+
+  if (sis.id === 'rh' && metodo === 'POST' && resto[0] === 'link' && resto.length === 2) {
+    req.resume();
+    const fid = decodeURIComponent(resto[1]);
+    if (!banco.pegar('funcionarios', fid)) return json(res, 404, { erro: 'Funcionário não encontrado.' });
+    const op = banco.aplicar({ tipo: 'set', col: 'links', obj: { id: fid, token: crypto.randomBytes(24).toString('base64url'), criadoEm: new Date().toISOString() } });
+    if (!op) return json(res, 400, { erro: 'Funcionário inválido.' });
+    if (!(await gravou(banco))) return json(res, 500, NAO_GRAVOU);
+    avisar(sis.id, op);
+    return json(res, 200, { ok: true, token: op.obj.token });
+  }
+  if (sis.id === 'rh' && metodo === 'POST' && resto[0] === 'pontos' && resto.length === 1) {
+    const r = correcaoDoRH(banco, await lerJSONCorpo(req, 10000), u);
+    if (r.erro) return json(res, r.status, { erro: r.erro });
+    const op = banco.aplicar({ tipo: 'set', col: 'pontos', obj: r.ponto });
+    if (!(await gravou(banco))) return json(res, 500, NAO_GRAVOU);
+    avisar(sis.id, op);
+    return json(res, 200, { ok: true, ponto: r.ponto });
+  }
 
   if (resto[0] === 'dados' && resto.length === 1 && metodo === 'GET') return json(res, 200, banco.todos());
   if (resto[0] === 'dados' && resto.length === 3) {
     const col = resto[1], id = decodeURIComponent(resto[2]);
+    if ((metodo === 'PUT' || metodo === 'DELETE') && soServidor(col)) { req.resume(); return json(res, 403, SO_SERVIDOR); }
     if (metodo === 'PUT') {
       const obj = await lerJSONCorpo(req, 2e6);
       const op = banco.aplicar({ tipo: 'set', col, obj: Object.assign({}, obj, { id }) });
@@ -290,6 +347,7 @@ async function rotear(req, res) {
     const corpo = await lerJSONCorpo(req, 20e6);
     const ops = Array.isArray(corpo.ops) ? corpo.ops : [];
     if (!ops.length || ops.length > 20000) return json(res, 400, { erro: 'Lote inválido.' });
+    if (ops.some(o => o && soServidor(o.col))) return json(res, 403, SO_SERVIDOR);
     const feitas = banco.aplicarLote(ops);
     if (!feitas) return json(res, 400, { erro: 'Algum registro do lote é inválido. Nada foi gravado.' });
     if (!(await gravou(banco))) return json(res, 500, NAO_GRAVOU);

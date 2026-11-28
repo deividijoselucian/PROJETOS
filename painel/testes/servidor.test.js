@@ -22,6 +22,7 @@ fs.mkdirSync(PUBLICO, { recursive: true });
 fs.mkdirSync(CARGA, { recursive: true });
 fs.writeFileSync(path.join(PUBLICO, 'frota.html'), '<title>DECONTO</title>\n<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow">\n<p>pagina da frota</p>');
 fs.writeFileSync(path.join(PUBLICO, 'operacao.html'), '<title>Controle de Operação</title>\n<p>pagina da operacao</p>');
+fs.writeFileSync(path.join(PUBLICO, 'rh.html'), '<title>RH</title>\n<p>pagina do rh</p>');
 // carga inicial da frota: um documento com PDF embutido e um caminhão
 const PDF = Buffer.from('%PDF-1.4\n% teste\n');
 fs.writeFileSync(path.join(CARGA, 'frota.json'), JSON.stringify({
@@ -144,7 +145,7 @@ test('/frota sem barra vai para /frota/ e a página traz window.PAINEL', async (
   assert.match(html, /pagina da frota/);
 });
 test('sistema em desenvolvimento ou desconhecido dá 404', async () => {
-  assert.strictEqual((await pedir('/rh/')).status, 404);
+  assert.strictEqual((await pedir('/financeiro/')).status, 404);
   assert.strictEqual((await pedir('/xyz/')).status, 404);
 });
 test('o Controle não tem mais mapa', async () => {
@@ -474,4 +475,71 @@ test('achado 7: carga com defeito no meio não deixa nada e continua na pasta da
     assert.ok(fs.existsSync(path.join(PASTA_CARGA, 'frota.json')), 'a carga continua em carga/');
     assert.match(r.saida(), /não entrou/);
   });
+});
+
+// ---------- RH: funcionários, link do ponto e correção ----------
+const lerRH = async () => (await pedir('/rh/api/dados')).json();
+async function funcionario(id, extra = {}) {
+  const r = await json('PUT', '/rh/api/dados/funcionarios/' + id, Object.assign({ nome: 'Func ' + id, cpf: '12345678901', cargo: 'Motorista', jornadaMin: 528, situacao: 'ativo' }, extra));
+  assert.strictEqual(r.status, 200);
+  const l = await json('POST', '/rh/api/link/' + id, {});
+  assert.strictEqual(l.status, 200);
+  return (await l.json()).token;
+}
+test('RH: abre com login e a API do RH sem login dá 401', async () => {
+  const p = await pedir('/rh/');
+  assert.strictEqual(p.status, 200);
+  assert.match(await p.text(), /"sistema":"rh"/);
+  for (const [metodo, rota] of [['GET', '/rh/api/dados'], ['POST', '/rh/api/link/f1'], ['POST', '/rh/api/pontos'], ['GET', '/rh/api/arquivos/arq-' + '0'.repeat(32)]]) {
+    const r = await fetch(BASE + rota, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: metodo === 'GET' ? undefined : '{}' });
+    assert.strictEqual(r.status, 401, metodo + ' ' + rota);
+  }
+});
+test('RH: pontos e links só o servidor grava (403 pela API de dados e pelo lote)', async () => {
+  for (const col of ['pontos', 'links']) {
+    assert.strictEqual((await json('PUT', `/rh/api/dados/${col}/x1`, { a: 1 })).status, 403, 'PUT ' + col);
+    assert.strictEqual((await json('DELETE', `/rh/api/dados/${col}/x1`)).status, 403, 'DELETE ' + col);
+    assert.strictEqual((await json('POST', '/rh/api/lote', { ops: [{ tipo: 'set', col: 'funcionarios', obj: { id: 'f-lote' } }, { tipo: 'set', col, obj: { id: 'x1' } }] })).status, 403, 'lote ' + col);
+  }
+  const d = await lerRH();
+  assert.ok(!d.funcionarios.some(f => f.id === 'f-lote'), 'o lote recusado não gravou nada');
+});
+test('RH: gerar link novo troca o token', async () => {
+  const t1 = await funcionario('f-link');
+  assert.match(t1, /^[A-Za-z0-9_-]{32}$/);
+  const t2 = (await (await json('POST', '/rh/api/link/f-link', {})).json()).token;
+  assert.match(t2, /^[A-Za-z0-9_-]{32}$/);
+  assert.notStrictEqual(t1, t2);
+  assert.strictEqual((await lerRH()).links.find(l => l.id === 'f-link').token, t2);
+  assert.strictEqual((await json('POST', '/rh/api/link/nao-existe', {})).status, 404);
+});
+test('RH: inclusão e correção pedem justificativa, guardam quem e quando, e o original continua', async () => {
+  await funcionario('f-cor');
+  const base = { funcionarioId: 'f-cor', tipo: 'entrada', data: '2026-10-05', hora: '08:00' };
+  const com = extra => Object.assign({}, base, extra);
+  assert.strictEqual((await json('POST', '/rh/api/pontos', base)).status, 400, 'sem justificativa');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', com({ justificativa: '   ' }))).status, 400, 'justificativa em branco');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', com({ hora: '25:00', justificativa: 'x' }))).status, 400, 'hora errada');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', com({ tipo: 'almoco', justificativa: 'x' }))).status, 400, 'tipo errado');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', com({ data: '2026-02-30', justificativa: 'x' }))).status, 400, 'data errada');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', com({ funcionarioId: 'nao-existe', justificativa: 'x' }))).status, 404);
+  let r = await json('POST', '/rh/api/pontos', com({ justificativa: 'Esqueceu de bater', por: 'outro', alteradoEm: '2000-01-01T00:00:00Z', origem: 'celular' }));
+  assert.strictEqual(r.status, 200);
+  const inc = (await r.json()).ponto;
+  assert.strictEqual(inc.origem, 'rh');
+  assert.strictEqual(inc.por, 'admin', 'quem mudou é quem está logado');
+  assert.ok(Math.abs(Date.now() - Date.parse(inc.alteradoEm)) < 60000, 'quando mudou é a hora do servidor');
+  assert.strictEqual(inc.justificativa, 'Esqueceu de bater');
+  r = await json('POST', '/rh/api/pontos', { substitui: inc.id, tipo: 'entrada', data: '2026-10-05', hora: '07:55', justificativa: 'Chegou antes' });
+  assert.strictEqual(r.status, 200);
+  const cor = (await r.json()).ponto;
+  assert.strictEqual(cor.substitui, inc.id);
+  assert.strictEqual(cor.funcionarioId, 'f-cor');
+  assert.strictEqual(cor.hora, '07:55');
+  assert.deepStrictEqual((await lerRH()).pontos.find(p => p.id === inc.id), inc, 'o original continua igual');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', { substitui: inc.id, anulado: true, justificativa: 'de novo' })).status, 409, 'o original já foi corrigido');
+  assert.strictEqual((await json('POST', '/rh/api/pontos', { substitui: 'pt-nao-existe', anulado: true, justificativa: 'x' })).status, 404);
+  r = await json('POST', '/rh/api/pontos', { substitui: cor.id, anulado: true, justificativa: 'Registro duplicado' });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual((await r.json()).ponto.anulado, true);
 });
