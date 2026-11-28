@@ -456,6 +456,46 @@ teste('Operação: registro antigo com obra aparece com o nome da obra e as hora
   assert.match(semEspaco(await a.textContent('#t-km')), /3 h/);
 });
 
+teste('Documento: um por caminhão, seguro só com sim, vencido avisa no Painel', async () => {
+  const ctx = await logado();
+  const a = await abrir(ctx, '/operacao/#documento');
+  await esperarServidor(a);
+  await a.evaluate(async () => {
+    const agora = new Date().toISOString();
+    await gravar('caminhoes', { id: 'cam-doc', placa: 'DOC1A23', apelido: 'Doc', situacao: 'ativo', criadoEm: agora });
+    await gravar('caminhoes', { id: 'cam-fora', placa: 'FOR1A23', apelido: 'Fora', situacao: 'fora', criadoEm: agora });
+  });
+  await a.waitForFunction(() => document.querySelector('#t-doc').textContent.includes('DOC1A23'), null, { timeout: 5000 });
+  assert.ok(!(await a.textContent('#t-doc')).includes('FOR1A23'), 'caminhão fora da frota não aparece');
+  await a.click('#t-doc [data-acao="doc-preencher"][data-cam="cam-doc"]');
+  assert.strictEqual(await a.inputValue('#doc-cam'), 'cam-doc');
+  await a.fill('#doc-num', '123456');
+  await a.selectOption('#doc-seguro', 'sim');
+  assert.strictEqual(await a.isVisible('#doc-venc-seg'), true, 'com seguro pede o vencimento');
+  await a.selectOption('#doc-seguro', 'nao');
+  assert.strictEqual(await a.isVisible('#doc-venc-seg'), false, 'sem seguro não pede o vencimento');
+  const ontem = await a.evaluate(() => somaDias(hojeISO(), -1));
+  await a.fill('#doc-venc-doc', ontem);
+  await limparToast(a);
+  await a.click('#f-doc button[type="submit"]');
+  await esperarToast(a, 'Documento salvo');
+  // um segundo documento para o mesmo caminhão não entra
+  await a.evaluate(() => abrirForm('f-doc', { caminhaoId: 'cam-doc' }));
+  await a.fill('#doc-num', '999');
+  await a.click('#f-doc button[type="submit"]');
+  await a.waitForFunction(() => document.querySelector('#f-doc .f-msg').textContent.includes('Esse caminhão já tem documento'), null, { timeout: 5000 });
+  const o = await dados(ctx, 'operacao');
+  const docs = o.documentos.filter(d => d.caminhaoId === 'cam-doc');
+  assert.strictEqual(docs.length, 1, 'um documento por caminhão');
+  assert.strictEqual(docs[0].numero, '123456');
+  assert.strictEqual(docs[0].temSeguro, false);
+  assert.strictEqual(docs[0].vencSeguro, '');
+  assert.ok(!o.documentos.some(d => d.caminhaoId === 'cam-fora'));
+  // o Painel avisa o documento vencido
+  await a.evaluate(() => { location.hash = 'painel'; });
+  await a.waitForFunction(() => { const t = document.querySelector('#painel-alertas').textContent; return /documento/i.test(t) && t.includes('DOC1A23'); }, null, { timeout: 5000 });
+});
+
 // ---------- 8. celular ----------
 teste('celular 390px: tela inicial e DECONTO sem rolagem para o lado', async () => {
   const ctx = await logado({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });

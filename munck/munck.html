@@ -314,6 +314,7 @@ button.seg { border: 0; background: transparent; }
     <a class="aba" role="tab" href="#painel" data-aba="painel">Painel <span class="cont" id="cont-alertas" hidden></span></a>
     <a class="aba" role="tab" href="#agenda" data-aba="agenda">Agenda</a>
     <a class="aba" role="tab" href="#operacao" data-aba="operacao">Operação</a>
+    <a class="aba" role="tab" href="#documento" data-aba="documento">Documento</a>
     <a class="aba" role="tab" href="#manutencao" data-aba="manutencao">Manutenção <span class="cont" id="cont-man" hidden></span></a>
     <a class="aba" role="tab" href="#relatorio" data-aba="relatorio">Relatório</a>
     <a class="aba" role="tab" href="#cadastro" data-aba="cadastro">Caminhões e motoristas</a>
@@ -448,6 +449,36 @@ button.seg { border: 0; background: transparent; }
         </div>
       </div>
       <div class="tabela-box"><table class="tabela" id="t-km"></table></div>
+    </section>
+  </section>
+
+  <!-- DOCUMENTO -->
+  <section class="vista" id="v-documento" data-vista="documento" hidden>
+    <div class="cab">
+      <div><h1 class="h1">Documento</h1><p class="hint">Documento e seguro de cada caminhão, com o vencimento. O Painel avisa 30 dias antes de vencer.</p></div>
+    </div>
+    <form class="ficha" id="f-doc" data-col="documentos" novalidate hidden>
+      <div class="ficha-cab">
+        <h2 class="h2" data-novo="Documento do caminhão" data-editar="Editando documento">Documento do caminhão</h2>
+        <button class="lnk" type="button" data-acao="fechar-form">Fechar</button>
+      </div>
+      <div class="campos">
+        <div class="campo"><label for="doc-cam">Caminhão</label><select id="doc-cam" name="caminhaoId" data-lista="caminhoes"></select></div>
+        <div class="campo"><label for="doc-num">Nº do documento</label><input id="doc-num" name="numero" autocomplete="off" placeholder="Ex.: RENAVAM ou nº do CRLV"></div>
+        <div class="campo"><label for="doc-venc-doc">Vencimento do documento</label><input type="date" id="doc-venc-doc" name="vencDocumento"></div>
+        <div class="campo"><label for="doc-seguro">Tem seguro?</label><select id="doc-seguro" name="temSeguro"><option value="nao">Não</option><option value="sim">Sim</option></select></div>
+        <div class="campo" data-seg hidden><label for="doc-venc-seg">Vencimento do seguro</label><input type="date" id="doc-venc-seg" name="vencSeguro"></div>
+        <div class="campo largo"><label for="doc-obs">Observação</label><input id="doc-obs" name="obs" autocomplete="off"></div>
+      </div>
+      <div class="acoes-linha">
+        <button class="btn" type="submit" data-novo="Salvar documento" data-editar="Salvar alteração">Salvar documento</button>
+        <button class="btn ghost" type="button" data-acao="cancelar-edicao" hidden>Cancelar edição</button>
+        <span class="f-msg" role="status"></span>
+      </div>
+    </form>
+    <section class="bloco">
+      <div class="bloco-cab"><div><h2 class="h2">Documentos dos caminhões</h2><p class="hint" id="doc-resumo"></p></div></div>
+      <div class="tabela-box"><table class="tabela" id="t-doc"></table></div>
     </section>
   </section>
 
@@ -626,7 +657,7 @@ button.seg { border: 0; background: transparent; }
    dados ficam na conta (capability db); aberto como arquivo, no navegador.
    ==================================================================== */
 
-const COLS = ['caminhoes', 'motoristas', 'obras', 'agenda', 'km', 'manutencoes', 'config'];
+const COLS = ['caminhoes', 'motoristas', 'obras', 'agenda', 'km', 'manutencoes', 'documentos', 'config'];
 const D = {};
 COLS.forEach(c => { D[c] = new Map(); });
 
@@ -639,9 +670,9 @@ const CATEGORIAS_CNH = ['B', 'C', 'D', 'E', 'AC', 'AD', 'AE'];
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const SEMANA_LONGA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
-const ABAS = ['painel', 'agenda', 'operacao', 'manutencao', 'relatorio', 'cadastro'];
-const FORM_DA_COL = { caminhoes: 'f-cam', motoristas: 'f-mot', agenda: 'f-ag', km: 'f-km', manutencoes: 'f-man' };
-const VISTA_DO_FORM = { 'f-cam': 'cadastro', 'f-mot': 'cadastro', 'f-ag': 'agenda', 'f-km': 'operacao', 'f-man': 'manutencao' };
+const ABAS = ['painel', 'agenda', 'operacao', 'documento', 'manutencao', 'relatorio', 'cadastro'];
+const FORM_DA_COL = { caminhoes: 'f-cam', motoristas: 'f-mot', agenda: 'f-ag', km: 'f-km', manutencoes: 'f-man', documentos: 'f-doc' };
+const VISTA_DO_FORM = { 'f-cam': 'cadastro', 'f-mot': 'cadastro', 'f-ag': 'agenda', 'f-km': 'operacao', 'f-man': 'manutencao', 'f-doc': 'documento' };
 const TIPOS_MANUT = ['Troca de óleo e filtros', 'Revisão preventiva', 'Pneus', 'Freios', 'Suspensão', 'Elétrica', 'Motor', 'Câmbio e embreagem', 'Funilaria e pintura',
   'Munck: sistema hidráulico', 'Munck: cabo de aço e gancho', 'Munck: lubrificação e graxa', 'Munck: inspeção e laudo (NR-11/NR-12)', 'Munck: reparo na estrutura', 'Corretiva (quebra)', 'Outro'];
 const NOME_APP = 'Controle de Operação';
@@ -717,6 +748,7 @@ const clienteDe = x => x.cliente || (x.obraId ? nomeObra(x.obraId) : '');
 const rotaDe = x => [x.destinoA, x.destinoB].filter(Boolean).join(' → ');
 const descServ = x => [clienteDe(x), rotaDe(x)].filter(Boolean).join(' · ');
 const horasDe = r => r.horimetroFinal != null && r.horimetroInicial != null ? Math.max(0, r.horimetroFinal - r.horimetroInicial) : (r.horas || 0);
+const docDe = camId => todos('documentos').find(d => d.caminhaoId === camId);
 const temMunck = camId => !!(cam(camId) && String(cam(camId).munck || '').trim());
 /* maior horímetro final do caminhão até o dia (sem contar o registro em edição) */
 function ultimoHor(camId, dia, exceto) {
@@ -1050,6 +1082,7 @@ function render() {
   if (UI.aba === 'painel') renderPainel(alertas);
   else if (UI.aba === 'agenda') { renderQuadro(); renderListaAgenda(); calcAg(); }
   else if (UI.aba === 'operacao') { renderListaKm(); calcKm(); }
+  else if (UI.aba === 'documento') renderDocumentos();
   else if (UI.aba === 'manutencao') { renderManut(); calcMan(); }
   else if (UI.aba === 'relatorio') renderRelatorio();
   else if (UI.aba === 'cadastro') renderCadastro();
@@ -1213,6 +1246,18 @@ function calcAlertas() {
   for (const r of proximasManut()) {
     if (r.nivel === 'ok') continue;
     out.push({ nivel: r.nivel === 'vencida' ? 'grave' : 'breve', ordem: r.m.proximaData || r.m.data, txt: `${r.m.tipo} do ${rotuloCam(r.c)}: ${r.txt.toLowerCase()}.`, acao: { acao: 'nova-man', alvo: 'manutencoes:' + r.m.id, txt: 'Lançar manutenção' } });
+  }
+  // documento e seguro do caminhão
+  for (const c of camAtivos()) {
+    const d = docDe(c.id);
+    if (!d) continue;
+    for (const [campo, nome] of [['vencDocumento', 'O documento'], ['vencSeguro', 'O seguro']]) {
+      if (!d[campo] || (campo === 'vencSeguro' && !d.temSeguro)) continue;
+      const dd = difDias(h, d[campo]);
+      const acao = { acao: 'editar', alvo: 'documentos:' + d.id, txt: 'Atualizar' };
+      if (dd < 0) out.push({ nivel: 'grave', ordem: d[campo], txt: `${nome} do ${rotuloCam(c)} venceu em ${fmtData(d[campo])}.`, acao });
+      else if (dd <= 30) out.push({ nivel: 'breve', ordem: d[campo], txt: `${nome} do ${rotuloCam(c)} vence em ${fmtData(d[campo])} (${dd === 0 ? 'hoje' : dd === 1 ? 'amanhã' : 'daqui a ' + dd + ' dias'}).`, acao });
+    }
   }
   const peso = { grave: 0, breve: 1, info: 2 };
   return out.sort((a, b) => peso[a.nivel] - peso[b.nivel] || String(a.ordem).localeCompare(String(b.ordem)));
@@ -1764,6 +1809,34 @@ function renderRelatorio() {
 }
 
 /* ====================================================================
+   DOCUMENTO
+   ==================================================================== */
+function ajustarSeguro() {
+  const f = $('#f-doc');
+  $$('[data-seg]', f).forEach(el => { el.hidden = f.elements.temSeguro.value !== 'sim'; });
+}
+function renderDocumentos() {
+  const h = hojeISO();
+  const cams = todos('caminhoes').filter(c => c.situacao !== 'fora').sort(porPlaca);
+  const venc = (d, campo) => d && d[campo] && (campo !== 'vencSeguro' || d.temSeguro) ? difDias(h, d[campo]) : null;
+  let vencidos = 0, perto = 0, sem = 0;
+  const linhas = cams.map(c => {
+    const d = docDe(c.id);
+    if (!d) sem++;
+    for (const k of ['vencDocumento', 'vencSeguro']) { const x = venc(d, k); if (x != null && x < 0) vencidos++; else if (x != null && x <= 30) perto++; }
+    return `<tr>
+      <td>${celCam(c)}</td>
+      <td>${d && d.numero ? esc(d.numero) : '<span class="sem">—</span>'}</td>
+      <td>${validade(d && d.vencDocumento, 'Vencimento do documento')}</td>
+      <td>${d ? (d.temSeguro ? 'Sim' : 'Não') : '<span class="sem">—</span>'}</td>
+      <td>${d && d.temSeguro ? validade(d.vencSeguro, 'Vencimento do seguro') : '<span class="sem">—</span>'}</td>
+      <td class="acoes">${d ? acoesHTML('documentos', d.id) : `<button class="lnk" type="button" data-acao="doc-preencher" data-cam="${esc(c.id)}">Preencher</button>`}</td></tr>`;
+  });
+  $('#doc-resumo').textContent = cams.length ? [plural(cams.length, 'caminhão', 'caminhões'), vencidos ? plural(vencidos, 'vencimento passado', 'vencimentos passados') : '', perto ? plural(perto, 'vence em 30 dias', 'vencem em 30 dias') : '', sem ? plural(sem, 'sem documento lançado', 'sem documento lançado') : ''].filter(Boolean).join(', ') + '.' : '';
+  tabela('#t-doc', [['Caminhão'], ['Nº do documento'], ['Vencimento do documento'], ['Seguro'], ['Vencimento do seguro'], ['', 'n']], linhas, '', 'Cadastre os caminhões em “Caminhões e motoristas”.');
+}
+
+/* ====================================================================
    CAMINHÕES E MOTORISTAS
    ==================================================================== */
 function renderCadastro() {
@@ -1878,6 +1951,7 @@ const PADROES = {
   'f-cam': () => ({ situacao: 'ativo' }),
   'f-mot': () => ({ categoria: 'E', situacao: 'ativo' }),
   'f-man': () => ({ data: hojeISO(), tipo: TIPOS_MANUT[0] }),
+  'f-doc': () => ({ temSeguro: 'nao' }),
 };
 function limparForm(f, manter) {
   const base = PADROES[f.id]();
@@ -1892,6 +1966,7 @@ function aposPreencher(f) {
   if (f.id === 'f-km') { ajustarHor(); calcKm(); }
   if (f.id === 'f-ag') calcAg();
   if (f.id === 'f-man') calcMan();
+  if (f.id === 'f-doc') ajustarSeguro();
 }
 function msgForm(f, txt, tipo) { const m = $('.f-msg', f); m.textContent = txt; m.className = 'f-msg ' + (tipo || ''); }
 function marcarErro(f, nome, txt) {
@@ -1922,6 +1997,7 @@ function editar(col, id) {
   const f = abrirForm(formId, null);
   const dados = Object.assign({}, reg);
   if (col === 'km') dados.pago = reg.pago === true ? 'sim' : 'nao';
+  if (col === 'documentos') dados.temSeguro = reg.temSeguro === true ? 'sim' : 'nao';
   preencherForm(f, dados);
   modoForm(f, id);
   aposPreencher(f);
@@ -1996,13 +2072,20 @@ async function salvarForm(f) {
     const c = cam(o.caminhaoId);
     aviso = `Manutenção salva: ${o.tipo}, ${c ? mostraPlaca(c.placa) : ''}, ${fR(o.valor)}.`;
     manter = ['data'];
+  } else if (col === 'documentos') {
+    if (!o.caminhaoId) return marcarErro(f, 'caminhaoId', 'Escolha o caminhão.');
+    if (todos('documentos').some(d => d.caminhaoId === o.caminhaoId && d.id !== editando)) return marcarErro(f, 'caminhaoId', 'Esse caminhão já tem documento: use “Editar” na lista.');
+    o.temSeguro = o.temSeguro === 'sim';
+    if (!o.temSeguro) o.vencSeguro = '';
+    const c = cam(o.caminhaoId);
+    aviso = `Documento salvo: ${c ? mostraPlaca(c.placa) : ''}.`;
   } else if (col === 'motoristas') {
     if (!o.nome) return marcarErro(f, 'nome', 'Escreva o nome do motorista.');
     if (o.situacao === 'desligado') { const c = todos('caminhoes').find(x => x.motoristaId === editando); if (c) ops.push(['set', 'caminhoes', Object.assign({}, c, { motoristaId: '' })]); }
     aviso = `Motorista ${o.nome} salvo.`;
   }
 
-  const prefixo = { agenda: 'ag', km: 'km', obras: 'ob', caminhoes: 'cam', motoristas: 'mot', manutencoes: 'man' }[col];
+  const prefixo = { agenda: 'ag', km: 'km', obras: 'ob', caminhoes: 'cam', motoristas: 'mot', manutencoes: 'man', documentos: 'doc' }[col];
   const reg = Object.assign({}, antigo || {}, o, { id: editando || novoId(prefixo), criadoEm: (antigo && antigo.criadoEm) || agora, alteradoEm: agora });
   ops.push(['set', col, reg]);
   f.dataset.salvando = '1';
@@ -2025,6 +2108,7 @@ async function apagarRegistro(col, id) {
   if (col === 'caminhoes' && usa('caminhaoId')) { toast(`O ${mostraPlaca(reg.placa)} tem agendamentos ou km lançado. Para tirar da lista, edite e mude a situação para Fora da frota.`, true); agendarRender(); return; }
   if (col === 'motoristas' && usa('motoristaId')) { toast(`${reg.nome} aparece em agendamentos ou km. Para tirar da lista, edite e mude a situação para Desligado.`, true); agendarRender(); return; }
   const ops = [['del', col, id]];
+  if (col === 'caminhoes') todos('documentos').filter(d => d.caminhaoId === id).forEach(d => ops.push(['del', 'documentos', d.id]));
   if (col === 'motoristas') todos('caminhoes').filter(c => c.motoristaId === id).forEach(c => ops.push(['set', 'caminhoes', Object.assign({}, c, { motoristaId: '' })]));
   try {
     await gravarVarios(ops);
@@ -2230,6 +2314,8 @@ function planilhaTudo() {
     abaSimples('Km', 'Km lançados', sub, COLS_KM, LARG_KM, todos('km').sort(porData).map(linhaKmX)),
     abaSimples('Agenda', 'Agenda', sub, COLS_AG, LARG_AG, todos('agenda').sort(porData).map(linhaAgX)),
     abaSimples('Manutenções', 'Manutenções', sub, COLS_MAN, LARG_MAN, todos('manutencoes').sort((a, b) => a.data.localeCompare(b.data)).map(linhaManX)),
+    abaSimples('Documentos', 'Documentos dos caminhões', sub, ['Placa', 'Apelido', 'Nº do documento', 'Vencimento do documento', 'Tem seguro', 'Vencimento do seguro', 'Observação'], [11, 18, 22, 14, 10, 14, 30],
+      todos('documentos').map(d => [d, cam(d.caminhaoId)]).filter(([, c]) => c).sort((x, y) => porPlaca(x[1], y[1])).map(([d, c]) => [xF(mostraPlaca(c.placa)), xT(c.apelido), xT(d.numero), xD(d.vencDocumento), xT(d.temSeguro ? 'Sim' : 'Não'), xD(d.vencSeguro), xT(d.obs)])),
   ]);
 }
 function planilhaRel() {
@@ -2333,7 +2419,7 @@ function montarListasFixas() {
   preencher('#mot-sit', Object.entries(SIT_MOT));
   preencher('#mot-cat', CATEGORIAS_CNH.map(c => [c, c]));
   preencher('#man-tipo', TIPOS_MANUT.map(t => [t, t]));
-  ['f-ag', 'f-km', 'f-cam', 'f-mot', 'f-man'].forEach(id => limparForm(document.getElementById(id)));
+  ['f-ag', 'f-km', 'f-cam', 'f-mot', 'f-man', 'f-doc'].forEach(id => limparForm(document.getElementById(id)));
 }
 function ligarEventos() {
   window.addEventListener('hashchange', () => {
@@ -2378,6 +2464,7 @@ function ligarEventos() {
         break;
       }
       case 'feito': marcarFeito(alvo[1]); break;
+      case 'doc-preencher': abrirForm('f-doc', { caminhaoId: b.dataset.cam || '' }); break;
       case 'semana': {
         const passo = Number(b.dataset.passo);
         UI.semana = passo === 0 ? '' : somaDias(UI.semana || inicioSemana(h), passo);
@@ -2406,6 +2493,7 @@ function ligarEventos() {
     const el = e.target;
     if (el.dataset) delete el.dataset.auto;
     const f = el.form;
+    if (f && f.id === 'f-doc' && el.name === 'temSeguro') { ajustarSeguro(); return; }
     if (f && (f.id === 'f-ag' || f.id === 'f-km')) {
       if (f.id === 'f-km') {
         if (el.name === 'caminhaoId' || el.name === 'data') sugerirKm(); else calcKm();
