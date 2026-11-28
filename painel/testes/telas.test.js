@@ -496,6 +496,54 @@ teste('Documento: um por caminhão, seguro só com sim, vencido avisa no Painel'
   await a.waitForFunction(() => { const t = document.querySelector('#painel-alertas').textContent; return /documento/i.test(t) && t.includes('DOC1A23'); }, null, { timeout: 5000 });
 });
 
+teste('Relatório: faturado, a receber e por cliente; Excel com Operações e Documentos', async () => {
+  const ctx = await logado();
+  const a = await abrir(ctx, '/operacao/#painel');
+  await esperarServidor(a);
+  await caminhoesDeTeste(a);
+  const aReceberNoPainel = () => a.evaluate(() => {
+    const k = [...document.querySelectorAll('#painel-kpis .kpi')].find(x => x.querySelector('.kpi-rot').textContent.trim() === 'A receber');
+    return k ? Number(k.querySelector('.kpi-val').textContent.replace(/[^\d,]/g, '').replace(',', '.')) : null;
+  });
+  const antes = await aReceberNoPainel();
+  assert.ok(antes != null, 'indicador "A receber" no Painel');
+  await a.evaluate(async () => {
+    const agora = new Date().toISOString();
+    await gravar('km', { id: 'km-rel-a', data: '2025-01-15', caminhaoId: 'cam-mk', cliente: 'Cliente Rel A', destinoA: 'X', destinoB: 'Y', valor: 1000, pago: true, kmInicial: 100, kmFinal: 150, horimetroInicial: 10, horimetroFinal: 14, criadoEm: agora });
+    await gravar('km', { id: 'km-rel-b', data: '2025-01-16', caminhaoId: 'cam-sem', cliente: 'Cliente Rel B', valor: 500, pago: false, kmInicial: 10, kmFinal: 30, criadoEm: agora });
+  });
+  await a.waitForFunction(x => {
+    const k = [...document.querySelectorAll('#painel-kpis .kpi')].find(y => y.querySelector('.kpi-rot').textContent.trim() === 'A receber');
+    return k && Number(k.querySelector('.kpi-val').textContent.replace(/[^\d,]/g, '').replace(',', '.')) === x;
+  }, antes + 500, { timeout: 5000 });
+  // relatório de janeiro de 2025: só as duas operações acima
+  await a.evaluate(() => { location.hash = 'relatorio'; });
+  await a.click('[data-periodo="datas"]');
+  await a.fill('#p-ini', '2025-01-01');
+  await a.locator('#p-ini').dispatchEvent('change');
+  await a.fill('#p-fim', '2025-01-31');
+  await a.locator('#p-fim').dispatchEvent('change');
+  await a.waitForFunction(() => { const t = document.querySelector('#t-rel-cli'); return !!t && t.textContent.includes('Cliente Rel B'); }, null, { timeout: 5000 });
+  const kpis = await a.evaluate(() => Object.fromEntries([...document.querySelectorAll('#rel-conteudo .kpi')].map(k => [k.querySelector('.kpi-rot').textContent.trim(), k.querySelector('.kpi-val').textContent.replace(/\s+/g, ' ').trim()])));
+  assert.strictEqual(kpis['Faturado'], 'R$ 1.500,00');
+  assert.strictEqual(kpis['A receber'], 'R$ 500,00');
+  const cli = semEspaco(await a.textContent('#t-rel-cli'));
+  assert.match(cli, /Cliente Rel A/);
+  assert.match(cli, /R\$ 1\.000,00/);
+  // Excel com tudo
+  const xml = await a.evaluate(async () => { const x = planilhaTudo(); return x instanceof Blob ? await x.text() : new TextDecoder().decode(x); });
+  assert.ok(xml.includes('name="Operações"'), 'aba Operações');
+  assert.ok(xml.includes('name="Documentos"'), 'aba Documentos');
+  assert.ok(!xml.includes('name="Obras"'), 'sem aba Obras');
+  assert.ok(xml.includes('Cliente Rel B'), 'operação no Excel');
+  // Excel do relatório e extrato de um caminhão
+  const xmlRel = await a.evaluate(async () => { const x = planilhaRel(); return x instanceof Blob ? await x.text() : new TextDecoder().decode(x); });
+  assert.ok(xmlRel.includes('name="Por cliente"') && xmlRel.includes('name="Operações"'), 'Excel do relatório por cliente');
+  await a.selectOption('#rel-cam', 'cam-mk');
+  await a.waitForFunction(() => { const t = document.querySelector('#t-extrato'); return !!t && t.textContent.includes('Cliente Rel A'); }, null, { timeout: 5000 });
+  assert.match(semEspaco(await a.textContent('#t-extrato')), /4 h/);
+});
+
 // ---------- 8. celular ----------
 teste('celular 390px: tela inicial e DECONTO sem rolagem para o lado', async () => {
   const ctx = await logado({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });

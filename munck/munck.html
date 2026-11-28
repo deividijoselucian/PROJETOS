@@ -663,7 +663,6 @@ COLS.forEach(c => { D[c] = new Map(); });
 
 const SIT_CAM = { ativo: 'Em operação', parado: 'Parado', oficina: 'Na oficina', fora: 'Fora da frota' };
 const SIT_MOT = { ativo: 'Ativo', afastado: 'De férias ou afastado', desligado: 'Desligado' };
-const SIT_OBRA = { andamento: 'Em andamento', planejada: 'Planejada', pausada: 'Parada', concluida: 'Concluída' };
 const SIT_AG = { agendado: 'Agendado', confirmado: 'Confirmado', feito: 'Feito', cancelado: 'Cancelado' };
 const PILL = { ativo: 'ok', parado: '', oficina: 'warn', fora: '', afastado: 'warn', desligado: '', andamento: 'ok', planejada: 'info', pausada: 'warn', concluida: '', agendado: 'info', confirmado: 'ok', feito: '', cancelado: 'bad' };
 const CATEGORIAS_CNH = ['B', 'C', 'D', 'E', 'AC', 'AD', 'AE'];
@@ -1272,12 +1271,12 @@ function renderPainel(alertas) {
   const semana = todos('agenda').filter(a => agValido(a) && a.data > h && a.data <= somaDias(h, 7));
   const mesIni = h.slice(0, 8) + '01';
   const kmMes = soma(todos('km').filter(r => r.data >= mesIni && r.data <= h), kmDe);
-  const andamento = todos('obras').filter(o => o.situacao === 'andamento');
+  const naoPagas = todos('km').filter(r => r.pago !== true && r.valor > 0);
   $('#painel-kpis').innerHTML = [
     ['Trabalhando hoje', `${nf0.format(trabalhando)}<small>de ${nf0.format(cams.length)}</small>`, cams.length ? plural(cams.length - trabalhando, 'livre', 'livres') + ' hoje' : 'Cadastre os caminhões'],
     ['Próximos 7 dias', nf0.format(semana.length), plural(new Set(semana.map(a => a.caminhaoId)).size, 'caminhão agendado', 'caminhões agendados')],
-    ['Km em ' + MESES[Number(h.slice(5, 7)) - 1], `${nf0.format(kmMes)}<small>km</small>`, 'nas obras, até hoje'],
-    ['Obras em andamento', nf0.format(andamento.length), plural(todos('obras').filter(o => o.situacao === 'planejada').length, 'planejada', 'planejadas')],
+    ['Km em ' + MESES[Number(h.slice(5, 7)) - 1], `${nf0.format(kmMes)}<small>km</small>`, 'nas operações, até hoje'],
+    ['A receber', esc(fR(soma(naoPagas, r => r.valor))), naoPagas.length ? plural(naoPagas.length, 'operação sem pagamento', 'operações sem pagamento') : 'nada a receber'],
   ].map(([r, v, s]) => `<div class="kpi"><span class="kpi-rot">${esc(r)}</span><span class="kpi-val">${v}</span><span class="kpi-sub">${esc(s)}</span></div>`).join('');
 
   $('#bloco-alertas').hidden = !alertas.length;
@@ -1726,20 +1725,22 @@ function porCaminhaoRel(R) {
   return [...ids].map(id => {
     const km = R.km.filter(r => r.caminhaoId === id), mans = R.mans.filter(m => m.caminhaoId === id);
     const k = soma(km, kmDe), man = soma(mans, m => m.valor), dias = (R.diasCam.get(id) || new Set()).size;
-    return { c: cam(id), id, km: k, horas: soma(km, r => r.horas), dias, uso: R.uteis ? dias / R.uteis : null, obras: new Set(km.map(r => r.obraId)).size, manut: man, nMan: mans.length, porKm: k ? man / k : null };
+    return { c: cam(id), id, km: k, horas: soma(km, horasDe), dias, uso: R.uteis ? dias / R.uteis : null, clientes: new Set(km.map(clienteDe).filter(Boolean)).size, manut: man, nMan: mans.length, porKm: k ? man / k : null };
   }).sort((a, b) => b.km - a.km || b.manut - a.manut);
 }
-function porObraRel(R) {
+/* operações por cliente (registro antigo: pelo nome da obra) */
+function porClienteRel(R) {
   const mapa = new Map();
   for (const r of R.km) {
-    if (!mapa.has(r.obraId)) mapa.set(r.obraId, { id: r.obraId, o: obra(r.obraId), km: 0, horas: 0, dias: new Set(), cams: new Set(), etapas: new Set(), n: 0 });
-    const x = mapa.get(r.obraId);
-    x.km += kmDe(r); x.horas += r.horas || 0; x.n++; x.cams.add(r.caminhaoId); if (r.etapa) x.etapas.add(r.etapa);
-    diasDe(r).forEach(d => { if (d >= P.ini && d <= R.ate) x.dias.add(d); });
+    const nome = clienteDe(r) || '(sem cliente)';
+    if (!mapa.has(nome)) mapa.set(nome, { nome, km: 0, horas: 0, n: 0, valor: 0, receber: 0, cams: new Set() });
+    const x = mapa.get(nome);
+    x.km += kmDe(r); x.horas += horasDe(r); x.n++; x.valor += r.valor || 0; x.cams.add(r.caminhaoId);
+    if (r.pago !== true) x.receber += r.valor || 0;
   }
-  return [...mapa.values()].sort((a, b) => b.km - a.km);
+  return [...mapa.values()].sort((a, b) => b.valor - a.valor || b.km - a.km);
 }
-/* km por dia (ou por mês, em períodos longos); a etapa é dividida pelos dias dela */
+/* km por dia (ou por mês, em períodos longos); lançamento antigo de vários dias é dividido pelos dias dele */
 function baldesKm(R) {
   const fim = R.ate;
   if (fim < P.ini) return [];
@@ -1761,14 +1762,17 @@ function renderRelatorio() {
   const camId = $('#rel-cam').value;
   const c = camId ? cam(camId) : null;
   const R = dadosRel(P, camId);
-  const kmT = soma(R.km, kmDe), horas = soma(R.km, r => r.horas), manut = soma(R.mans, m => m.valor);
+  const kmT = soma(R.km, kmDe), horas = soma(R.km, horasDe), manut = soma(R.mans, m => m.valor);
+  const fat = soma(R.km, r => r.valor), rec = soma(R.km.filter(r => r.pago !== true), r => r.valor);
   const diasT = [...R.diasCam.values()].reduce((t, x) => t + x.size, 0);
   const feitos = R.ags.filter(a => a.situacao === 'feito').length;
   const kpi = (rot, val, sub) => `<div class="kpi"><span class="kpi-rot">${esc(rot)}</span><span class="kpi-val">${val}</span><span class="kpi-sub">${esc(sub)}</span></div>`;
   const cab = `<div class="rel-cab"><div><span class="rel-eyebrow">${c ? 'Relatório do caminhão' : 'Relatório dos caminhões munck'}</span><div class="rel-titulo">${c ? placaHTML(c.placa, 'g') + `<span>${esc(c.apelido || '')}</span>` : esc(P.titulo)}</div><span class="hint">${esc(P.nome)}${c && descCam(c) ? ' · ' + esc(descCam(c)) : ''}</span></div><span class="hint">${esc(emitido())}</span></div>`;
   const kpis = `<div class="kpis">
-    ${kpi('Km rodados', `${nf0.format(kmT)}<small>km</small>`, plural(R.km.length, 'lançamento', 'lançamentos'))}
-    ${kpi('Horas de munck', horas ? `${nf1.format(horas)}<small>h</small>` : '—', horas ? 'nos lançamentos com horas' : 'nenhuma lançada')}
+    ${kpi('Km rodados', `${nf0.format(kmT)}<small>km</small>`, plural(R.km.length, 'operação', 'operações'))}
+    ${kpi('Faturado', esc(fR(fat)), plural(R.km.filter(r => r.valor > 0).length, 'operação com valor', 'operações com valor'))}
+    ${kpi('A receber', esc(fR(rec)), rec ? 'ainda não pago' : 'tudo pago')}
+    ${kpi('Horas de munck', horas ? `${nf1.format(horas)}<small>h</small>` : '—', horas ? 'pelo horímetro' : 'nenhuma lançada')}
     ${kpi('Dias trabalhados', nf0.format(diasT), c ? `de ${plural(R.uteis, 'dia útil', 'dias úteis')} (${fPct(R.uteis ? diasT / R.uteis : null)})` : `${plural(R.diasCam.size, 'caminhão', 'caminhões')} · ${plural(R.uteis, 'dia útil', 'dias úteis')}`)}
     ${kpi('Serviços feitos', nf0.format(feitos), `de ${plural(R.ags.length, 'agendado', 'agendados')}`)}
     ${kpi('Manutenção', esc(fR(manut)), plural(R.mans.length, 'serviço', 'serviços'))}
@@ -1776,35 +1780,36 @@ function renderRelatorio() {
   </div>`;
   const el = $('#rel-conteudo');
   if (!c) {
-    const pc = porCaminhaoRel(R), po = porObraRel(R);
-    el.innerHTML = cab + kpis + `<div class="graficos">${figura('g-km-cam', 'Km por caminhão', P.nome)}${figura('g-km-obra', 'Km por obra', po.length > 10 ? 'As 10 obras com mais km' : P.nome)}${figura('g-km-dia', difDias(P.ini, R.ate) > 62 ? 'Km por mês' : 'Km por dia', 'Todos os caminhões; a etapa entra dividida pelos dias dela')}${figura('g-man-cam', 'Manutenção por caminhão', P.nome)}</div>
+    const pc = porCaminhaoRel(R), po = porClienteRel(R);
+    el.innerHTML = cab + kpis + `<div class="graficos">${figura('g-km-cam', 'Km por caminhão', P.nome)}${figura('g-km-cli', 'Km por cliente', po.length > 10 ? 'Os 10 clientes com mais km' : P.nome)}${figura('g-km-dia', difDias(P.ini, R.ate) > 62 ? 'Km por mês' : 'Km por dia', 'Todos os caminhões')}${figura('g-man-cam', 'Manutenção por caminhão', P.nome)}</div>
       <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Por caminhão</h2><p class="hint">Uso = dias trabalhados ÷ dias úteis (segunda a sexta) do período, até hoje.</p></div></div><div class="tabela-box"><table class="tabela" id="t-rel-cam"></table></div></section>
-      <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Por obra</h2></div></div><div class="tabela-box"><table class="tabela" id="t-rel-obra"></table></div></section>
+      <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Por cliente</h2></div></div><div class="tabela-box"><table class="tabela" id="t-rel-cli"></table></div></section>
       <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Manutenções no período</h2></div></div><div class="tabela-box"><table class="tabela" id="t-rel-man"></table></div></section>`;
     graficoBarras($('#g-km-cam'), { titulo: 'Km por caminhão', series: [S_KM], fmt: fKm, vazio: 'Nenhum km lançado neste período.', itens: pc.filter(x => x.km).map(x => ({ rot: x.c ? mostraPlaca(x.c.placa) + (x.c.apelido ? ' ' + x.c.apelido : '') : '(apagado)', valores: [x.km], extra: plural(x.dias, 'dia trabalhado', 'dias trabalhados') })) });
     const top = po.slice(0, 10);
-    graficoBarras($('#g-km-obra'), { titulo: 'Km por obra', series: [S_KM], fmt: fKm, vazio: 'Nenhum km lançado neste período.', itens: top.map(x => ({ rot: x.o ? x.o.nome : '(obra apagada)', valores: [x.km], extra: plural(x.cams.size, 'caminhão', 'caminhões') })) });
+    graficoBarras($('#g-km-cli'), { titulo: 'Km por cliente', series: [S_KM], fmt: fKm, vazio: 'Nenhuma operação neste período.', itens: top.map(x => ({ rot: x.nome, valores: [x.km], extra: plural(x.n, 'operação', 'operações') })) });
     graficoColunas($('#g-km-dia'), { titulo: 'Km por dia', series: [S_KM], baldes: baldesKm(R), fmt: fKm, vazio: 'Nenhum km lançado neste período.' });
     graficoBarras($('#g-man-cam'), { titulo: 'Manutenção por caminhão', series: [S_MANUT], fmt: fR, vazio: 'Nenhuma manutenção neste período.', itens: pc.filter(x => x.manut).map(x => ({ rot: x.c ? mostraPlaca(x.c.placa) + (x.c.apelido ? ' ' + x.c.apelido : '') : '(apagado)', valores: [x.manut], extra: plural(x.nMan, 'serviço', 'serviços') })) });
-    tabela('#t-rel-cam', [['Caminhão'], ['Km', 'n'], ['Horas', 'n'], ['Dias trabalhados', 'n'], ['Uso', 'n'], ['Obras', 'n'], ['Manutenção', 'n'], ['Manutenção por km', 'n'], ['', 'n']], pc.map(x => `<tr><td>${celCam(x.c)}</td><td class="n forte">${esc(fKm(x.km))}</td><td class="n">${esc(fH(x.horas))}</td><td class="n">${nf0.format(x.dias)}</td><td class="n">${esc(fPct(x.uso))}</td><td class="n">${nf0.format(x.obras)}</td><td class="n">${esc(fR(x.manut))}</td><td class="n">${x.porKm != null && x.manut ? esc(fR(x.porKm)) : '—'}</td><td class="acoes"><button class="lnk" type="button" data-acao="rel-ver-cam" data-cam="${esc(x.id)}">Extrato</button></td></tr>`),
+    tabela('#t-rel-cam', [['Caminhão'], ['Km', 'n'], ['Horas', 'n'], ['Dias trabalhados', 'n'], ['Uso', 'n'], ['Clientes', 'n'], ['Manutenção', 'n'], ['Manutenção por km', 'n'], ['', 'n']], pc.map(x => `<tr><td>${celCam(x.c)}</td><td class="n forte">${esc(fKm(x.km))}</td><td class="n">${esc(fH(x.horas))}</td><td class="n">${nf0.format(x.dias)}</td><td class="n">${esc(fPct(x.uso))}</td><td class="n">${nf0.format(x.clientes)}</td><td class="n">${esc(fR(x.manut))}</td><td class="n">${x.porKm != null && x.manut ? esc(fR(x.porKm)) : '—'}</td><td class="acoes"><button class="lnk" type="button" data-acao="rel-ver-cam" data-cam="${esc(x.id)}">Extrato</button></td></tr>`),
       pc.length > 1 ? `<tr><td>Total</td><td class="n">${esc(fKm(kmT))}</td><td class="n">${esc(fH(horas))}</td><td class="n">${nf0.format(diasT)}</td><td></td><td></td><td class="n">${esc(fR(manut))}</td><td class="n">${kmT && manut ? esc(fR(manut / kmT)) : '—'}</td><td></td></tr>` : '', 'Nenhum caminhão cadastrado.');
-    tabela('#t-rel-obra', [['Obra'], ['Situação'], ['Km', 'n'], ['Horas', 'n'], ['Dias', 'n'], ['Caminhões'], ['Etapas']], po.map(x => `<tr><td class="forte">${esc(x.o ? x.o.nome : '(obra apagada)')}${x.o && descObra(x.o) ? `<div class="fraco">${esc(descObra(x.o))}</div>` : ''}</td><td>${x.o ? pill(SIT_OBRA, x.o.situacao) : ''}</td><td class="n forte">${esc(fKm(x.km))}</td><td class="n">${esc(fH(x.horas))}</td><td class="n">${nf0.format(x.dias.size)}</td><td>${[...x.cams].map(id => cam(id)).filter(Boolean).map(k => placaHTML(k.placa, 'p')).join(' ')}</td><td>${esc([...x.etapas].join(', '))}</td></tr>`), '', 'Nenhum km lançado neste período.');
+    tabela('#t-rel-cli', [['Cliente'], ['Operações', 'n'], ['Km', 'n'], ['Horas', 'n'], ['Valor', 'n'], ['A receber', 'n'], ['Caminhões']], po.map(x => `<tr><td class="forte">${esc(x.nome)}</td><td class="n">${nf0.format(x.n)}</td><td class="n">${esc(fKm(x.km))}</td><td class="n">${esc(fH(x.horas))}</td><td class="n forte">${esc(fR(x.valor))}</td><td class="n">${x.receber ? esc(fR(x.receber)) : '—'}</td><td>${[...x.cams].map(id => cam(id)).filter(Boolean).map(k => placaHTML(k.placa, 'p')).join(' ')}</td></tr>`),
+      po.length > 1 ? `<tr><td>Total</td><td class="n">${nf0.format(R.km.length)}</td><td class="n">${esc(fKm(kmT))}</td><td class="n">${esc(fH(horas))}</td><td class="n">${esc(fR(fat))}</td><td class="n">${rec ? esc(fR(rec)) : '—'}</td><td></td></tr>` : '', 'Nenhuma operação neste período.');
     tabela('#t-rel-man', [['Data'], ['Caminhão'], ['Serviço'], ['O que foi feito'], ['Oficina'], ['Valor', 'n']], R.mans.slice().reverse().map(m => `<tr><td class="d">${esc(fmtData(m.data))}</td><td>${celCam(cam(m.caminhaoId))}</td><td class="forte">${esc(m.tipo)}</td><td>${esc(m.descricao || '')}</td><td>${esc(m.oficina || '')}</td><td class="n forte">${esc(fR(m.valor))}</td></tr>`),
       R.mans.length > 1 ? `<tr><td colspan="5">Total</td><td class="n">${esc(fR(manut))}</td></tr>` : '', 'Nenhuma manutenção neste período.');
     return;
   }
   // extrato do caminhão
-  const po = porObraRel(R);
+  const po = porClienteRel(R);
   const linhas = [
-    ...R.km.map(r => ({ data: r.data, ordem: 1, html: `<td class="d"><strong>${esc(diaSem(r.data))}</strong> ${esc(periodoTxt(r))}</td><td><span class="pill t-km">Km</span></td><td class="forte">${esc(nomeObra(r.obraId))}${r.etapa ? `<div class="fraco">${esc(r.etapa)}</div>` : ''}</td><td>${esc(nf0.format(r.kmInicial || 0))} → ${esc(nf0.format(r.kmFinal || 0))}${r.horas ? ' · ' + esc(fH(r.horas)) : ''}${r.motoristaId ? `<div class="fraco">${esc(nomeMot(r.motoristaId))}</div>` : ''}</td><td class="n forte">${esc(fKm(kmDe(r)))}</td><td class="n"></td>` })),
+    ...R.km.map(r => ({ data: r.data, ordem: 1, html: `<td class="d"><strong>${esc(diaSem(r.data))}</strong> ${esc(periodoTxt(r))}</td><td><span class="pill t-km">Operação</span></td><td class="forte">${esc(descServ(r))}${r.etapa ? `<div class="fraco">${esc(r.etapa)}</div>` : ''}</td><td>${esc(nf0.format(r.kmInicial || 0))} → ${esc(nf0.format(r.kmFinal || 0))}${horasDe(r) ? ' · ' + esc(fH(horasDe(r))) : ''}${r.valor ? ' · ' + esc(fR(r.valor)) + (r.pago === true ? ' pago' : ' a receber') : ''}${r.motoristaId ? `<div class="fraco">${esc(nomeMot(r.motoristaId))}</div>` : ''}</td><td class="n forte">${esc(fKm(kmDe(r)))}</td><td class="n"></td>` })),
     ...R.mans.map(m => ({ data: m.data, ordem: 2, html: `<td class="d"><strong>${esc(diaSem(m.data))}</strong> ${esc(fmtData(m.data))}</td><td><span class="pill t-man">Manutenção</span></td><td class="forte">${esc(m.tipo)}</td><td>${esc([m.descricao, m.oficina].filter(Boolean).join(' · '))}${m.km ? `<div class="fraco">${esc(fKm(m.km))}</div>` : ''}</td><td class="n"></td><td class="n forte">${esc(fR(m.valor))}</td>` })),
-    ...R.ags.filter(a => a.situacao !== 'feito' || !R.km.some(r => r.obraId === a.obraId && diasDe(a).some(d => cobre(r, d)))).map(a => ({ data: a.data, ordem: 0, html: `<td class="d"><strong>${esc(diaSem(a.data))}</strong> ${esc(periodoTxt(a))}</td><td><span class="pill t-ag">Agenda</span></td><td class="forte">${esc(nomeObra(a.obraId))}${a.etapa ? `<div class="fraco">${esc(a.etapa)}</div>` : ''}</td><td>${esc([a.hora, a.servico].filter(Boolean).join(' · '))} ${pill(SIT_AG, a.situacao)}</td><td class="n"></td><td class="n"></td>` })),
+    ...R.ags.filter(a => a.situacao !== 'feito' || !R.km.some(r => r.caminhaoId === a.caminhaoId && diasDe(a).some(d => cobre(r, d)))).map(a => ({ data: a.data, ordem: 0, html: `<td class="d"><strong>${esc(diaSem(a.data))}</strong> ${esc(periodoTxt(a))}</td><td><span class="pill t-ag">Agenda</span></td><td class="forte">${esc(descServ(a))}${a.etapa ? `<div class="fraco">${esc(a.etapa)}</div>` : ''}</td><td>${esc([a.hora, a.servico].filter(Boolean).join(' · '))} ${pill(SIT_AG, a.situacao)}</td><td class="n"></td><td class="n"></td>` })),
   ].sort((a, b) => a.data.localeCompare(b.data) || a.ordem - b.ordem);
-  el.innerHTML = cab + kpis + `<div class="graficos">${figura('g-km-dia', difDias(P.ini, R.ate) > 62 ? 'Km por mês' : 'Km por dia', 'A etapa entra dividida pelos dias dela')}${figura('g-km-obra', 'Km por obra', P.nome)}</div>
-    <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Extrato</h2><p class="hint">Km, manutenções e serviços agendados do caminhão, em ordem de data.</p></div><button class="lnk" type="button" data-acao="rel-ver-cam" data-cam="">← Todos os caminhões</button></div><div class="tabela-box"><table class="tabela" id="t-extrato"></table></div></section>`;
+  el.innerHTML = cab + kpis + `<div class="graficos">${figura('g-km-dia', difDias(P.ini, R.ate) > 62 ? 'Km por mês' : 'Km por dia', P.nome)}${figura('g-km-cli', 'Km por cliente', P.nome)}</div>
+    <section class="bloco"><div class="bloco-cab"><div><h2 class="h2">Extrato</h2><p class="hint">Operações, manutenções e serviços agendados do caminhão, em ordem de data.</p></div><button class="lnk" type="button" data-acao="rel-ver-cam" data-cam="">← Todos os caminhões</button></div><div class="tabela-box"><table class="tabela" id="t-extrato"></table></div></section>`;
   graficoColunas($('#g-km-dia'), { titulo: 'Km por dia', series: [S_KM], baldes: baldesKm(R), fmt: fKm, vazio: 'Nenhum km lançado neste período.' });
-  graficoBarras($('#g-km-obra'), { titulo: 'Km por obra', series: [S_KM], fmt: fKm, vazio: 'Nenhum km lançado neste período.', itens: po.slice(0, 10).map(x => ({ rot: x.o ? x.o.nome : '(obra apagada)', valores: [x.km], extra: plural(x.dias.size, 'dia', 'dias') })) });
-  tabela('#t-extrato', [['Data'], ['Lançamento'], ['Obra ou serviço'], ['Detalhe'], ['Km', 'n'], ['Valor', 'n']], linhas.map(l => `<tr>${l.html}</tr>`),
+  graficoBarras($('#g-km-cli'), { titulo: 'Km por cliente', series: [S_KM], fmt: fKm, vazio: 'Nenhuma operação neste período.', itens: po.slice(0, 10).map(x => ({ rot: x.nome, valores: [x.km], extra: plural(x.n, 'operação', 'operações') })) });
+  tabela('#t-extrato', [['Data'], ['Lançamento'], ['Cliente ou serviço'], ['Detalhe'], ['Km', 'n'], ['Valor', 'n']], linhas.map(l => `<tr>${l.html}</tr>`),
     linhas.length ? `<tr><td colspan="4">Total no período</td><td class="n">${esc(fKm(kmT))}</td><td class="n">${esc(fR(manut))}</td></tr>` : '', 'Nada lançado para este caminhão no período.');
 }
 
@@ -1844,7 +1849,7 @@ function renderCadastro() {
   const cams = todos('caminhoes').sort((a, b) => (a.situacao === 'fora') - (b.situacao === 'fora') || porPlaca(a, b));
   tabela('#t-cam', [['Caminhão'], ['Munck'], ['Motorista fixo'], ['Hodômetro', 'n'], ['Hoje'], ['Situação'], ['', 'n']], cams.map(c => {
     const o = ondeEsta(c, h);
-    const hoje = o.tipo === 'agenda' ? nomeObra(o.ag.obraId) : o.tipo === 'km' ? nomeObra(o.r.obraId) : '';
+    const hoje = o.tipo === 'agenda' ? descServ(o.ag) : o.tipo === 'km' ? descServ(o.r) : '';
     const equip = [c.munck, c.capacidade ? nf1.format(c.capacidade) + ' t' : '', c.alcance ? nf1.format(c.alcance) + ' m' : ''].filter(Boolean).join(' · ');
     return `<tr class="${c.situacao === 'fora' ? 'apagado' : ''}"><td>${celCam(c, [c.apelido, [c.marca, c.modelo, c.ano].filter(Boolean).join(' ')].filter(Boolean).join(' · '))}</td><td>${esc(equip) || '<span class="sem">—</span>'}</td><td>${esc(nomeMot(c.motoristaId)) || '<span class="sem">—</span>'}</td><td class="n">${kmAtual(c.id) ? esc(nf0.format(kmAtual(c.id))) : '—'}</td><td>${hoje ? esc(hoje) : '<span class="sem">Livre</span>'}</td><td>${pill(SIT_CAM, c.situacao)}</td><td class="acoes">${acoesHTML('caminhoes', c.id)}</td></tr>`;
   }), '', 'Nenhum caminhão cadastrado. Use “Novo caminhão”.');
@@ -2285,15 +2290,15 @@ function abaSimples(nome, titulo, sub, colunas, larguras, linhas) {
   return { nome, cabecalho: 3, ultimaLinhaFiltro: linhas.length + 4, larguras,
     linhas: [[{ v: titulo, s: XS.titulo }], [{ v: sub + ' · ' + plural(linhas.length, 'registro', 'registros'), s: XS.fraco }], [], colunas.map(c => ({ v: c, s: XS.cab })), ...linhas] };
 }
-const linhaKmX = r => { const c = cam(r.caminhaoId); return [xD(r.data), xD(r.modo === 'etapa' ? fimDe(r) : ''), xT(r.modo === 'etapa' ? 'Por etapa' : 'Por dia'), xF(c ? mostraPlaca(c.placa) : ''), xT(c ? c.apelido : ''), xT(nomeMot(r.motoristaId)), xT(nomeObra(r.obraId)), xT(r.etapa), xN(r.kmInicial), xN(r.kmFinal), { v: kmDe(r), s: XS.intForte }, xNum(r.horas), xT(r.obs)]; };
-const COLS_KM = ['Data ou início', 'Fim da etapa', 'Lançado', 'Placa', 'Apelido', 'Motorista', 'Obra', 'Etapa', 'Km inicial', 'Km final', 'Km rodados', 'Horas de munck', 'Observação'];
-const LARG_KM = [13, 13, 11, 11, 16, 22, 28, 24, 11, 11, 11, 10, 40];
-const linhaAgX = a => { const c = cam(a.caminhaoId); return [xD(a.data), xD(a.dataFim), xT(a.hora), xF(c ? mostraPlaca(c.placa) : ''), xT(c ? c.apelido : ''), xT(nomeMot(a.motoristaId)), xT(nomeObra(a.obraId)), xT(a.etapa), xT(a.servico), xSit(SIT_AG, a.situacao), xT(a.obs)]; };
+const linhaKmX = r => { const c = cam(r.caminhaoId); return [xD(r.data), xF(c ? mostraPlaca(c.placa) : ''), xT(c ? c.apelido : ''), xT(nomeMot(r.motoristaId)), xT(clienteDe(r)), xT(r.destinoA), xT(r.destinoB), xN(r.kmInicial), xN(r.kmFinal), { v: kmDe(r), s: XS.intForte }, xNum(r.horimetroInicial), xNum(r.horimetroFinal), xNum(horasDe(r)), { v: r.valor == null ? '' : r.valor, s: XS.moeda }, xT(r.pago === true ? 'Sim' : r.valor > 0 ? 'Não' : ''), xT(r.obs)]; };
+const COLS_KM = ['Data', 'Placa', 'Apelido', 'Motorista', 'Cliente', 'Destino A', 'Destino B', 'Km inicial', 'Km final', 'Km rodados', 'Horímetro inicial', 'Horímetro final', 'Horas de munck', 'Valor', 'Pago', 'Observação'];
+const LARG_KM = [12, 11, 16, 22, 26, 20, 20, 11, 11, 11, 11, 11, 10, 13, 8, 40];
+const linhaAgX = a => { const c = cam(a.caminhaoId); return [xD(a.data), xD(a.dataFim), xT(a.hora), xF(c ? mostraPlaca(c.placa) : ''), xT(c ? c.apelido : ''), xT(nomeMot(a.motoristaId)), xT(clienteDe(a)), xT(a.destinoA), xT(a.destinoB), xT(a.servico), xSit(SIT_AG, a.situacao), xT(a.obs)]; };
 const linhaManX = m => { const c = cam(m.caminhaoId); return [xD(m.data), xF(c ? mostraPlaca(c.placa) : ''), xT(c ? c.apelido : ''), xT(m.tipo), xT(m.descricao), xT(m.oficina), xN(m.km), { v: m.valor == null ? '' : m.valor, s: XS.moeda }, xN(m.proximaKm), xD(m.proximaData), xT(m.obs)]; };
 const COLS_MAN = ['Data', 'Placa', 'Apelido', 'Serviço', 'O que foi feito', 'Oficina', 'Km', 'Valor', 'Próxima (km)', 'Próxima (data)', 'Observação'];
 const LARG_MAN = [12, 11, 16, 30, 34, 22, 11, 13, 12, 13, 40];
-const COLS_AG = ['Data', 'Até', 'Hora', 'Placa', 'Apelido', 'Motorista', 'Obra', 'Etapa', 'O que vai fazer', 'Situação', 'Observação'];
-const LARG_AG = [12, 12, 8, 11, 16, 22, 28, 24, 30, 13, 40];
+const COLS_AG = ['Data', 'Até', 'Hora', 'Placa', 'Apelido', 'Motorista', 'Cliente', 'Destino A', 'Destino B', 'O que vai fazer', 'Situação', 'Observação'];
+const LARG_AG = [12, 12, 8, 11, 16, 22, 26, 20, 20, 30, 13, 40];
 
 function planilhaTudo() {
   const h = hojeISO();
@@ -2301,7 +2306,7 @@ function planilhaTudo() {
   const porData = (a, b) => a.data.localeCompare(b.data) || porHora(a, b);
   const cams = todos('caminhoes').sort(porPlaca).map(c => {
     const o = ondeEsta(c, h);
-    const hoje = o.tipo === 'agenda' ? nomeObra(o.ag.obraId) : o.tipo === 'km' ? nomeObra(o.r.obraId) : 'Livre';
+    const hoje = o.tipo === 'agenda' ? descServ(o.ag) : o.tipo === 'km' ? descServ(o.r) : 'Livre';
     return [xF(mostraPlaca(c.placa)), xT(c.apelido), xT(c.marca), xT(c.modelo), xT(c.ano), xT(c.munck), xNum(c.capacidade), xNum(c.alcance), xT(nomeMot(c.motoristaId)), xN(kmAtual(c.id) || ''), xT(hoje), xSit(SIT_CAM, c.situacao), xT(c.obs)];
   });
   const mots = todos('motoristas').sort(porNome).map(m => {
@@ -2311,7 +2316,7 @@ function planilhaTudo() {
   return montarXlsx([
     abaSimples('Caminhões', 'Caminhões munck', sub, ['Placa', 'Apelido', 'Marca', 'Modelo', 'Ano', 'Munck', 'Capacidade (t)', 'Alcance (m)', 'Motorista fixo', 'Hodômetro', 'Hoje', 'Situação', 'Observação'], [11, 16, 14, 20, 11, 20, 11, 10, 22, 11, 26, 13, 40], cams),
     abaSimples('Motoristas', 'Motoristas', sub, ['Nome', 'Telefone', 'Nº da CNH', 'Categoria', 'Validade da CNH', 'Validade do curso NR-11', 'Caminhão fixo', 'Situação', 'Observação'], [26, 16, 14, 10, 14, 16, 12, 18, 40], mots),
-    abaSimples('Km', 'Km lançados', sub, COLS_KM, LARG_KM, todos('km').sort(porData).map(linhaKmX)),
+    abaSimples('Operações', 'Operações', sub, COLS_KM, LARG_KM, todos('km').sort(porData).map(linhaKmX)),
     abaSimples('Agenda', 'Agenda', sub, COLS_AG, LARG_AG, todos('agenda').sort(porData).map(linhaAgX)),
     abaSimples('Manutenções', 'Manutenções', sub, COLS_MAN, LARG_MAN, todos('manutencoes').sort((a, b) => a.data.localeCompare(b.data)).map(linhaManX)),
     abaSimples('Documentos', 'Documentos dos caminhões', sub, ['Placa', 'Apelido', 'Nº do documento', 'Vencimento do documento', 'Tem seguro', 'Vencimento do seguro', 'Observação'], [11, 18, 22, 14, 10, 14, 30],
@@ -2323,21 +2328,22 @@ function planilhaRel() {
   const camId = $('#rel-cam').value, c = camId ? cam(camId) : null;
   const R = dadosRel(P, camId);
   const sub = NOME_APP + ' · ' + P.nome + (c ? ' · ' + rotuloCam(c) : '') + ' · ' + emitido().toLowerCase();
-  const kmT = soma(R.km, kmDe), horas = soma(R.km, r => r.horas), manut = soma(R.mans, m => m.valor);
+  const kmT = soma(R.km, kmDe), horas = soma(R.km, horasDe), manut = soma(R.mans, m => m.valor);
+  const fat = soma(R.km, r => r.valor), rec = soma(R.km.filter(r => r.pago !== true), r => r.valor);
   const diasT = [...R.diasCam.values()].reduce((t, x) => t + x.size, 0);
-  const res = [['Km rodados', kmT, XS.intForte], ['Horas de munck', horas || '', XS.txt], ['Dias trabalhados', diasT, XS.inteiro], ['Dias úteis no período (segunda a sexta, até hoje)', R.uteis, XS.inteiro],
+  const res = [['Km rodados', kmT, XS.intForte], ['Faturado', fat, XS.moeda], ['A receber', rec, XS.moeda], ['Horas de munck', horas || '', XS.txt], ['Dias trabalhados', diasT, XS.inteiro], ['Dias úteis no período (segunda a sexta, até hoje)', R.uteis, XS.inteiro],
     ['Serviços feitos', R.ags.filter(a => a.situacao === 'feito').length, XS.inteiro], ['Serviços agendados', R.ags.length, XS.inteiro], ['Manutenção', manut, XS.moeda], ['Manutenção por km', kmT && manut ? Math.round(manut / kmT * 100) / 100 : '', XS.moeda]];
   const abas = [{ nome: 'Resumo', larguras: [44, 16], linhas: [[{ v: c ? 'Relatório do caminhão ' + rotuloCam(c) : 'Relatório dos caminhões munck', s: XS.titulo }], [{ v: sub, s: XS.fraco }], [], ...res.map(([k, v, st]) => [{ v: k, s: XS.forte }, { v, s: st }])] }];
-  if (!c) abas.push(abaSimples('Por caminhão', 'Por caminhão', sub, ['Placa', 'Apelido', 'Km rodados', 'Horas de munck', 'Dias trabalhados', 'Uso (%)', 'Obras', 'Manutenção', 'Manutenção por km'], [11, 16, 11, 10, 11, 9, 8, 13, 13],
-    porCaminhaoRel(R).map(x => [xF(x.c ? mostraPlaca(x.c.placa) : ''), xT(x.c ? x.c.apelido : ''), { v: x.km, s: XS.intForte }, xNum(x.horas), xN(x.dias), { v: x.uso != null ? Math.round(x.uso * 100) : '', s: XS.inteiro }, xN(x.obras), { v: x.manut, s: XS.moeda }, { v: x.porKm != null && x.manut ? Math.round(x.porKm * 100) / 100 : '', s: XS.moeda }])));
-  abas.push(abaSimples('Por obra', 'Por obra', sub, ['Obra', 'Cliente', 'Cidade', 'Situação', 'Km rodados', 'Horas de munck', 'Dias', 'Caminhões', 'Etapas'], [28, 22, 16, 14, 11, 10, 8, 22, 40],
-    porObraRel(R).map(x => [xF(x.o ? x.o.nome : '(obra apagada)'), xT(x.o ? x.o.cliente : ''), xT(x.o ? x.o.cidade : ''), x.o ? xSit(SIT_OBRA, x.o.situacao) : xT(''), { v: x.km, s: XS.intForte }, xNum(x.horas), xN(x.dias.size), xT([...x.cams].map(id => cam(id)).filter(Boolean).map(k => mostraPlaca(k.placa)).join(', ')), xT([...x.etapas].join(', '))])));
-  abas.push(abaSimples('Km', 'Km no período', sub, COLS_KM, LARG_KM, R.km.map(linhaKmX)));
+  if (!c) abas.push(abaSimples('Por caminhão', 'Por caminhão', sub, ['Placa', 'Apelido', 'Km rodados', 'Horas de munck', 'Dias trabalhados', 'Uso (%)', 'Clientes', 'Manutenção', 'Manutenção por km'], [11, 16, 11, 10, 11, 9, 8, 13, 13],
+    porCaminhaoRel(R).map(x => [xF(x.c ? mostraPlaca(x.c.placa) : ''), xT(x.c ? x.c.apelido : ''), { v: x.km, s: XS.intForte }, xNum(x.horas), xN(x.dias), { v: x.uso != null ? Math.round(x.uso * 100) : '', s: XS.inteiro }, xN(x.clientes), { v: x.manut, s: XS.moeda }, { v: x.porKm != null && x.manut ? Math.round(x.porKm * 100) / 100 : '', s: XS.moeda }])));
+  abas.push(abaSimples('Por cliente', 'Por cliente', sub, ['Cliente', 'Operações', 'Km rodados', 'Horas de munck', 'Valor', 'A receber'], [30, 11, 11, 10, 13, 13],
+    porClienteRel(R).map(x => [xF(x.nome), xN(x.n), { v: x.km, s: XS.intForte }, xNum(x.horas), { v: x.valor, s: XS.moeda }, { v: x.receber || '', s: XS.moeda }])));
+  abas.push(abaSimples('Operações', 'Operações no período', sub, COLS_KM, LARG_KM, R.km.map(linhaKmX)));
   abas.push(abaSimples('Manutenções', 'Manutenções no período', sub, COLS_MAN, LARG_MAN, R.mans.map(linhaManX)));
   abas.push(abaSimples('Agenda', 'Agenda no período', sub, COLS_AG, LARG_AG, R.ags.map(linhaAgX)));
   return montarXlsx(abas);
 }
-const nomeArq = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'obra';
+const nomeArq = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'planilha';
 async function baixarExcel(qual, id) {
   let arq, nome;
   try {
